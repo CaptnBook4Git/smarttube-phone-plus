@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="phone_tab_you">You</string>
+    <string name="phone_search_hint">Search YouTube</string>
+    <string name="phone_more_options">More options</string>
+    <string name="phone_back">Back</string>
+    <string name="phone_clear">Clear</string>
+    <string name="phone_voice">Voice search</string>
+    <string name="phone_account">Account</string>
+    <string name="phone_empty">Nothing here yet</string>
+    <string name="phone_live">LIVE</string>
+    <string name="phone_channel">Channel</string>
+</resources>

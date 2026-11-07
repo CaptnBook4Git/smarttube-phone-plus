@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phone build overlay: merged on top of src/main/AndroidManifest.xml for the stphone flavor. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools"
+          package="com.liskovsoft.smartyoutubetv2.tv">
+
+    <!-- Phones are not leanback devices. Keep the TV feature optional so stores and installers treat this as a phone app. -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false"
+        tools:replace="android:required" />
+
+    <!-- Browsing uses the phone UI in portrait. The remaining Leanback screens (player, sign-in) stay landscape. -->
+    <application
+        android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneApplication"
+        tools:replace="android:name">
+
+        <!-- Phone UI: portrait screens driven by SmartTube's existing presenters -->
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneBrowseActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:launchMode="singleInstance"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneSearchActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:launchMode="singleInstance"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneChannelActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:launchMode="singleInstance"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneChannelUploadsActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:launchMode="singleInstance"
+            android:screenOrientation="portrait" />
+
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.main.SplashActivity" android:screenOrientation="portrait" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.browse.BrowseActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.channel.ChannelActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.channeluploads.ChannelUploadsActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.playback.PlaybackActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.search.tags.SearchTagsActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.signin.SignInActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.adddevice.AddDeviceActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.webbrowser.WebBrowserActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivityOpaque" android:screenOrientation="behind" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.HomeLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.NewsLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.MusicLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.GamesLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.ChannelsLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.SubscriptionsLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.HistoryLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.PlaylistsLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.SearchLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <!-- Translucent dialog: follow the activity underneath -->
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivity" android:screenOrientation="behind" tools:replace="android:screenOrientation"/>
+    </application>
+</manifest>

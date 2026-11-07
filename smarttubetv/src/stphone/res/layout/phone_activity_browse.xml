@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/phone_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/phone_bg"
+    android:fitsSystemWindows="false"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:id="@+id/phone_top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/phone_bg"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="8dp">
+
+            <ImageView
+                android:id="@+id/phone_logo"
+                android:layout_width="wrap_content"
+                android:layout_height="24dp"
+                android:adjustViewBounds="true"
+                android:importantForAccessibility="no"
+                android:src="@mipmap/app_logo" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <ImageView
+                android:id="@+id/phone_search"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="10dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/phone_search_hint"
+                android:src="@drawable/ic_phone_search"
+                android:tint="@color/phone_text" />
+
+            <ImageView
+                android:id="@+id/phone_account"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="4dp"
+                android:padding="8dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/phone_account"
+                android:src="@drawable/ic_phone_account"
+                android:tint="@color/phone_text" />
+        </LinearLayout>
+
+        <HorizontalScrollView
+            android:id="@+id/phone_chips_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:overScrollMode="never"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/phone_chips"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="10dp" />
+        </HorizontalScrollView>
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/phone_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingTop="4dp"
+            android:paddingBottom="8dp"
+            android:scrollbars="none" />
+
+        <include layout="@layout/phone_state_overlay" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/phone_bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/phone_bottom_bar_bg"
+        android:orientation="horizontal" />
+</LinearLayout>

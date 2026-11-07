@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.liskovsoft.smartyoutubetv2.tv.phone.widget.RatioFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/phone_thumb_frame"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/phone_round_thumb">
+
+    <ImageView
+        android:id="@+id/phone_thumb"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:importantForAccessibility="no" />
+
+    <TextView
+        android:id="@+id/phone_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="8dp"
+        android:background="@drawable/phone_badge_bg"
+        android:paddingStart="5dp"
+        android:paddingEnd="5dp"
+        android:paddingTop="1dp"
+        android:paddingBottom="1dp"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:fontFamily="sans-serif-medium" />
+
+    <LinearLayout
+        android:id="@+id/phone_progress"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:layout_gravity="bottom"
+        android:background="#66FFFFFF"
+        android:orientation="horizontal">
+
+        <View
+            android:id="@+id/phone_progress_fill"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:background="@color/phone_accent" />
+
+        <View
+            android:id="@+id/phone_progress_rest"
+            android:layout_width="0dp"
+            android:layout_height="match_parent" />
+    </LinearLayout>
+</com.liskovsoft.smartyoutubetv2.tv.phone.widget.RatioFrameLayout>
