@@ -23,19 +23,19 @@ public class PhonePlaybackFragment extends PlaybackFragment {
         void onPlayerButtonState(int buttonId, int buttonState);
     }
 
-    private Host getHost() {
+    private Host getPhoneHost() {
         return getActivity() instanceof Host ? (Host) getActivity() : null;
     }
 
     private boolean isCompact() {
-        Host host = getHost();
+        Host host = getPhoneHost();
         return host != null && host.isCompactPlayer();
     }
 
     @Override
     public void showControlsOverlay(boolean runAnimation) {
         if (isCompact()) {
-            Host host = getHost();
+            Host host = getPhoneHost();
             if (host != null) {
                 host.onPlayerControlsVisible(true);
             }
@@ -47,7 +47,7 @@ public class PhonePlaybackFragment extends PlaybackFragment {
     @Override
     public void hideControlsOverlay(boolean runAnimation) {
         super.hideControlsOverlay(runAnimation);
-        Host host = getHost();
+        Host host = getPhoneHost();
         if (host != null && isCompact()) {
             host.onPlayerControlsVisible(false);
         }
@@ -56,7 +56,7 @@ public class PhonePlaybackFragment extends PlaybackFragment {
     @Override
     public void setVideo(Video video) {
         super.setVideo(video);
-        Host host = getHost();
+        Host host = getPhoneHost();
         if (host != null) {
             host.onPlayerVideo(video);
         }
@@ -65,7 +65,7 @@ public class PhonePlaybackFragment extends PlaybackFragment {
     @Override
     public void updateSuggestions(VideoGroup group) {
         super.updateSuggestions(group);
-        Host host = getHost();
+        Host host = getPhoneHost();
         if (host != null) {
             host.onPlayerSuggestions(group);
         }
@@ -74,7 +74,7 @@ public class PhonePlaybackFragment extends PlaybackFragment {
     @Override
     public void clearSuggestions() {
         super.clearSuggestions();
-        Host host = getHost();
+        Host host = getPhoneHost();
         if (host != null) {
             host.onPlayerSuggestionsCleared();
         }
@@ -83,7 +83,7 @@ public class PhonePlaybackFragment extends PlaybackFragment {
     @Override
     public void setButtonState(int buttonId, int buttonState) {
         super.setButtonState(buttonId, buttonState);
-        Host host = getHost();
+        Host host = getPhoneHost();
         if (host != null) {
             host.onPlayerButtonState(buttonId, buttonState);
         }
