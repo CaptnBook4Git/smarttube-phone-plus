@@ -28,4 +28,16 @@
     <string name="phone_switch_account">Switch account</string>
     <string name="phone_manage_accounts">Accounts</string>
     <string name="phone_settings">Settings</string>
+    <string name="phone_captions">Captions</string>
+    <string name="phone_quality">Quality</string>
+    <string name="phone_previous">Previous</string>
+    <string name="phone_next">Next</string>
+    <string name="phone_play_pause">Play or pause</string>
+    <string name="phone_fullscreen">Full screen</string>
+    <string name="phone_subscribe">Subscribe</string>
+    <string name="phone_subscribed">Subscribed</string>
+    <string name="phone_like">Like</string>
+    <string name="phone_share">Share</string>
+    <string name="phone_save">Save</string>
+    <string name="phone_speed">Speed</string>
 </resources>

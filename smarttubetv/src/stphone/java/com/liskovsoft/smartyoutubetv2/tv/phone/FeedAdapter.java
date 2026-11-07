@@ -51,6 +51,10 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int VT_STRIP = 5;
     private static final int VT_SETTING = 6;
     private static final int VT_SECTION_HEADER = 7;
+    private static final int VT_CUSTOM_HEADER = 8;
+
+    private static final Object HEADER_ITEM = new Object();
+    private View mHeaderView;
 
     public interface Listener {
         void onVideoClicked(Video video);
@@ -153,7 +157,15 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public boolean isEmpty() {
-        return mItems.isEmpty();
+        return mItems.isEmpty() || (mItems.size() == 1 && mItems.get(0) == HEADER_ITEM);
+    }
+
+    /**
+     * A fixed view shown above the feed (e.g. the video details on the player screen).
+     */
+    public void setHeaderView(View header) {
+        mHeaderView = header;
+        rebuild();
     }
 
     public void setSettings(List<SettingsItem> items) {
@@ -377,6 +389,10 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private void rebuild() {
         List<Object> items = new ArrayList<>();
 
+        if (mHeaderView != null) {
+            items.add(HEADER_ITEM);
+        }
+
         if (mMode == MODE_SETTINGS) {
             items.addAll(mSettings);
         } else {
@@ -437,7 +453,9 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public long getItemId(int position) {
         Object item = mItems.get(position);
         long hash = System.identityHashCode(item) & 0xffffffffL;
-        if (item instanceof Shelf) {
+        if (item == HEADER_ITEM) {
+            return 6L << 32;
+        } else if (item instanceof Shelf) {
             return (1L << 32) | hash;
         } else if (item instanceof Strip) {
             return (2L << 32) | hash;
@@ -454,7 +472,9 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     @Override
     public int getItemViewType(int position) {
         Object item = mItems.get(position);
-        if (item instanceof Shelf) {
+        if (item == HEADER_ITEM) {
+            return VT_CUSTOM_HEADER;
+        } else if (item instanceof Shelf) {
             return VT_SHELF;
         } else if (item instanceof Strip) {
             return VT_STRIP;
@@ -512,6 +532,14 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 return new Holder(inflater.inflate(R.layout.phone_item_setting, parent, false));
             case VT_SECTION_HEADER:
                 return new Holder(inflater.inflate(R.layout.phone_item_section_header, parent, false));
+            case VT_CUSTOM_HEADER: {
+                if (mHeaderView.getParent() instanceof ViewGroup) {
+                    ((ViewGroup) mHeaderView.getParent()).removeView(mHeaderView);
+                }
+                mHeaderView.setLayoutParams(new RecyclerView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                return new Holder(mHeaderView);
+            }
             case VT_VIDEO:
             default:
                 return new Holder(inflater.inflate(R.layout.phone_item_video, parent, false));
@@ -523,7 +551,9 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         Object item = mItems.get(position);
         int type = holder.getItemViewType();
 
-        if (type == VT_SHELF) {
+        if (type == VT_CUSTOM_HEADER) {
+            return; // bound by the owner
+        } else if (type == VT_SHELF) {
             ((ShelfHolder) holder).bind(((Shelf) item).group, false);
         } else if (type == VT_STRIP) {
             ((ShelfHolder) holder).bind(((Strip) item).group, true);

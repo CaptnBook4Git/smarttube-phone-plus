@@ -36,8 +36,24 @@ public class RatioFrameLayout extends FrameLayout {
         }
     }
 
+    private boolean mRatioEnabled = true;
+
+    /**
+     * Off: behaves like a plain FrameLayout (used for the full screen player).
+     */
+    public void setRatioEnabled(boolean enabled) {
+        if (mRatioEnabled != enabled) {
+            mRatioEnabled = enabled;
+            requestLayout();
+        }
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        if (!mRatioEnabled) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            return;
+        }
         int width = MeasureSpec.getSize(widthMeasureSpec);
         int height = Math.round(width * mHeightToWidth);
         super.onMeasure(

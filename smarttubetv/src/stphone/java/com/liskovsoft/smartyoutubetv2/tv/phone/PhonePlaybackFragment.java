@@ -1,0 +1,98 @@
+package com.liskovsoft.smartyoutubetv2.tv.phone;
+
+import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
+import com.liskovsoft.smartyoutubetv2.common.app.models.data.VideoGroup;
+import com.liskovsoft.smartyoutubetv2.tv.ui.playback.PlaybackFragment;
+
+/**
+ * SmartTube's player with a phone hook: in portrait the TV overlay (title, control rows, suggestion rows) stays hidden
+ * and the phone screen shows its own controls and details instead. In landscape it is the normal TV player.
+ */
+public class PhonePlaybackFragment extends PlaybackFragment {
+    public interface Host {
+        boolean isCompactPlayer();
+
+        void onPlayerControlsVisible(boolean visible);
+
+        void onPlayerVideo(Video video);
+
+        void onPlayerSuggestions(VideoGroup group);
+
+        void onPlayerSuggestionsCleared();
+
+        void onPlayerButtonState(int buttonId, int buttonState);
+    }
+
+    private Host getHost() {
+        return getActivity() instanceof Host ? (Host) getActivity() : null;
+    }
+
+    private boolean isCompact() {
+        Host host = getHost();
+        return host != null && host.isCompactPlayer();
+    }
+
+    @Override
+    public void showControlsOverlay(boolean runAnimation) {
+        if (isCompact()) {
+            Host host = getHost();
+            if (host != null) {
+                host.onPlayerControlsVisible(true);
+            }
+            return;
+        }
+        super.showControlsOverlay(runAnimation);
+    }
+
+    @Override
+    public void hideControlsOverlay(boolean runAnimation) {
+        super.hideControlsOverlay(runAnimation);
+        Host host = getHost();
+        if (host != null && isCompact()) {
+            host.onPlayerControlsVisible(false);
+        }
+    }
+
+    @Override
+    public void setVideo(Video video) {
+        super.setVideo(video);
+        Host host = getHost();
+        if (host != null) {
+            host.onPlayerVideo(video);
+        }
+    }
+
+    @Override
+    public void updateSuggestions(VideoGroup group) {
+        super.updateSuggestions(group);
+        Host host = getHost();
+        if (host != null) {
+            host.onPlayerSuggestions(group);
+        }
+    }
+
+    @Override
+    public void clearSuggestions() {
+        super.clearSuggestions();
+        Host host = getHost();
+        if (host != null) {
+            host.onPlayerSuggestionsCleared();
+        }
+    }
+
+    @Override
+    public void setButtonState(int buttonId, int buttonState) {
+        super.setButtonState(buttonId, buttonState);
+        Host host = getHost();
+        if (host != null) {
+            host.onPlayerButtonState(buttonId, buttonState);
+        }
+    }
+
+    /**
+     * Hide the TV overlay right away (used when switching back to the portrait player).
+     */
+    public void hideTvOverlay() {
+        super.hideControlsOverlay(false);
+    }
+}
