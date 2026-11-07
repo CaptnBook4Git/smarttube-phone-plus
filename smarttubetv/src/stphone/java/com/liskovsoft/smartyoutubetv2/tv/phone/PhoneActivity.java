@@ -34,12 +34,20 @@ public abstract class PhoneActivity extends MotherActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        PhoneUi.applyPhoneDensity(this); // before the subclass inflates its layout
         setupSystemBars();
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        PhoneUi.applyPhoneDensity(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        PhoneUi.applyPhoneDensity(this); // MotherActivity re-applies the TV density on resume
         // MotherActivity may switch to immersive mode (TV fullscreen setting). Phones keep their bars.
         setupSystemBars();
         getViewManager().addTop(this);

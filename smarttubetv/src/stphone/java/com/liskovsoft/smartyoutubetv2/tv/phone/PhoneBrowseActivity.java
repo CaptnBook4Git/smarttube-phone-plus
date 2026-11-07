@@ -78,6 +78,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mPresenter = BrowsePresenter.instance(this);
         mPresenter.setView(this);
         mPresenter.onViewInitialized();
+
+        CrashReport.showIfAny(this);
     }
 
     @Override

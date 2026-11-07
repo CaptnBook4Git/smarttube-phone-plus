@@ -25,6 +25,7 @@ public class PhoneApplication extends MainApplication {
     @Override
     public void onCreate() {
         super.onCreate();
+        CrashReport.install(this);
         setupPhoneViews();
     }
 

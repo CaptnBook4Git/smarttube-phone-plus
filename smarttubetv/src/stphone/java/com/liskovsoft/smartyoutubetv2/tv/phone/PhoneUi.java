@@ -32,6 +32,20 @@ final class PhoneUi {
         return context != null;
     }
 
+    /**
+     * SmartTube scales density so a 1920px wide TV layout fits any screen (MotherActivity.initDpi), which makes
+     * phone UI ~20% too small and ignores the font size setting. Phone screens use the real device metrics.
+     */
+    static void applyPhoneDensity(android.app.Activity activity) {
+        android.util.DisplayMetrics system = Resources.getSystem().getDisplayMetrics();
+        android.util.DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+        metrics.density = system.density;
+        metrics.densityDpi = system.densityDpi;
+        metrics.scaledDensity = system.scaledDensity;
+        metrics.xdpi = system.xdpi;
+        metrics.ydpi = system.ydpi;
+    }
+
     static int screenWidthPx() {
         return Resources.getSystem().getDisplayMetrics().widthPixels;
     }

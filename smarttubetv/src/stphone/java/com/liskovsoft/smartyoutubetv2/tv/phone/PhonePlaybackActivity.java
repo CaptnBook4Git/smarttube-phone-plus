@@ -81,7 +81,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState); // inflates the phone fragment_playback layout
+        super.onCreate(savedInstanceState); // inflates the phone fragment_playback layout (TV player keeps TV density)
+        PhoneUi.applyPhoneDensity(this); // details panel and suggestions use the phone's real density
 
         Fragment fragment = getSupportFragmentManager().findFragmentByTag(getString(R.string.playback_tag));
         if (fragment instanceof PhonePlaybackFragment) {
@@ -113,6 +114,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     protected void onResume() {
         super.onResume();
+        PhoneUi.applyPhoneDensity(this);
         applySystemBars();
         mHandler.removeCallbacks(mTicker);
         mHandler.post(mTicker);
@@ -137,6 +139,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        PhoneUi.applyPhoneDensity(this);
         boolean compact = newConfig.orientation != Configuration.ORIENTATION_LANDSCAPE;
         if (compact != mCompact) {
             mCompact = compact;
@@ -403,6 +406,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     private void setupDetails() {
+        // The layout manager must exist before anything is inflated against the RecyclerView
+        mDetails.setLayoutManager(new LinearLayoutManager(this));
         mHeader = LayoutInflater.from(this).inflate(R.layout.phone_player_header, mDetails, false);
         mHeader.findViewById(R.id.phone_player_title).setOnClickListener(v -> {
             mDescriptionExpanded = !mDescriptionExpanded;
@@ -422,7 +427,6 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
         mAdapter = new FeedAdapter(this);
         mAdapter.setHeaderView(mHeader);
-        mDetails.setLayoutManager(new LinearLayoutManager(this));
         mDetails.setItemAnimator(null);
         mDetails.setAdapter(mAdapter);
         mDetails.addOnScrollListener(new RecyclerView.OnScrollListener() {
