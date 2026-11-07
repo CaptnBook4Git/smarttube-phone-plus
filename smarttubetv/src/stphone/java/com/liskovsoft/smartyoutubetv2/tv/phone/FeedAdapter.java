@@ -39,6 +39,10 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public static final int MODE_SHORTS = 2;
     public static final int MODE_MULTI = 3;
     public static final int MODE_SETTINGS = 4;
+    /** Rows flattened into one continuous feed, Shorts rows shown as a 2x2 block (phone home feed). */
+    public static final int MODE_FEED = 5;
+
+    private static final int SHORTS_BLOCK_SIZE = 4;
 
     private static final int VT_VIDEO = 1;
     private static final int VT_SHORT = 2;
@@ -46,6 +50,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int VT_SHELF = 4;
     private static final int VT_STRIP = 5;
     private static final int VT_SETTING = 6;
+    private static final int VT_SECTION_HEADER = 7;
 
     public interface Listener {
         void onVideoClicked(Video video);
@@ -62,11 +67,41 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         final List<Video> videos = new ArrayList<>();
         final Shelf shelf = new Shelf(this);
         final Strip strip = new Strip(this);
+        final ShortsHeader shortsHeader = new ShortsHeader(this);
+        final List<ShortTile> tiles = new ArrayList<>();
         ShelfAdapter innerAdapter;
         Parcelable innerState;
 
         Group(VideoGroup ref) {
             this.ref = ref;
+        }
+
+        ShortTile tile(int index) {
+            Video video = videos.get(index);
+            for (ShortTile tile : tiles) {
+                if (tile.video == video) {
+                    return tile;
+                }
+            }
+            ShortTile tile = new ShortTile(video);
+            tiles.add(tile);
+            return tile;
+        }
+    }
+
+    static final class ShortsHeader {
+        final Group group;
+
+        ShortsHeader(Group group) {
+            this.group = group;
+        }
+    }
+
+    static final class ShortTile {
+        final Video video;
+
+        ShortTile(Video video) {
+            this.video = video;
         }
     }
 
@@ -164,7 +199,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 sync(group);
                 return;
             case VideoGroup.ACTION_REPLACE:
-                if (mMode == MODE_SHELVES && group.getPosition() != -1) {
+                if ((mMode == MODE_SHELVES || mMode == MODE_FEED) && group.getPosition() != -1) {
                     removeGroup(group.getId());
                 } else if (mMode == MODE_MULTI) {
                     removeMultiGroups(group.getPosition() == 0);
@@ -193,7 +228,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             Group newGroup = new Group(group);
             newGroup.videos.addAll(group.getVideos());
             int position = group.getPosition();
-            if (mMode == MODE_SHELVES && position >= 0 && position < mGroups.size()) {
+            if ((mMode == MODE_SHELVES || mMode == MODE_FEED) && position >= 0 && position < mGroups.size()) {
                 mGroups.add(position, newGroup);
             } else {
                 mGroups.add(newGroup);
@@ -213,7 +248,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         for (int i = mGroups.size() - 1; i >= 0; i--) {
             Group group = mGroups.get(i);
-            if (isStripGroup(group) || group.videos.isEmpty()) {
+            if (isStripGroup(group) || group.videos.isEmpty() || isShortsBlock(group)) {
                 continue;
             }
             return group.videos.get(group.videos.size() - 1);
@@ -279,6 +314,14 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return mMode == MODE_MULTI && group.ref.getPosition() == 0;
     }
 
+    private boolean isShortsBlock(Group group) {
+        return mMode != MODE_SHORTS && mMode != MODE_SHELVES && group.ref.isShorts();
+    }
+
+    public boolean isShortTile(int position) {
+        return position >= 0 && position < mItems.size() && getItemViewType(position) == VT_SHORT;
+    }
+
     private void removeVideos(List<Video> videos, String author) {
         for (Group group : mGroups) {
             boolean changed = false;
@@ -337,7 +380,6 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (mMode == MODE_SETTINGS) {
             items.addAll(mSettings);
         } else {
-            boolean multipleGroups = mGroups.size() > 1;
             for (Group group : mGroups) {
                 if (group.videos.isEmpty()) {
                     continue;
@@ -346,8 +388,16 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     items.add(group.shelf);
                 } else if (isStripGroup(group)) {
                     items.add(group.strip);
-                } else if (mMode != MODE_SHORTS && multipleGroups && group.ref.isShorts()) {
-                    items.add(group.shelf);
+                } else if (isShortsBlock(group)) {
+                    items.add(group.shortsHeader);
+                    int count = Math.min(SHORTS_BLOCK_SIZE, group.videos.size());
+                    count -= count % 2; // keep the 2 column block even
+                    if (count == 0) {
+                        count = 1;
+                    }
+                    for (int i = 0; i < count; i++) {
+                        items.add(group.tile(i));
+                    }
                 } else {
                     items.addAll(group.videos);
                 }
@@ -393,6 +443,10 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             return (2L << 32) | hash;
         } else if (item instanceof SettingsItem) {
             return (3L << 32) | hash;
+        } else if (item instanceof ShortsHeader) {
+            return (4L << 32) | hash;
+        } else if (item instanceof ShortTile) {
+            return (5L << 32) | hash;
         }
         return hash;
     }
@@ -406,6 +460,10 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             return VT_STRIP;
         } else if (item instanceof SettingsItem) {
             return VT_SETTING;
+        } else if (item instanceof ShortsHeader) {
+            return VT_SECTION_HEADER;
+        } else if (item instanceof ShortTile) {
+            return VT_SHORT;
         }
 
         Video video = (Video) item;
@@ -452,6 +510,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
             case VT_SETTING:
                 return new Holder(inflater.inflate(R.layout.phone_item_setting, parent, false));
+            case VT_SECTION_HEADER:
+                return new Holder(inflater.inflate(R.layout.phone_item_section_header, parent, false));
             case VT_VIDEO:
             default:
                 return new Holder(inflater.inflate(R.layout.phone_item_video, parent, false));
@@ -469,8 +529,12 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             ((ShelfHolder) holder).bind(((Strip) item).group, true);
         } else if (type == VT_SETTING) {
             bindSetting(holder.itemView, (SettingsItem) item);
+        } else if (type == VT_SECTION_HEADER) {
+            String title = ((ShortsHeader) item).group.ref.getTitle();
+            ((TextView) holder.itemView.findViewById(R.id.phone_title)).setText(
+                    !TextUtils.isEmpty(title) ? title : holder.itemView.getContext().getString(R.string.header_shorts));
         } else if (type == VT_SHORT) {
-            bindShort(holder.itemView, (Video) item);
+            bindShort(holder.itemView, item instanceof ShortTile ? ((ShortTile) item).video : (Video) item);
         } else if (type == VT_CHANNEL) {
             bindChannel(holder.itemView, (Video) item);
         } else {
@@ -518,6 +582,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         meta.setText(metaText);
         meta.setVisibility(TextUtils.isEmpty(metaText) ? View.GONE : View.VISIBLE);
         PhoneUi.loadAvatar(view.findViewById(R.id.phone_thumb), video.getCardImageUrl());
+        AvatarCache.remember(view.getContext(), video);
         bindClicks(view, video);
     }
 

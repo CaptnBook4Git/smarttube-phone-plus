@@ -12,6 +12,7 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestBuilder;
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
+import com.liskovsoft.smartyoutubetv2.common.app.presenters.ChannelPresenter;
 import com.liskovsoft.smartyoutubetv2.tv.R;
 
 import android.graphics.drawable.Drawable;
@@ -103,6 +104,11 @@ final class PhoneUi {
 
         loadThumb(thumb, video, false);
 
+        ImageView avatar = root.findViewById(R.id.phone_avatar);
+        if (avatar != null) {
+            bindAuthorAvatar(avatar, video);
+        }
+
         if (badge != null) {
             if (video.isLive) {
                 badge.setText(R.string.phone_live);
@@ -127,6 +133,34 @@ final class PhoneUi {
             } else {
                 progress.setVisibility(View.GONE);
             }
+        }
+    }
+
+    /**
+     * Channel picture next to the title (known pictures only, otherwise a colored initial). Tapping it opens the channel.
+     */
+    static void bindAuthorAvatar(ImageView view, Video video) {
+        Context context = view.getContext();
+        if (!isAlive(context)) {
+            return;
+        }
+
+        String name = !TextUtils.isEmpty(video.getAuthor()) ? video.getAuthor() : video.getTitle();
+        Drawable letter = new AvatarCache.LetterDrawable(name);
+        String url = AvatarCache.find(context, video);
+
+        if (url != null) {
+            Glide.with(context).load(url).circleCrop().placeholder(letter).error(letter).into(view);
+        } else {
+            Glide.with(context).clear(view);
+            view.setImageDrawable(letter);
+        }
+
+        if (ChannelPresenter.canOpenChannel(video)) {
+            view.setOnClickListener(v -> ChannelPresenter.instance(context).openChannel(video));
+        } else {
+            view.setOnClickListener(null);
+            view.setClickable(false);
         }
     }
 

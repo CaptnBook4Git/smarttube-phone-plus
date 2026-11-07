@@ -10,4 +10,22 @@
     <string name="phone_empty">Nothing here yet</string>
     <string name="phone_live">LIVE</string>
     <string name="phone_channel">Channel</string>
+    <string name="phone_tab_notifications">Notifications</string>
+    <string name="phone_signin_title">Sign in</string>
+    <string name="phone_signin_subtitle">Use your Google account. You sign in on Google\'s own page, so your password never goes through this app.</string>
+    <string name="phone_signin_code_label">Your sign-in code</string>
+    <string name="phone_signin_loading">· · · ·</string>
+    <string name="phone_signin_tap_copy">Tap to copy</string>
+    <string name="phone_signin_copied">Code copied</string>
+    <string name="phone_signin_continue">Continue in browser</string>
+    <string name="phone_signin_retry">Try again</string>
+    <string name="phone_signin_waiting">Waiting for you to finish signing in</string>
+    <string name="phone_signin_steps">1. Tap Continue in browser. The code is filled in for you.\n2. Choose your Google account and allow access.\n3. Come back to this app. It signs you in automatically.</string>
+    <string name="phone_signin_alt">Signing in on another device? Open %1$s there and enter the code above.</string>
+    <string name="phone_not_signed_in">Not signed in</string>
+    <string name="phone_sign_in_prompt">Sign in to see your subscriptions, history and playlists.</string>
+    <string name="phone_sign_in">Sign in</string>
+    <string name="phone_switch_account">Switch account</string>
+    <string name="phone_manage_accounts">Accounts</string>
+    <string name="phone_settings">Settings</string>
 </resources>

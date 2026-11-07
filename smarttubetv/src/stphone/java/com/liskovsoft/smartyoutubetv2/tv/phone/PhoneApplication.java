@@ -17,7 +17,6 @@ import com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivity;
 import com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivityOpaque;
 import com.liskovsoft.smartyoutubetv2.tv.ui.main.MainApplication;
 import com.liskovsoft.smartyoutubetv2.tv.ui.playback.PlaybackActivity;
-import com.liskovsoft.smartyoutubetv2.tv.ui.signin.SignInActivity;
 import com.liskovsoft.smartyoutubetv2.tv.ui.webbrowser.WebBrowserActivity;
 
 /**
@@ -43,7 +42,7 @@ public class PhoneApplication extends MainApplication {
         // Remaining TV screens now return to the phone home
         viewManager.register(PlaybackView.class, PlaybackActivity.class, PhoneBrowseActivity.class);
         viewManager.register(AppDialogView.class, dialogClass, PhoneBrowseActivity.class);
-        viewManager.register(SignInView.class, SignInActivity.class, PhoneBrowseActivity.class);
+        viewManager.register(SignInView.class, PhoneSignInActivity.class, PhoneBrowseActivity.class);
         viewManager.register(AddDeviceView.class, AddDeviceActivity.class, PhoneBrowseActivity.class);
         viewManager.register(WebBrowserView.class, WebBrowserActivity.class, PhoneBrowseActivity.class);
     }

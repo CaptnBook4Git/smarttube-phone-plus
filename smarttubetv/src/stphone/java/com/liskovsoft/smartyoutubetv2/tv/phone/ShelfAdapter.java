@@ -98,6 +98,7 @@ class ShelfAdapter extends RecyclerView.Adapter<ShelfAdapter.Holder> {
             ImageView avatar = view.findViewById(R.id.phone_thumb);
             title.setText(!TextUtils.isEmpty(video.getTitle()) ? video.getTitle() : video.getAuthor());
             PhoneUi.loadAvatar(avatar, video.getCardImageUrl());
+            AvatarCache.remember(view.getContext(), video);
             boolean selected = video.equals(mSelection.getSelected());
             title.setTextColor(view.getResources().getColor(selected ? R.color.phone_text : R.color.phone_text_2));
             avatar.setAlpha(mSelection.getSelected() == null || selected ? 1f : 0.55f);

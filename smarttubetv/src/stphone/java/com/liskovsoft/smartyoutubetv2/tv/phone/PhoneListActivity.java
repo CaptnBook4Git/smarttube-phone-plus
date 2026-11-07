@@ -57,6 +57,7 @@ public abstract class PhoneListActivity extends PhoneActivity implements FeedAda
         if (FeedAdapter.isChannelItem(channel) && !TextUtils.isEmpty(channel.getCardImageUrl())) {
             mAvatar.setVisibility(View.VISIBLE);
             PhoneUi.loadAvatar(mAvatar, channel.getCardImageUrl());
+            AvatarCache.remember(this, channel);
         } else {
             mAvatar.setVisibility(View.GONE);
         }

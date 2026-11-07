@@ -126,6 +126,22 @@ public abstract class PhoneActivity extends MotherActivity {
         mList.setLayoutManager(manager);
         mList.setAdapter(mAdapter);
         mList.setItemAnimator(null);
+        final int edge = (int) (8 * getResources().getDisplayMetrics().density);
+        mList.addItemDecoration(new RecyclerView.ItemDecoration() {
+            @Override
+            public void getItemOffsets(android.graphics.Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
+                // Shorts tiles: line the 2 column grid up with the screen edges
+                int position = parent.getChildAdapterPosition(view);
+                if (!mAdapter.isShortTile(position) || !(view.getLayoutParams() instanceof GridLayoutManager.LayoutParams)) {
+                    return;
+                }
+                if (((GridLayoutManager.LayoutParams) view.getLayoutParams()).getSpanIndex() == 0) {
+                    outRect.left = edge;
+                } else {
+                    outRect.right = edge;
+                }
+            }
+        });
         mList.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
