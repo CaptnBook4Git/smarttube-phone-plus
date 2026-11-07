@@ -3,6 +3,7 @@ name: Build Phone APK
 on:
   push:
     branches: [ "main" ]
+    paths-ignore: [ ".github/smoke.sh", ".github/workflows/smoke.yml" ]
   workflow_dispatch:
 
 permissions:
