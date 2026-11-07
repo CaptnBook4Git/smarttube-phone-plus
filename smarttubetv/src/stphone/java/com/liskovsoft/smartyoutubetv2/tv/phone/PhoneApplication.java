@@ -1,6 +1,5 @@
 package com.liskovsoft.smartyoutubetv2.tv.phone;
 
-import android.os.Build;
 
 import com.liskovsoft.smartyoutubetv2.common.app.views.AddDeviceView;
 import com.liskovsoft.smartyoutubetv2.common.app.views.AppDialogView;
@@ -13,8 +12,6 @@ import com.liskovsoft.smartyoutubetv2.common.app.views.SignInView;
 import com.liskovsoft.smartyoutubetv2.common.app.views.ViewManager;
 import com.liskovsoft.smartyoutubetv2.common.app.views.WebBrowserView;
 import com.liskovsoft.smartyoutubetv2.tv.ui.adddevice.AddDeviceActivity;
-import com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivity;
-import com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivityOpaque;
 import com.liskovsoft.smartyoutubetv2.tv.ui.main.MainApplication;
 import com.liskovsoft.smartyoutubetv2.tv.ui.webbrowser.WebBrowserActivity;
 
@@ -31,7 +28,6 @@ public class PhoneApplication extends MainApplication {
 
     private void setupPhoneViews() {
         ViewManager viewManager = ViewManager.instance(this);
-        Class<? extends AppDialogActivity> dialogClass = Build.VERSION.SDK_INT == 26 ? AppDialogActivityOpaque.class : AppDialogActivity.class;
 
         viewManager.setRoot(PhoneBrowseActivity.class);
         viewManager.register(BrowseView.class, PhoneBrowseActivity.class); // root, no parent
@@ -41,7 +37,7 @@ public class PhoneApplication extends MainApplication {
 
         // Remaining TV screens now return to the phone home
         viewManager.register(PlaybackView.class, PhonePlaybackActivity.class, PhoneBrowseActivity.class);
-        viewManager.register(AppDialogView.class, dialogClass, PhoneBrowseActivity.class);
+        viewManager.register(AppDialogView.class, PhoneDialogActivity.class, PhoneBrowseActivity.class);
         viewManager.register(SignInView.class, PhoneSignInActivity.class, PhoneBrowseActivity.class);
         viewManager.register(AddDeviceView.class, AddDeviceActivity.class, PhoneBrowseActivity.class);
         viewManager.register(WebBrowserView.class, WebBrowserActivity.class, PhoneBrowseActivity.class);

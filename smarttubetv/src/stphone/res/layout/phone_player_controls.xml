@@ -20,6 +20,24 @@
         android:src="@drawable/ic_phone_collapse"
         android:tint="#FFFFFF" />
 
+    <!-- Title, shown in full screen only -->
+    <TextView
+        android:id="@+id/phone_ctl_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginStart="60dp"
+        android:layout_marginTop="14dp"
+        android:layout_marginEnd="112dp"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
+        android:maxLines="1"
+        android:shadowColor="#99000000"
+        android:shadowRadius="4"
+        android:textColor="#FFFFFF"
+        android:textSize="17sp"
+        android:visibility="gone" />
+
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

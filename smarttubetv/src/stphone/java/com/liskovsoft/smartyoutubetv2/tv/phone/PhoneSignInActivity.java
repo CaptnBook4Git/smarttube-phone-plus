@@ -111,9 +111,15 @@ public class PhoneSignInActivity extends PhoneActivity implements SignInView {
                 mIsError = true;
                 mUserCode = null;
                 mOpenUrl = null;
+                boolean network = userCode != null && (userCode.contains("UnknownHost") || userCode.contains("resolve host")
+                        || userCode.contains("timeout") || userCode.contains("Unable to"));
                 mCode.setTextSize(16);
-                mCode.setText(!TextUtils.isEmpty(userCode) ? userCode : getString(R.string.phone_empty));
+                mCode.setTypeface(android.graphics.Typeface.DEFAULT);
+                mCode.setGravity(android.view.Gravity.CENTER);
+                mCode.setPadding(dp(16), 0, dp(16), 0);
+                mCode.setText(network ? R.string.phone_signin_error_network : R.string.phone_signin_error_generic);
                 mCodeHint.setVisibility(View.GONE);
+                mWaiting.setVisibility(View.INVISIBLE);
                 mButton.setText(R.string.phone_signin_retry);
                 setButtonEnabled(true);
                 return;
@@ -123,6 +129,8 @@ public class PhoneSignInActivity extends PhoneActivity implements SignInView {
             mUserCode = userCode;
             mOpenUrl = fullSignInUrl != null ? fullSignInUrl : signInUrl;
             mCode.setTextSize(34);
+            mCode.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
+            mCode.setPadding(0, 0, 0, 0);
             mCode.setText(userCode);
             mCodeHint.setVisibility(View.VISIBLE);
             mButton.setText(R.string.phone_signin_continue);
@@ -137,6 +145,10 @@ public class PhoneSignInActivity extends PhoneActivity implements SignInView {
     }
 
     // endregion
+
+    private int dp(float value) {
+        return (int) android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
+    }
 
     @Override
     protected boolean hasPendingActions() {

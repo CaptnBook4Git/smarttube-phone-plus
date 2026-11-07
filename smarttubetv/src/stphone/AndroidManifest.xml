@@ -28,6 +28,16 @@
             android:launchMode="singleInstance"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize|stateHidden" />
+        <!-- Menus as phone bottom sheets -->
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneDialogActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:noHistory="true"
+            android:screenOrientation="unspecified"
+            android:theme="@style/PhoneSheetTheme" />
+
         <!-- Portrait player: video on top, details below. Rotating goes full screen. -->
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhonePlaybackActivity"

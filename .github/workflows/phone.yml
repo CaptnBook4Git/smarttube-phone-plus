@@ -66,9 +66,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: SmartTube Phone ${{ steps.get_version.outputs.VERSION_NAME }}
+          name: Vireo ${{ steps.get_version.outputs.VERSION_NAME }}
           body: |
-            Phone build of SmartTube (portrait UI). arm64 only.
+            Vireo, a phone edition of SmartTube. arm64 only.
             Direct download: https://github.com/${{ github.repository }}/releases/latest/download/SmartTube-Phone-arm64.apk
           files: out/SmartTube-Phone-arm64.apk
           make_latest: true

@@ -40,4 +40,8 @@
     <string name="phone_share">Share</string>
     <string name="phone_save">Save</string>
     <string name="phone_speed">Speed</string>
+    <string name="phone_dislike">Dislike</string>
+    <string name="phone_brand_name">Vireo</string>
+    <string name="phone_signin_error_network">Can\'t reach YouTube right now. Check your internet connection. If you use Private DNS or an ad blocker, make sure it doesn\'t block youtube.com.</string>
+    <string name="phone_signin_error_generic">Couldn\'t get a sign-in code. Please try again.</string>
 </resources>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vireo mark: rounded square with a violet to pink gradient and a soft play triangle -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path android:pathData="M13,2h22a11,11 0,0 1,11 11v22a11,11 0,0 1,-11 11h-22a11,11 0,0 1,-11 -11v-22a11,11 0,0 1,11 -11z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="4"
+                android:startY="4"
+                android:endX="44"
+                android:endY="44">
+                <item android:offset="0" android:color="#FF7C3AED" />
+                <item android:offset="0.55" android:color="#FFDB2777" />
+                <item android:offset="1" android:color="#FFFB7185" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M19,16.2C19,14.6 20.8,13.6 22.2,14.4L34.6,22.2C36,23 36,25 34.6,25.8L22.2,33.6C20.8,34.4 19,33.4 19,31.8Z" />
+</vector>

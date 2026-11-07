@@ -1,6 +1,10 @@
-# SmartTube Phone
+# Vireo
 
-A phone edition of [SmartTube](https://github.com/yuliskov/SmartTube) by Yuriy Liskov: the same ad-free YouTube client, with a portrait phone interface instead of the TV one.
+Vireo is a phone edition of [SmartTube](https://github.com/yuliskov/SmartTube) by Yuriy Liskov: the same ad-free YouTube client, with a portrait phone interface instead of the TV one.
+
+- Portrait player with simple controls, full screen on rotate
+- Shorts play full screen and vertical: swipe up/down, tap to pause
+- All menus as phone bottom sheets
 
 **Download (latest, arm64):** https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/SmartTube-Phone-arm64.apk
 

@@ -31,6 +31,8 @@
             android:progressTint="@color/phone_accent" />
 
         <include layout="@layout/phone_player_controls" />
+
+        <include layout="@layout/phone_shorts_overlay" />
     </com.liskovsoft.smartyoutubetv2.tv.phone.widget.RatioFrameLayout>
 
     <androidx.recyclerview.widget.RecyclerView
