@@ -88,6 +88,9 @@ final class PhoneUi {
         }
 
         String original = video != null ? video.getCardImageUrl() : null;
+        if (TextUtils.isEmpty(original) && video != null && !TextUtils.isEmpty(video.videoId)) {
+            original = "https://i.ytimg.com/vi/" + video.videoId + "/hqdefault.jpg"; // e.g. opened from a link
+        }
         String better = null;
 
         if (video != null && !TextUtils.isEmpty(video.videoId) && !video.isChannel()) {
