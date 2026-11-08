@@ -1399,12 +1399,14 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     private Video currentVideo() {
-        if (mShownVideo != null) {
-            return mShownVideo;
-        }
         Video video = presenter().getVideo();
         if (video == null && mPlayer != null) {
             video = mPlayer.getVideo();
+        }
+        // Right after a swipe SmartTube still reports the previous Short for a moment: use the one on screen.
+        // Otherwise SmartTube's copy wins, it carries the full details (title, channel, counts).
+        if (mShownVideo != null && (video == null || !Helpers_equals(video.videoId, mShownVideo.videoId))) {
+            return mShownVideo;
         }
         return video;
     }
@@ -1523,7 +1525,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             applySystemBars();
         }
         mDescriptionExpanded = false;
-        refreshDetails(video);
+        refreshDetails(currentVideo());
         if (mDetails != null) {
             mDetails.scrollToPosition(0);
         }
