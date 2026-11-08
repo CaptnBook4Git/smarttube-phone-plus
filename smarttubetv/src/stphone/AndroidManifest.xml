@@ -10,6 +10,9 @@
         android:required="false"
         tools:replace="android:required" />
 
+    <!-- Settings, Check for updates: installs new releases from GitHub -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <!-- Browsing uses the phone UI in portrait. The remaining Leanback screens (player, sign-in) stay landscape. -->
     <application
         android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneApplication"
@@ -85,5 +88,8 @@
         <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.SearchLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
         <!-- Translucent dialog: follow the activity underneath -->
         <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivity" android:screenOrientation="behind" tools:replace="android:screenOrientation"/>
+        <receiver
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneUpdater$InstallReceiver"
+            android:exported="false" />
     </application>
 </manifest>

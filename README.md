@@ -88,6 +88,9 @@ It installs as its own app (`org.smarttube.phone`), so it can sit next to the of
 - Rotate the phone (or tap the full screen button) for full screen
 - Full screen gestures: double tap to skip, pinch to fill the screen, swipe for brightness and volume
 
+**Updates**
+- Settings, **Check for updates**: downloads and installs the newest build in the app, no browser needed
+
 **Keep watching while you do other things**
 - Drag the player down, or press back, to shrink it into a floating picture-in-picture window
 - Background playback with a media notification (play, pause, next) for regular videos
@@ -126,7 +129,16 @@ When Android asks to allow notifications, tap **Allow**. The app uses the notifi
 
 Each build is listed on the [releases page](https://github.com/shreyas-bangera/smarttube-phone/releases). The download link above always points to the newest one.
 
-To update, download the latest APK and install it over the app you have. Android shows **Update** instead of Install, and you stay signed in with all your settings kept.
+**From inside the app (recommended)**
+
+1. Open the **You** tab, tap the **Settings** chip, then **Check for updates**. The item shows the build you have.
+2. If a newer build exists, tap **Download and install**. A progress bar shows the download.
+3. The first time, Android asks you to allow SmartTube to install apps: tap **Open settings**, turn on **Allow from this source**, come back and tap **Check for updates** again.
+4. Android shows its usual confirmation. Tap **Update**. You stay signed in and all your settings are kept.
+
+**Manually**
+
+Download the latest APK from the link above and install it over the app you have. Android shows **Update** instead of Install.
 
 > **Coming from build 38 or older?** Those builds were signed with a temporary key, so Android refuses to install the new version over them ("App not installed" or "package conflicts with an existing package"). Uninstall the old SmartTube once (long press the icon, then **Uninstall**) and install the latest APK. Every update after that installs normally.
 
@@ -258,6 +270,7 @@ Rotate back to portrait, or press back, to leave full screen.
 Open the **You** tab and tap the **Settings** chip.
 
 - **Appearance** is the first setting. Tap it to cycle between **Dark**, **Light** and **Same as device**. The app switches immediately.
+- **Check for updates** is the second setting. It shows your build number and installs a newer build from GitHub if there is one (see [Update to a new build](#update-to-a-new-build)).
 - Everything else is SmartTube's own settings, for example:
   - **Player**: default quality, playback speed, captions style, autoplay
   - **SponsorBlock**: choose which segment types are skipped

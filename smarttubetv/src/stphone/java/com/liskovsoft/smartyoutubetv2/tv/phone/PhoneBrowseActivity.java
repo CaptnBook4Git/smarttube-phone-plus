@@ -693,6 +693,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                     PhoneTheme.set(this, PhoneTheme.next(appearance));
                     recreate();
                 }, R.drawable.ic_phone_brightness));
+        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
+                PhoneUpdater.settingsTitle(this), () -> PhoneUpdater.check(this), R.drawable.ic_phone_update));
         if (group.getItems() != null) {
             items.addAll(group.getItems());
         }
