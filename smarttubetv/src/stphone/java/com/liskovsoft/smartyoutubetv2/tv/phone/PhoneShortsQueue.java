@@ -24,7 +24,9 @@ final class PhoneShortsQueue {
         List<Video> result = new ArrayList<>();
         if (sGroup != null && sGroup.getVideos() != null) {
             for (Video video : sGroup.getVideos()) {
-                if (video != null && video.videoId != null && video.isShorts) {
+                // The group comes from the Shorts section or a Shorts row: every item is a Short
+                // (items there don't always carry the isShorts flag)
+                if (video != null && video.videoId != null) {
                     result.add(video);
                 }
             }

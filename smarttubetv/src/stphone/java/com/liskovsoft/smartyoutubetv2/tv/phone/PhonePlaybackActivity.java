@@ -1026,6 +1026,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private Video nextShort() {
         Video current = currentVideo();
         Video next = PhoneShortsQueue.next(current);
+        android.util.Log.d("SmartTubePhone", "nextShort queue=" + PhoneShortsQueue.videos().size()
+                + " current=" + (current != null ? current.videoId : null) + " next=" + (next != null ? next.videoId : null));
         if (next != null) {
             return next;
         }
