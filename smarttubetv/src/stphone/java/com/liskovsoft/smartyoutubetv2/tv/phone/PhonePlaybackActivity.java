@@ -97,7 +97,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private ImageView mPoster;
     private boolean mAwaitingNewVideo;
     private String mExpectedVideoId; // the Short a swipe is opening
-    private Video mShownVideo; // the video on screen (SmartTube's presenter reports a new one a moment late)
+    private Video mSwipedTo; // the Short a swipe opened, until SmartTube's presenter reports it too
     private long mPosterSince;
     private final java.util.List<Video> mShortsHistory = new java.util.ArrayList<>();
     private android.content.BroadcastReceiver mPlayPauseReceiver;
@@ -993,11 +993,14 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             mShorts.setAlpha(1f);
             if (mIncoming != null) {
                 refreshShorts(mIncoming);
-                mShownVideo = mIncoming;
+                mSwipedTo = mIncoming;
                 String expected = mIncoming.videoId;
                 mExpectedVideoId = expected;
                 // Safety net: never wait forever if the player reports the Short under another id
                 mShorts.postDelayed(() -> {
+                    if (mSwipedTo != null && expected.equals(mSwipedTo.videoId)) {
+                        mSwipedTo = null;
+                    }
                     if (mAwaitingNewVideo && expected.equals(mExpectedVideoId)) {
                         mExpectedVideoId = null;
                         onPlayerVideo(currentVideo());
@@ -1131,6 +1134,16 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             return;
         }
         int count = 0;
+        Video next = currentVideo();
+        for (int i = 0; i < 3 && next != null; i++) {
+            next = PhoneShortsQueue.next(next);
+            if (next != null && next.videoId != null) {
+                com.bumptech.glide.Glide.with(this).load("https://i.ytimg.com/vi/" + next.videoId + "/oar2.jpg").preload();
+                if (!TextUtils.isEmpty(next.getCardImageUrl())) {
+                    com.bumptech.glide.Glide.with(this).load(next.getCardImageUrl()).preload();
+                }
+            }
+        }
         for (Video video : mAdapter.allVideos()) {
             if (video.videoId == null) {
                 continue;
@@ -1403,10 +1416,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (video == null && mPlayer != null) {
             video = mPlayer.getVideo();
         }
-        // Right after a swipe SmartTube still reports the previous Short for a moment: use the one on screen.
-        // Otherwise SmartTube's copy wins, it carries the full details (title, channel, counts).
-        if (mShownVideo != null && (video == null || !Helpers_equals(video.videoId, mShownVideo.videoId))) {
-            return mShownVideo;
+        // Right after a swipe SmartTube still reports the previous Short for a moment: use the one swiped to
+        if (mSwipedTo != null) {
+            if (video != null && Helpers_equals(video.videoId, mSwipedTo.videoId)) {
+                mSwipedTo = null; // caught up, SmartTube's copy carries the full details
+            } else {
+                return mSwipedTo;
+            }
         }
         return video;
     }
@@ -1495,8 +1511,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (mAwaitingNewVideo && video != null && mExpectedVideoId != null && !mExpectedVideoId.equals(video.videoId)) {
             return; // late update of the Short we just swiped away from
         }
-        if (video != null) {
-            mShownVideo = video;
+        if (mSwipedTo != null && video != null && !Helpers_equals(mSwipedTo.videoId, video.videoId)) {
+            mSwipedTo = null; // another video was opened
         }
         if (mAwaitingNewVideo && video != null) {
             mExpectedVideoId = null;
@@ -1525,7 +1541,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             applySystemBars();
         }
         mDescriptionExpanded = false;
-        refreshDetails(currentVideo());
+        refreshDetails();
+        if (mShortsMode) {
+            preloadNextShorts();
+        }
         if (mDetails != null) {
             mDetails.scrollToPosition(0);
         }
