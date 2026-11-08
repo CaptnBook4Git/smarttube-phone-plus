@@ -65,7 +65,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private View mSignInCard;
     private ImageView mTopAvatar;
 
-    @Override
     /** The task Home lives in: the player belongs in the same one (one card in recents) */
     static int sTaskId = -1;
 
