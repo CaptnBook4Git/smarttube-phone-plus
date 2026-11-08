@@ -535,14 +535,23 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         if (mSections.isEmpty() || index < 0) {
             return;
         }
+        BrowseSection target = mSections.get(Math.min(index, mSections.size() - 1));
+
         if (mIsInitialSelection) {
-            // Phone app always starts on Home
+            // Phone app always starts on Home (SmartTube boots signed-out users into Music)
             mIsInitialSelection = false;
             BrowseSection home = sectionById(MediaGroup.TYPE_HOME);
             if (home != null) {
                 focusSection(home);
                 return;
             }
+        }
+
+        // The presenter restores the section it last loaded. When Home shows a stand-in feed (signed out),
+        // that is the stand-in: keep Home selected instead of jumping to it.
+        if (mLoadedSection != null && mCurrentSection != null && target.getId() == mLoadedSection.getId()
+                && mLoadedSection != mCurrentSection) {
+            return;
         }
         focusSection(mSections.get(Math.min(index, mSections.size() - 1)));
     }
