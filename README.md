@@ -127,7 +127,7 @@ SmartTube signs in the same way a smart TV does: the app shows a short code, and
 
 **On the same phone**
 
-1. Open the **You** tab (bottom right) and tap **Sign in**. You can also tap **Sign in** on the card at the top of Home, or the account picture at the top right.
+1. Open the **You** tab (bottom right) and tap **Sign in**. You can also tap **Sign in** on the card at the top of Home.
 2. SmartTube shows your sign-in code. Wait a moment until the code appears.
 3. Tap **Continue in browser**. Your browser opens Google's device activation page (yt.be/activate) with the code already filled in. If it isn't, tap the code in SmartTube to copy it and paste it on the page.
 4. Choose your Google account (sign in to Google if the browser asks) and tap **Allow** to give access to YouTube.
@@ -165,7 +165,7 @@ The app retries a few times on its own. If it still shows "Can't reach YouTube r
 - Tap a chip at the top (Kids, Sports, LIVE, Gaming, News) to switch topics.
 - Tap a channel picture to open that channel.
 - Tap the three dots next to a video for more options, such as adding it to a playlist or opening its channel.
-- Top right: the search button and your account picture.
+- Top right: the search button.
 
 ### Watching a video
 
