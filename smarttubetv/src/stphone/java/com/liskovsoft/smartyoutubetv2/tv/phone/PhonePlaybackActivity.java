@@ -73,6 +73,22 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private boolean mShortsMode;
     private boolean mIsSeeking;
     private Boolean mRouteTouchToPlayer;
+    private static final int LEVEL_NONE = 0;
+    private static final int LEVEL_BRIGHTNESS = 1;
+    private static final int LEVEL_VOLUME = 2;
+    private int mLevelMode = LEVEL_NONE;
+    private float mLevelStartX;
+    private float mLevelStartY;
+    private float mLevelStartValue;
+    private View mLevelView;
+    private ImageView mLevelIcon;
+    private ProgressBar mLevelBar;
+    private TextView mLevelText;
+    private final Runnable mHideLevel = () -> {
+        if (mLevelView != null) {
+            mLevelView.animate().alpha(0f).setDuration(200).withEndAction(() -> mLevelView.setVisibility(View.GONE)).start();
+        }
+    };
     private boolean mTouchStartedOnVideo;
     private GestureDetector mCloseDetector;
     private int mStatusInset;
@@ -114,6 +130,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         inflater.inflate(R.layout.phone_mini_progress, mVideoBox, true);
         inflater.inflate(R.layout.phone_player_controls, mVideoBox, true);
         inflater.inflate(R.layout.phone_shorts_overlay, mVideoBox, true);
+        createLevelIndicator();
 
         mControls = findViewById(R.id.phone_controls);
         mPlayButton = findViewById(R.id.phone_ctl_play);
@@ -134,7 +151,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
                 if (e1 != null && velocityY > 1200 && Math.abs(velocityY) > Math.abs(velocityX) * 1.5f
                         && e2.getY() - e1.getY() > dp(80)) {
-                    finish();
+                    enterMiniPlayer();
                     return true;
                 }
                 return false;
@@ -248,7 +265,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         // Full screen: keep the seek bar and time clear of the screen edges
         View bottom = findViewById(R.id.phone_ctl_bottom);
         int side = mPortrait ? 0 : dp(28);
-        bottom.setPadding(side, 0, side, mPortrait ? 0 : dp(26));
+        bottom.setPadding(side, 0, side, mPortrait ? 0 : dp(48));
         mFullscreenButton.setImageResource(mPortrait ? R.drawable.ic_phone_fullscreen : R.drawable.ic_phone_fullscreen_exit);
 
         if (shorts || pip) {
@@ -325,6 +342,16 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             return super.dispatchTouchEvent(event);
         }
 
+        // Full screen: swipe up/down on the left for brightness, on the right for volume
+        if (!mPortrait && !mShortsMode && handleLevelGesture(event)) {
+            return true;
+        }
+
+        return routeTouch(event);
+    }
+
+    private boolean routeTouch(MotionEvent event) {
+
         if (event.getActionMasked() == MotionEvent.ACTION_DOWN || mRouteTouchToPlayer == null) {
             Rect box = new Rect();
             mVideoBox.getGlobalVisibleRect(box);
@@ -354,6 +381,178 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
 
         return result;
+    }
+
+    // endregion
+
+    // region Picture-in-picture
+
+    /**
+     * Drag the player down: keep watching in a floating window and go back to the app.
+     */
+    private void enterMiniPlayer() {
+        if (Build.VERSION.SDK_INT < 26) {
+            finish();
+            return;
+        }
+        try {
+            android.app.PictureInPictureParams params = new android.app.PictureInPictureParams.Builder()
+                    .setAspectRatio(mShortsMode ? new android.util.Rational(9, 16) : new android.util.Rational(16, 9))
+                    .build();
+            showPhoneControls(false);
+            if (enterPictureInPictureMode(params)) {
+                getViewManager().startParentView(this);
+            } else {
+                finish();
+            }
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            finish();
+        }
+    }
+
+    // endregion
+
+    // region Brightness and volume gestures
+
+    private void createLevelIndicator() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        box.setBackgroundResource(R.drawable.phone_level_bg);
+        box.setPadding(dp(22), dp(16), dp(22), dp(16));
+        box.setVisibility(View.GONE);
+
+        mLevelIcon = new ImageView(this);
+        mLevelIcon.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+        box.addView(mLevelIcon, new LinearLayout.LayoutParams(dp(30), dp(30)));
+
+        mLevelBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        mLevelBar.setMax(100);
+        mLevelBar.setProgressTintList(ColorStateList.valueOf(Color.WHITE));
+        mLevelBar.setProgressBackgroundTintList(ColorStateList.valueOf(0x55FFFFFF));
+        LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(dp(120), dp(4));
+        barParams.topMargin = dp(12);
+        box.addView(mLevelBar, barParams);
+
+        mLevelText = new TextView(this);
+        mLevelText.setTextColor(Color.WHITE);
+        mLevelText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        mLevelText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        textParams.topMargin = dp(8);
+        box.addView(mLevelText, textParams);
+
+        mVideoBox.addView(box, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        mLevelView = box;
+    }
+
+    private boolean handleLevelGesture(MotionEvent event) {
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                mLevelMode = LEVEL_NONE;
+                mLevelStartX = event.getRawX();
+                mLevelStartY = event.getRawY();
+                return false;
+            case MotionEvent.ACTION_MOVE: {
+                if (mLevelMode == LEVEL_NONE) {
+                    float dx = event.getRawX() - mLevelStartX;
+                    float dy = event.getRawY() - mLevelStartY;
+                    int slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop() * 2;
+                    if (Math.abs(dy) < slop || Math.abs(dy) < Math.abs(dx) * 1.5f) {
+                        return false;
+                    }
+                    Rect box = new Rect();
+                    mVideoBox.getGlobalVisibleRect(box);
+                    mLevelMode = mLevelStartX < box.centerX() ? LEVEL_BRIGHTNESS : LEVEL_VOLUME;
+                    mLevelStartValue = mLevelMode == LEVEL_BRIGHTNESS ? currentBrightness() : currentVolume();
+                    mLevelStartY = event.getRawY();
+
+                    // Whatever got the touch so far (player, controls) must not see a tap
+                    MotionEvent cancel = MotionEvent.obtain(event);
+                    cancel.setAction(MotionEvent.ACTION_CANCEL);
+                    routeTouch(cancel);
+                    cancel.recycle();
+                }
+                float height = Math.max(1, mVideoBox.getHeight() * 0.7f);
+                float value = Math.max(0f, Math.min(1f, mLevelStartValue + (mLevelStartY - event.getRawY()) / height));
+                if (mLevelMode == LEVEL_BRIGHTNESS) {
+                    setBrightness(value);
+                } else {
+                    setVolume(value);
+                }
+                showLevel(value);
+                return true;
+            }
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if (mLevelMode != LEVEL_NONE) {
+                    mLevelMode = LEVEL_NONE;
+                    mHandler.removeCallbacks(mHideLevel);
+                    mHandler.postDelayed(mHideLevel, 700);
+                    return true;
+                }
+                return false;
+            default:
+                return mLevelMode != LEVEL_NONE;
+        }
+    }
+
+    private void showLevel(float value) {
+        if (mLevelView == null) {
+            return;
+        }
+        mHandler.removeCallbacks(mHideLevel);
+        mLevelView.animate().cancel();
+        mLevelView.setAlpha(1f);
+        mLevelView.setVisibility(View.VISIBLE);
+        mLevelIcon.setImageResource(mLevelMode == LEVEL_BRIGHTNESS ? R.drawable.ic_phone_brightness
+                : value <= 0f ? R.drawable.ic_phone_volume_off : R.drawable.ic_phone_volume);
+        int percent = Math.round(value * 100);
+        mLevelBar.setProgress(percent);
+        mLevelText.setText(percent + "%");
+    }
+
+    private float currentBrightness() {
+        float brightness = getWindow().getAttributes().screenBrightness;
+        if (brightness >= 0) {
+            return brightness;
+        }
+        try {
+            return android.provider.Settings.System.getInt(getContentResolver(),
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS) / 255f;
+        } catch (Exception e) {
+            return 0.5f;
+        }
+    }
+
+    private void setBrightness(float value) {
+        WindowManager.LayoutParams attrs = getWindow().getAttributes();
+        attrs.screenBrightness = Math.max(0.01f, value);
+        getWindow().setAttributes(attrs);
+    }
+
+    private float currentVolume() {
+        android.media.AudioManager audio = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        if (audio == null) {
+            return 0.5f;
+        }
+        int max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+        return max > 0 ? audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) / (float) max : 0.5f;
+    }
+
+    private void setVolume(float value) {
+        android.media.AudioManager audio = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        if (audio == null) {
+            return;
+        }
+        int max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+        try {
+            audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, Math.round(value * max), 0);
+        } catch (SecurityException ignored) {
+            // Do Not Disturb can refuse volume changes
+        }
     }
 
     // endregion
@@ -781,6 +980,15 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     public void onPlayerButtonState(int buttonId, int buttonState) {
         refreshDetails();
+    }
+
+    @Override
+    public void onPlayerChannelIcon(String iconUrl) {
+        Video video = currentVideo();
+        if (video != null && !TextUtils.isEmpty(iconUrl)) {
+            AvatarCache.rememberUrl(this, video.channelId, video.getAuthor(), AvatarFetcher.handleOf(video), iconUrl);
+            refreshDetails();
+        }
     }
 
     // endregion

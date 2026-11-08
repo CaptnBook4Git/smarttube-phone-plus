@@ -163,11 +163,20 @@ final class PhoneUi {
         Drawable letter = new AvatarCache.LetterDrawable(name);
         String url = AvatarCache.find(context, video);
 
+        final String key = AvatarFetcher.keyOf(video);
+        view.setTag(R.id.phone_avatar, key);
+
         if (url != null) {
             Glide.with(context).load(url).circleCrop().placeholder(letter).error(letter).into(view);
         } else {
             Glide.with(context).clear(view);
             view.setImageDrawable(letter);
+            // Look the channel picture up once, then show it if this view still shows the same channel
+            AvatarFetcher.fetch(context, video, fetched -> {
+                if (key != null && key.equals(view.getTag(R.id.phone_avatar)) && isAlive(view.getContext())) {
+                    Glide.with(view.getContext()).load(fetched).circleCrop().placeholder(letter).into(view);
+                }
+            });
         }
 
         if (ChannelPresenter.canOpenChannel(video)) {

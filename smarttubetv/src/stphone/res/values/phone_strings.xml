@@ -47,4 +47,5 @@
     <string name="phone_comments">Comments</string>
     <string name="phone_replies">%1$s replies</string>
     <string name="phone_replies_title">Replies</string>
+    <string name="phone_signin_connecting">Connecting…</string>
 </resources>

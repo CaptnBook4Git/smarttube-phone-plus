@@ -29,6 +29,8 @@ public class PhoneSignInActivity extends PhoneActivity implements SignInView {
     private String mUserCode;
     private String mOpenUrl;
     private boolean mIsError;
+    private static final int MAX_AUTO_RETRIES = 4;
+    private int mAutoRetries;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,12 +62,8 @@ public class PhoneSignInActivity extends PhoneActivity implements SignInView {
 
     private void onButtonClicked() {
         if (mIsError) {
-            mIsError = false;
-            setButtonEnabled(false);
-            mCode.setText(R.string.phone_signin_loading);
-            mPresenter = SignInPresenter.instance(this);
-            mPresenter.setView(this);
-            mPresenter.onViewInitialized();
+            mAutoRetries = 0;
+            restartSignIn();
             return;
         }
 
@@ -76,6 +74,18 @@ public class PhoneSignInActivity extends PhoneActivity implements SignInView {
         copyCode(false);
         mWaiting.setVisibility(View.VISIBLE);
         Utils.openLinkExt(this, mOpenUrl);
+    }
+
+    private void restartSignIn() {
+        if (isFinishing()) {
+            return;
+        }
+        mIsError = false;
+        setButtonEnabled(false);
+        mCode.setText(R.string.phone_signin_loading);
+        mPresenter = SignInPresenter.instance(this);
+        mPresenter.setView(this);
+        mPresenter.onViewInitialized();
     }
 
     private void copyCode(boolean notify) {
@@ -113,6 +123,16 @@ public class PhoneSignInActivity extends PhoneActivity implements SignInView {
                 mOpenUrl = null;
                 boolean network = userCode != null && (userCode.contains("UnknownHost") || userCode.contains("resolve host")
                         || userCode.contains("timeout") || userCode.contains("Unable to"));
+
+                // DNS lookups sometimes fail on the first tries: retry quietly before showing an error
+                if (network && mAutoRetries < MAX_AUTO_RETRIES) {
+                    mAutoRetries++;
+                    mCode.setTextSize(16);
+                    mCode.setText(R.string.phone_signin_connecting);
+                    mCode.postDelayed(this::restartSignIn, 1500L * mAutoRetries);
+                    return;
+                }
+
                 mCode.setTextSize(16);
                 mCode.setTypeface(android.graphics.Typeface.DEFAULT);
                 mCode.setGravity(android.view.Gravity.CENTER);
@@ -126,6 +146,7 @@ public class PhoneSignInActivity extends PhoneActivity implements SignInView {
             }
 
             mIsError = false;
+            mAutoRetries = 0;
             mUserCode = userCode;
             mOpenUrl = fullSignInUrl != null ? fullSignInUrl : signInUrl;
             mCode.setTextSize(34);

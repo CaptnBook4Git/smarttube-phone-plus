@@ -27,19 +27,19 @@ import java.util.Map;
 final class AvatarCache {
     private static final String PREFS = "phone_avatar_cache";
     private static final int MAX_ENTRIES = 3000;
-    private static Map<String, String> sMap;
+    private static volatile Map<String, String> sMap;
     private static SharedPreferences sPrefs;
 
     private AvatarCache() {
     }
 
     @SuppressWarnings("unchecked")
-    private static void init(Context context) {
+    private static synchronized void init(Context context) {
         if (sMap != null) {
             return;
         }
         sPrefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        sMap = new HashMap<>();
+        sMap = new java.util.concurrent.ConcurrentHashMap<>();
         for (Map.Entry<String, ?> entry : sPrefs.getAll().entrySet()) {
             if (entry.getValue() instanceof String) {
                 sMap.put(entry.getKey(), (String) entry.getValue());
@@ -93,10 +93,42 @@ final class AvatarCache {
         if (!TextUtils.isEmpty(video.channelId)) {
             url = sMap.get("c:" + video.channelId);
         }
+        if (url == null) {
+            String handle = AvatarFetcher.handleOf(video);
+            if (handle != null) {
+                url = sMap.get(nameKey(handle));
+            }
+        }
         if (url == null && !TextUtils.isEmpty(video.getAuthor())) {
             url = sMap.get(nameKey(video.getAuthor()));
         }
         return url;
+    }
+
+    /**
+     * Store a picture found for a channel (fetched page, player metadata) under every key we know.
+     */
+    static void rememberUrl(Context context, String channelId, String author, String handle, String url) {
+        if (TextUtils.isEmpty(url)) {
+            return;
+        }
+        synchronized (AvatarCache.class) {
+            init(context);
+            SharedPreferences.Editor editor = sPrefs.edit();
+            if (!TextUtils.isEmpty(channelId)) {
+                sMap.put("c:" + channelId, url);
+                editor.putString("c:" + channelId, url);
+            }
+            if (!TextUtils.isEmpty(handle)) {
+                sMap.put(nameKey(handle), url);
+                editor.putString(nameKey(handle), url);
+            }
+            if (!TextUtils.isEmpty(author)) {
+                sMap.put(nameKey(author), url);
+                editor.putString(nameKey(author), url);
+            }
+            editor.apply();
+        }
     }
 
     /**

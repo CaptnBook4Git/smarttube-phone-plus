@@ -21,6 +21,17 @@ public class PhonePlaybackFragment extends PlaybackFragment {
         void onPlayerSuggestionsCleared();
 
         void onPlayerButtonState(int buttonId, int buttonState);
+
+        void onPlayerChannelIcon(String iconUrl);
+    }
+
+    @Override
+    public void setChannelIcon(String iconUrl) {
+        super.setChannelIcon(iconUrl);
+        Host host = getPhoneHost();
+        if (host != null) {
+            host.onPlayerChannelIcon(iconUrl);
+        }
     }
 
     @Override

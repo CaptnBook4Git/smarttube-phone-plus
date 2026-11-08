@@ -1,0 +1,159 @@
+package com.liskovsoft.smartyoutubetv2.tv.phone;
+
+import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.TextUtils;
+
+import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
+
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Feed items carry no channel picture. Look it up once per channel (channel page og:image, read only up to the
+ * meta tag) and keep it in {@link AvatarCache}.
+ */
+final class AvatarFetcher {
+    interface Callback {
+        void onAvatar(String url);
+    }
+
+    private static final ExecutorService POOL = Executors.newFixedThreadPool(3);
+    private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static final Map<String, List<Callback>> sPending = new HashMap<>();
+    private static final Set<String> sFailed = new HashSet<>();
+    private static final Pattern HANDLE = Pattern.compile("@[\\p{L}\\p{N}._\\-]{2,}");
+    private static final Pattern OG_IMAGE = Pattern.compile("<meta property=\"og:image\" content=\"([^\"]+)\"");
+    private static final int MAX_BYTES = 700 * 1024;
+
+    private AvatarFetcher() {
+    }
+
+    static String handleOf(Video video) {
+        CharSequence[] sources = {video.getSecondTitle(), video.getAuthor()};
+        for (CharSequence source : sources) {
+            if (source == null) {
+                continue;
+            }
+            Matcher matcher = HANDLE.matcher(source);
+            if (matcher.find()) {
+                return matcher.group();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Key used to match a fetched picture with the view that asked for it.
+     */
+    static String keyOf(Video video) {
+        if (!TextUtils.isEmpty(video.channelId)) {
+            return "c:" + video.channelId;
+        }
+        String handle = handleOf(video);
+        return handle != null ? "h:" + handle : null;
+    }
+
+    static void fetch(Context context, Video video, Callback callback) {
+        final String key = keyOf(video);
+        if (key == null) {
+            return;
+        }
+
+        final String channelId = video.channelId;
+        final String handle = handleOf(video);
+        final String author = video.getAuthor();
+        final Context app = context.getApplicationContext();
+
+        synchronized (sPending) {
+            if (sFailed.contains(key)) {
+                return;
+            }
+            List<Callback> callbacks = sPending.get(key);
+            if (callbacks != null) {
+                callbacks.add(callback);
+                return;
+            }
+            callbacks = new ArrayList<>();
+            callbacks.add(callback);
+            sPending.put(key, callbacks);
+        }
+
+        POOL.execute(() -> {
+            String url = null;
+            try {
+                String page = !TextUtils.isEmpty(channelId)
+                        ? "https://www.youtube.com/channel/" + channelId
+                        : "https://www.youtube.com/@" + URLEncoder.encode(handle.substring(1), "UTF-8");
+                url = readOgImage(page);
+            } catch (Throwable ignored) {
+                // Offline, blocked or consent page: keep the initial
+            }
+
+            final String result = url;
+            if (result != null) {
+                AvatarCache.rememberUrl(app, channelId, author, handle, result);
+            }
+
+            List<Callback> callbacks;
+            synchronized (sPending) {
+                callbacks = sPending.remove(key);
+                if (result == null) {
+                    sFailed.add(key);
+                }
+            }
+
+            if (result != null && callbacks != null) {
+                MAIN.post(() -> {
+                    for (Callback cb : callbacks) {
+                        cb.onAvatar(result);
+                    }
+                });
+            }
+        });
+    }
+
+    private static String readOgImage(String pageUrl) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL(pageUrl).openConnection();
+        connection.setConnectTimeout(8000);
+        connection.setReadTimeout(8000);
+        connection.setInstanceFollowRedirects(true);
+        connection.setRequestProperty("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36");
+        connection.setRequestProperty("Accept-Language", "en-US,en;q=0.8");
+        connection.setRequestProperty("Cookie", "CONSENT=YES+1; SOCS=CAI");
+
+        try (InputStream in = connection.getInputStream()) {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] chunk = new byte[16 * 1024];
+            int read;
+            while ((read = in.read(chunk)) != -1 && buffer.size() < MAX_BYTES) {
+                buffer.write(chunk, 0, read);
+                String text = new String(buffer.toByteArray(), StandardCharsets.UTF_8);
+                Matcher matcher = OG_IMAGE.matcher(text);
+                if (matcher.find()) {
+                    // Channel pictures come at 900px; a small size is plenty for an avatar
+                    return matcher.group(1).replace("&amp;", "&").replaceAll("=s\\d+-", "=s96-");
+                }
+            }
+        } finally {
+            connection.disconnect();
+        }
+        return null;
+    }
+}
