@@ -1,16 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/phone_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/phone_bg"
-    android:fitsSystemWindows="false"
-    android:orientation="vertical">
+    android:fitsSystemWindows="false">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/phone_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="8dp"
+            android:scrollbars="none" />
+
+        <include layout="@layout/phone_state_overlay" />
+    </FrameLayout>
 
     <LinearLayout
         android:id="@+id/phone_top_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_gravity="top"
         android:background="@color/phone_bg"
         android:orientation="vertical">
 
@@ -169,26 +184,11 @@
         </HorizontalScrollView>
     </LinearLayout>
 
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/phone_list"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:paddingBottom="8dp"
-            android:scrollbars="none" />
-
-        <include layout="@layout/phone_state_overlay" />
-    </FrameLayout>
-
     <LinearLayout
         android:id="@+id/phone_bottom_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
         android:background="@drawable/phone_bottom_bar_bg"
         android:orientation="horizontal" />
-</LinearLayout>
+</FrameLayout>

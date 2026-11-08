@@ -38,12 +38,11 @@
             android:screenOrientation="unspecified"
             android:theme="@style/PhoneSheetTheme" />
 
-        <!-- Portrait player: video on top, details below. Rotating goes full screen. -->
+        <!-- Player: same task as the rest of the app (one card in recents). Picture-in-picture moves it to its own window. -->
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhonePlaybackActivity"
-            android:excludeFromRecents="true"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
-            android:launchMode="singleInstance"
+            android:launchMode="singleTask"
             android:resizeableActivity="true"
             android:screenOrientation="fullUser"
             android:showWhenLocked="true"

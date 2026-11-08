@@ -74,6 +74,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
         applyInsets(findViewById(R.id.phone_root), findViewById(R.id.phone_top_bar), mBottomBar);
         setupList(this);
+        setupBars();
         setupTopBar();
         setupTabs();
 
@@ -153,6 +154,48 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     }
 
     // region UI setup
+
+    /**
+     * The feed scrolls under the top and bottom bars. The top bar slides away while scrolling down
+     * (like the YouTube app); in Liquid Glass mode both bars are translucent.
+     */
+    private void setupBars() {
+        View topBar = findViewById(R.id.phone_top_bar);
+        boolean glass = PhoneGlass.isEnabled(this);
+        topBar.setBackgroundResource(glass ? R.drawable.phone_glass_bar : R.color.phone_bg);
+        mBottomBar.setBackgroundResource(glass ? R.drawable.phone_glass_bottom : R.drawable.phone_bottom_bar_bg);
+
+        View.OnLayoutChangeListener sync = (v, l, t, r, b, ol, ot, or, ob) -> v.post(this::syncBarPadding);
+        topBar.addOnLayoutChangeListener(sync);
+        mBottomBar.addOnLayoutChangeListener(sync);
+
+        mList.addOnScrollListener(new androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(androidx.recyclerview.widget.RecyclerView recyclerView, int dx, int dy) {
+                int hideable = topBar.getHeight() - topBar.getPaddingTop(); // keep the status bar area
+                float y = Math.max(-hideable, Math.min(0, topBar.getTranslationY() - dy));
+                if (!recyclerView.canScrollVertically(-1)) {
+                    y = 0;
+                }
+                topBar.setTranslationY(y);
+            }
+        });
+    }
+
+    private void syncBarPadding() {
+        View topBar = findViewById(R.id.phone_top_bar);
+        int top = topBar.getHeight();
+        int bottom = mBottomBar.getHeight();
+        if (mList.getPaddingTop() != top || mList.getPaddingBottom() != bottom + dp(8)) {
+            mList.setPadding(mList.getPaddingLeft(), top, mList.getPaddingRight(), bottom + dp(8));
+        }
+        View progress = findViewById(R.id.phone_progress_bar);
+        android.widget.FrameLayout.LayoutParams params = (android.widget.FrameLayout.LayoutParams) progress.getLayoutParams();
+        if (params.topMargin != top) {
+            params.topMargin = top;
+            progress.setLayoutParams(params);
+        }
+    }
 
     private void setupTopBar() {
         findViewById(R.id.phone_search).setOnClickListener(v -> SearchPresenter.instance(this).startSearch(null));
@@ -252,7 +295,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
             chip.setGravity(Gravity.CENTER);
             chip.setPadding(dp(14), 0, dp(14), 0);
-            chip.setBackgroundResource(R.drawable.phone_chip_bg);
+            chip.setBackgroundResource(PhoneGlass.chip(this));
             boolean selected = mCurrentSection != null && mCurrentSection.getId() == section.getId();
             chip.setSelected(selected);
             chip.setTextColor(getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
@@ -577,7 +620,18 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             return;
         }
         hideMessage();
-        mAdapter.setSettings(group.getItems());
+        // Phone only setting on top of SmartTube's settings
+        java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items = new ArrayList<>();
+        boolean glass = PhoneGlass.isEnabled(this);
+        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
+                getString(glass ? R.string.phone_liquid_glass_on : R.string.phone_liquid_glass_off), () -> {
+                    PhoneGlass.setEnabled(this, !glass);
+                    recreate();
+                }, R.drawable.ic_phone_brand));
+        if (group.getItems() != null) {
+            items.addAll(group.getItems());
+        }
+        mAdapter.setSettings(items);
     }
 
     @Override

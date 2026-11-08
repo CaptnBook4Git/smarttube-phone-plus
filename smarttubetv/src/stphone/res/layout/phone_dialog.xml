@@ -55,6 +55,21 @@
                 android:maxLines="2"
                 android:textColor="@color/phone_text"
                 android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/phone_sheet_action"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/phone_button_bg"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="@string/phone_add_comment"
+                android:textColor="@color/phone_bg"
+                android:textSize="13sp"
+                android:visibility="gone" />
         </LinearLayout>
 
         <View

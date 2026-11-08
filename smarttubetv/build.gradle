@@ -271,5 +271,8 @@ dependencies {
     // ByeByeDPI fix
     implementation 'org.conscrypt:conscrypt-android:' + conscryptVersion
 
+    // Phone UI: channel picture lookups through SmartTube's OkHttp client
+    stphoneImplementation 'com.squareup.okhttp3:okhttp:' + okhttpVersion
+
     implementation 'androidx.work:work-runtime:' + workVersion
 }

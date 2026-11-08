@@ -94,6 +94,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private int mStatusInset;
     private boolean mDescriptionExpanded;
     private Video mLastScrollEndVideo;
+    private ImageView mPoster;
+    private android.view.ScaleGestureDetector mPinchDetector;
+    private float mPinchScale = 1f;
+    private boolean mPinching;
 
     private final Runnable mTicker = new Runnable() {
         @Override
@@ -132,6 +136,42 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         inflater.inflate(R.layout.phone_player_controls, mVideoBox, true);
         inflater.inflate(R.layout.phone_shorts_overlay, mVideoBox, true);
         createLevelIndicator();
+
+        // The tapped video's thumbnail fills the player until playback starts: the open feels continuous
+        mPoster = new ImageView(this);
+        mPoster.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        mPoster.setBackgroundColor(Color.BLACK);
+        mVideoBox.addView(mPoster, 1, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        showPoster(presenter().getVideo());
+
+        mPinchDetector = new android.view.ScaleGestureDetector(this, new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            @Override
+            public boolean onScaleBegin(android.view.ScaleGestureDetector detector) {
+                mPinchScale = 1f;
+                return true;
+            }
+
+            @Override
+            public boolean onScale(android.view.ScaleGestureDetector detector) {
+                mPinchScale *= detector.getScaleFactor();
+                return true;
+            }
+
+            @Override
+            public void onScaleEnd(android.view.ScaleGestureDetector detector) {
+                if (mPlayer == null) {
+                    return;
+                }
+                if (mPinchScale > 1.08f) {
+                    mPlayer.setResizeMode(com.google.android.exoplayer2.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM);
+                    showHint(R.string.phone_zoom_fill);
+                } else if (mPinchScale < 0.92f) {
+                    mPlayer.setResizeMode(com.google.android.exoplayer2.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT);
+                    showHint(R.string.phone_zoom_fit);
+                }
+            }
+        });
 
         mControls = findViewById(R.id.phone_controls);
         mPlayButton = findViewById(R.id.phone_ctl_play);
@@ -268,6 +308,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         back.setLayoutParams(backParams);
 
         mControlsTitle.setVisibility(mPortrait ? View.GONE : View.VISIBLE);
+        if (mPortrait && mPlayer != null) {
+            mPlayer.setResizeMode(com.google.android.exoplayer2.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT);
+        }
         // Full screen: keep the seek bar and time clear of the screen edges
         View bottom = findViewById(R.id.phone_ctl_bottom);
         int side = mPortrait ? 0 : dp(28);
@@ -348,6 +391,28 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             return super.dispatchTouchEvent(event);
         }
 
+        // Full screen: pinch to fill the screen or fit the whole video
+        if (!mPortrait && !mShortsMode && mPinchDetector != null) {
+            mPinchDetector.onTouchEvent(event);
+            if (event.getPointerCount() > 1 || mPinchDetector.isInProgress()) {
+                if (!mPinching) {
+                    mPinching = true;
+                    MotionEvent cancel = MotionEvent.obtain(event);
+                    cancel.setAction(MotionEvent.ACTION_CANCEL);
+                    routeTouch(cancel);
+                    cancel.recycle();
+                }
+                mLevelMode = LEVEL_NONE;
+                return true;
+            }
+            if (mPinching) {
+                if (event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                    mPinching = false;
+                }
+                return true;
+            }
+        }
+
         // Full screen: swipe up/down on the left for brightness, on the right for volume
         if (!mPortrait && !mShortsMode && handleLevelGesture(event)) {
             return true;
@@ -391,6 +456,30 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     // endregion
 
+    private void showPoster(Video video) {
+        if (mPoster == null || video == null) {
+            return;
+        }
+        mPoster.animate().cancel();
+        mPoster.setAlpha(1f);
+        mPoster.setVisibility(View.VISIBLE);
+        PhoneUi.loadThumb(mPoster, video, isShort(video));
+    }
+
+    private void showHint(int textResId) {
+        if (mLevelView == null) {
+            return;
+        }
+        mHandler.removeCallbacks(mHideLevel);
+        mLevelView.animate().cancel();
+        mLevelView.setAlpha(1f);
+        mLevelView.setVisibility(View.VISIBLE);
+        mLevelIcon.setImageResource(R.drawable.ic_phone_fullscreen);
+        mLevelBar.setVisibility(View.GONE);
+        mLevelText.setText(textResId);
+        mHandler.postDelayed(mHideLevel, 900);
+    }
+
     // region Picture-in-picture
 
     /**
@@ -406,9 +495,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     .setAspectRatio(mShortsMode ? new android.util.Rational(9, 16) : new android.util.Rational(16, 9))
                     .build();
             showPhoneControls(false);
-            if (enterPictureInPictureMode(params)) {
-                getViewManager().startParentView(this);
-            } else {
+            if (!enterPictureInPictureMode(params)) {
                 finish();
             }
         } catch (IllegalStateException | IllegalArgumentException e) {
@@ -513,6 +600,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mLevelView.animate().cancel();
         mLevelView.setAlpha(1f);
         mLevelView.setVisibility(View.VISIBLE);
+        mLevelBar.setVisibility(View.VISIBLE);
         mLevelIcon.setImageResource(mLevelMode == LEVEL_BRIGHTNESS ? R.drawable.ic_phone_brightness
                 : value <= 0f ? R.drawable.ic_phone_volume_off : R.drawable.ic_phone_volume);
         int percent = Math.round(value * 100);
@@ -660,6 +748,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         int progress = duration > 0 ? (int) Math.max(0, Math.min(1000, position * 1000 / duration)) : 0;
 
         mMiniProgress.setProgress(progress);
+
+        if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && position > 350 && mPlayer.getPlayWhenReady()) {
+            mPoster.animate().alpha(0f).setDuration(220).withEndAction(() -> mPoster.setVisibility(View.GONE)).start();
+        }
 
         if (mControls.getVisibility() == View.VISIBLE && !mIsSeeking) {
             mSeek.setProgress(progress);
@@ -862,7 +954,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         LinearLayout pill = new LinearLayout(this);
         pill.setOrientation(LinearLayout.HORIZONTAL);
         pill.setGravity(Gravity.CENTER_VERTICAL);
-        pill.setBackgroundResource(R.drawable.phone_pill_bg);
+        pill.setBackgroundResource(PhoneGlass.pill(this));
         pill.setPadding(dp(14), 0, label != null ? dp(16) : dp(14), 0);
         pill.setTag(buttonId);
 
@@ -974,6 +1066,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     @Override
     public void onPlayerVideo(Video video) {
+        if (video != null && mPoster != null && mPlayer != null && mPlayer.getPositionMs() < 350) {
+            showPoster(video);
+        }
         boolean shorts = isShort(video);
         if (shorts != mShortsMode) {
             mShortsMode = shorts;
