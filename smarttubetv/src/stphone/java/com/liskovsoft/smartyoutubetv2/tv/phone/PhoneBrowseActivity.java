@@ -66,8 +66,13 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private ImageView mTopAvatar;
 
     @Override
+    /** The task Home lives in: the player belongs in the same one (one card in recents) */
+    static int sTaskId = -1;
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        sTaskId = getTaskId();
         setContentView(R.layout.phone_activity_browse);
 
         mBottomBar = findViewById(R.id.phone_bottom_bar);
@@ -94,6 +99,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     @Override
     protected void onResume() {
         super.onResume();
+        sTaskId = getTaskId();
         if (!mIsFirstResume) {
             mPresenter.onViewResumed();
         }
@@ -646,6 +652,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             mShortsAutoplay = false;
             PhoneShortsQueue.set(group);
             Video first = group.getVideos().get(0);
+            PhonePlaybackActivity.releaseDetachedPlayer();
             mPresenter.onVideoItemSelected(first);
             mPresenter.onVideoItemClicked(first);
             BrowseSection back = mShortsReturnSection;

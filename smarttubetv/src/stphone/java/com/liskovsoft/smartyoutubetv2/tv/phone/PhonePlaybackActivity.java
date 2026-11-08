@@ -130,6 +130,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState); // inflates the phone fragment_playback layout (TV player keeps TV density)
+        sInstance = new java.lang.ref.WeakReference<>(this);
         PhoneTheme.apply(this); // details panel follows the Appearance setting
         PhoneUi.applyPhoneDensity(this); // phone views use the phone's real density
 
@@ -231,6 +232,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     protected void onResume() {
         super.onResume();
+        moveBackToHomeTaskIfNeeded();
         PhoneTheme.apply(this);
         PhoneUi.applyPhoneDensity(this);
         cancelPlaybackNotification();
@@ -250,6 +252,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     protected void onStop() {
         super.onStop();
+        mLeftPip = false;
         if (isPip() || isChangingConfigurations() || mPlayer == null) {
             return;
         }
@@ -263,6 +266,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     @Override
     protected void onDestroy() {
+        if (sInstance != null && sInstance.get() == this) {
+            sInstance = null;
+        }
         cancelPlaybackNotification();
         if (mPlayPauseReceiver != null) {
             try {
@@ -315,9 +321,68 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         super.onPictureInPictureModeChanged(isInPictureInPictureMode);
         if (isInPictureInPictureMode) {
             showPhoneControls(false);
+        } else {
+            mLeftPip = true; // expanded (onResume follows) or closed (onStop follows)
         }
         applyLayoutMode();
     }
+
+    // region One task with Home
+
+    private static java.lang.ref.WeakReference<PhonePlaybackActivity> sInstance;
+    private boolean mLeftPip;
+
+    /**
+     * Android moves a picture in picture window into a task of its own. Reusing that player for the next video
+     * would open it from the floating window (not from the tapped thumbnail) and leave a second card in recents.
+     * Called right before a video opens from Home, Search or a channel: close the detached player so a fresh one
+     * expands from the thumbnail inside Home's task.
+     */
+    static void releaseDetachedPlayer() {
+        PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
+        if (activity == null || activity.isFinishing() || (!activity.isPip() && !activity.isInOwnTask())) {
+            return;
+        }
+        activity.closePlayer();
+    }
+
+    private boolean isInOwnTask() {
+        return PhoneBrowseActivity.sTaskId != -1 && getTaskId() != PhoneBrowseActivity.sTaskId;
+    }
+
+    private void closePlayer() {
+        cancelPlaybackNotification();
+        if (mPlayer != null) {
+            mPlayer.finishReally();
+        } else {
+            finishReally();
+        }
+        com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter.instance(this).setView(null);
+    }
+
+    /**
+     * The floating window was expanded but the player still sits in its own task (some phones don't move it
+     * back): reopen the video inside Home's task so there's one SmartTube card in recents.
+     */
+    private void moveBackToHomeTaskIfNeeded() {
+        if (!mLeftPip) {
+            return;
+        }
+        mLeftPip = false;
+        if (!isInOwnTask() || isFinishing()) {
+            return;
+        }
+        Video video = currentVideo();
+        if (video == null) {
+            return;
+        }
+        android.content.Context app = getApplicationContext();
+        closePlayer();
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                () -> com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter.instance(app).openVideo(video), 300);
+    }
+
+    // endregion
 
     private boolean isPip() {
         return Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode();
