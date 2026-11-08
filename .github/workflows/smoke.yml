@@ -17,7 +17,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download latest APK
-        run: curl -sL -o app.apk "https://github.com/${{ github.repository }}/releases/latest/download/SmartTube-Phone-arm64.apk"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download -R ${{ github.repository }} -p SmartTube-Phone-arm64.apk -O app.apk
+          ls -la app.apk
 
       - name: Enable KVM
         run: |
