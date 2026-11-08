@@ -90,7 +90,6 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
     };
     private boolean mTouchStartedOnVideo;
-    private GestureDetector mCloseDetector;
     private int mStatusInset;
     private boolean mDescriptionExpanded;
     private Video mLastScrollEndVideo;
@@ -205,19 +204,6 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         setupDetails();
         setupShorts();
 
-        mCloseDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
-            @Override
-            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-                android.util.Log.d("SmartTubePhone", "close fling vy=" + velocityY + " vx=" + velocityX
-                        + " dy=" + (e1 != null ? e2.getY() - e1.getY() : -1));
-                if (e1 != null && velocityY > 1200 && Math.abs(velocityY) > Math.abs(velocityX) * 1.5f
-                        && e2.getY() - e1.getY() > dp(80)) {
-                    enterMiniPlayer();
-                    return true;
-                }
-                return false;
-            }
-        });
 
         mRoot.setOnApplyWindowInsetsListener((v, insets) -> {
             mStatusInset = insets.getSystemWindowInsetTop();
@@ -538,6 +524,29 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         return routeTouch(event);
     }
 
+    private float mDragStartY;
+    private float mDragStartX;
+    private long mDragStartTime;
+
+    /** True when a quick downward drag that started on the video ends (YouTube: drag the player down) */
+    private boolean trackCloseDrag(MotionEvent event) {
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                mDragStartY = event.getRawY();
+                mDragStartX = event.getRawX();
+                mDragStartTime = event.getEventTime();
+                return false;
+            case MotionEvent.ACTION_UP: {
+                float dy = event.getRawY() - mDragStartY;
+                float dx = Math.abs(event.getRawX() - mDragStartX);
+                long dt = Math.max(1, event.getEventTime() - mDragStartTime);
+                return dy > dp(100) && dy > dx * 1.5f && (dy / dt > 0.5f || dy > dp(220));
+            }
+            default:
+                return false;
+        }
+    }
+
     private boolean routeTouch(MotionEvent event) {
 
         if (event.getActionMasked() == MotionEvent.ACTION_DOWN || mRouteTouchToPlayer == null) {
@@ -552,9 +561,20 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             mRouteTouchToPlayer = onVideo && !mShortsMode && mControls.getVisibility() != View.VISIBLE;
         }
 
-        // Swipe the video down to close the player (portrait, regular videos)
-        if (mTouchStartedOnVideo && mPortrait && !mShortsMode && mCloseDetector != null) {
-            mCloseDetector.onTouchEvent(event);
+        // Swipe the video down to shrink the player (portrait, regular videos)
+        if (mTouchStartedOnVideo && mPortrait && !mShortsMode && trackCloseDrag(event)) {
+            MotionEvent cancel = MotionEvent.obtain(event);
+            cancel.setAction(MotionEvent.ACTION_CANCEL);
+            boolean toPlayer = Boolean.TRUE.equals(mRouteTouchToPlayer);
+            mRouteTouchToPlayer = null;
+            if (toPlayer) {
+                super.dispatchTouchEvent(cancel);
+            } else {
+                getWindow().superDispatchTouchEvent(cancel);
+            }
+            cancel.recycle();
+            enterMiniPlayer();
+            return true;
         }
 
         boolean result;
