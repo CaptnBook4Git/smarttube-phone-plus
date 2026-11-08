@@ -60,6 +60,16 @@
                 android:contentDescription="@string/phone_search_hint"
                 android:src="@drawable/ic_phone_search"
                 android:tint="@color/phone_text" />
+
+            <ImageView
+                android:id="@+id/phone_top_avatar"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="2dp"
+                android:padding="9dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/phone_account"
+                android:src="@drawable/ic_phone_account" />
         </LinearLayout>
 
         <LinearLayout

@@ -41,6 +41,7 @@
         <!-- Portrait player: video on top, details below. Rotating goes full screen. -->
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhonePlaybackActivity"
+            android:excludeFromRecents="true"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleInstance"
             android:resizeableActivity="true"

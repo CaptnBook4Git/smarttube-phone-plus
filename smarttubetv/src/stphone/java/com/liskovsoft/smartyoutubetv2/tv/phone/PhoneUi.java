@@ -46,6 +46,34 @@ final class PhoneUi {
         metrics.ydpi = system.ydpi;
     }
 
+    private static java.lang.ref.WeakReference<View> sLastClickedThumb;
+
+    /**
+     * Remember the thumbnail of the tapped card, so the player can expand from it.
+     */
+    static void rememberClick(View itemView) {
+        View thumb = itemView.findViewById(R.id.phone_thumb_frame);
+        if (thumb == null) {
+            thumb = itemView.findViewById(R.id.phone_thumb);
+        }
+        sLastClickedThumb = new java.lang.ref.WeakReference<>(thumb != null ? thumb : itemView);
+    }
+
+    /**
+     * The next player launch scales up from the tapped thumbnail (like the YouTube app) instead of opening a new page.
+     */
+    static void prepareExpandLaunch(Video video) {
+        View view = sLastClickedThumb != null ? sLastClickedThumb.get() : null;
+        sLastClickedThumb = null;
+        if (view == null || video == null || TextUtils.isEmpty(video.videoId) || !view.isAttachedToWindow()) {
+            return;
+        }
+        android.os.Bundle options = android.app.ActivityOptions
+                .makeScaleUpAnimation(view, 0, 0, view.getWidth(), view.getHeight()).toBundle();
+        com.liskovsoft.smartyoutubetv2.common.app.views.ViewManager.instance(view.getContext())
+                .setNextLaunchOptions(PhonePlaybackActivity.class, options);
+    }
+
     static int screenWidthPx() {
         return Resources.getSystem().getDisplayMetrics().widthPixels;
     }

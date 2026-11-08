@@ -57,6 +57,10 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private View mAccountHeader;
     private final View[] mTabViews = new View[TAB_COUNT];
     private boolean mIsFirstResume = true;
+    private boolean mIsInitialSelection = true;
+    private BrowseSection mLoadedSection; // what the presenter actually loads (Home falls back when signed out)
+    private View mSignInCard;
+    private ImageView mTopAvatar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,13 +120,46 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     @Override
     public void onAccountChanged(Account account) {
-        runOnUiThread(this::updateAccountViews);
+        runOnUiThread(() -> {
+            updateAccountViews();
+            if (mCurrentSection != null && mCurrentSection.getId() == MediaGroup.TYPE_HOME) {
+                focusSection(mCurrentSection);
+            }
+        });
+    }
+
+    private static boolean isSignedIn() {
+        Account account = MediaServiceManager.instance().getSelectedAccount();
+        return account != null && !account.isEmpty();
+    }
+
+    private BrowseSection sectionById(int id) {
+        int index = indexOfSection(id);
+        return index != -1 ? mSections.get(index) : null;
+    }
+
+    /**
+     * Signed out, the Home feed is empty: show popular videos there instead, with a sign in card on top.
+     */
+    private BrowseSection signedOutHomeSource() {
+        int[] candidates = {MediaGroup.TYPE_TRENDING, MediaGroup.TYPE_MUSIC, MediaGroup.TYPE_GAMING, MediaGroup.TYPE_NEWS, MediaGroup.TYPE_SPORTS};
+        for (int id : candidates) {
+            BrowseSection section = sectionById(id);
+            if (section != null) {
+                return section;
+            }
+        }
+        return null;
     }
 
     // region UI setup
 
     private void setupTopBar() {
         findViewById(R.id.phone_search).setOnClickListener(v -> SearchPresenter.instance(this).startSearch(null));
+        mTopAvatar = findViewById(R.id.phone_top_avatar);
+        mTopAvatar.setOnClickListener(v -> selectTab(TAB_YOU));
+        mSignInCard = getLayoutInflater().inflate(R.layout.phone_signin_card, mList, false);
+        mSignInCard.findViewById(R.id.phone_signin_card_button).setOnClickListener(v -> YTSignInPresenter.instance(this).start());
         findViewById(R.id.phone_logo).setOnClickListener(v -> scrollToTopOrRefresh());
     }
 
@@ -254,6 +291,16 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private void updateAccountViews() {
         Account account = MediaServiceManager.instance().getSelectedAccount();
         boolean signedIn = account != null && !account.isEmpty();
+
+        if (mTopAvatar != null) {
+            if (signedIn && account.getAvatarImageUrl() != null) {
+                mTopAvatar.setImageTintList(null);
+                PhoneUi.loadAvatar(mTopAvatar, account.getAvatarImageUrl());
+            } else {
+                mTopAvatar.setImageResource(R.drawable.ic_phone_account);
+                mTopAvatar.setImageTintList(ColorStateList.valueOf(getResources().getColor(R.color.phone_text)));
+            }
+        }
 
         // "You" tab icon becomes the account picture
         View youTab = mTabViews[TAB_YOU];
@@ -388,14 +435,25 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         updateChips();
         mAccountHeader.setVisibility(mCurrentTab == TAB_YOU ? View.VISIBLE : View.GONE);
         hideMessage();
-        mAdapter.setMode(modeOf(section));
+
+        BrowseSection load = section;
+        if (section.getId() == MediaGroup.TYPE_HOME && !isSignedIn()) {
+            BrowseSection fallback = signedOutHomeSource();
+            if (fallback != null) {
+                load = fallback;
+            }
+        }
+        mLoadedSection = load;
+
+        mAdapter.setHeaderView(load != section ? mSignInCard : null);
+        mAdapter.setMode(load != section && load.getType() == BrowseSection.TYPE_ROW ? FeedAdapter.MODE_FEED : modeOf(load));
         mList.scrollToPosition(0);
 
-        if (section.getType() == BrowseSection.TYPE_ERROR && section.getData() instanceof ErrorFragmentData) {
-            showError((ErrorFragmentData) section.getData());
+        if (load.getType() == BrowseSection.TYPE_ERROR && load.getData() instanceof ErrorFragmentData) {
+            showError((ErrorFragmentData) load.getData());
         }
 
-        mPresenter.onSectionFocused(section.getId());
+        mPresenter.onSectionFocused(load.getId());
     }
 
     private static int modeOf(BrowseSection section) {
@@ -477,6 +535,15 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         if (mSections.isEmpty() || index < 0) {
             return;
         }
+        if (mIsInitialSelection) {
+            // Phone app always starts on Home
+            mIsInitialSelection = false;
+            BrowseSection home = sectionById(MediaGroup.TYPE_HOME);
+            if (home != null) {
+                focusSection(home);
+                return;
+            }
+        }
         focusSection(mSections.get(Math.min(index, mSections.size() - 1)));
     }
 
@@ -486,7 +553,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             return;
         }
         BrowseSection section = group.getSection();
-        if (section != null && mCurrentSection != null && section.getId() != mCurrentSection.getId()) {
+        BrowseSection expected = mLoadedSection != null ? mLoadedSection : mCurrentSection;
+        if (section != null && expected != null && section.getId() != expected.getId()) {
             return; // late result of a section the user already left
         }
         hideMessage();
@@ -562,6 +630,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     @Override
     public void onVideoClicked(Video video) {
+        PhoneUi.prepareExpandLaunch(video);
         mPresenter.onVideoItemSelected(video);
         mPresenter.onVideoItemClicked(video);
     }

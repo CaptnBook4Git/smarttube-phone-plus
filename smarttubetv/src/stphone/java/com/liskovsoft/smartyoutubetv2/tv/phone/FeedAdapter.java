@@ -582,7 +582,10 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     private void bindClicks(View view, Video video) {
-        view.setOnClickListener(v -> mListener.onVideoClicked(video));
+        view.setOnClickListener(v -> {
+            PhoneUi.rememberClick(view);
+            mListener.onVideoClicked(video);
+        });
         view.setOnLongClickListener(v -> {
             mListener.onVideoLongClicked(video);
             return true;

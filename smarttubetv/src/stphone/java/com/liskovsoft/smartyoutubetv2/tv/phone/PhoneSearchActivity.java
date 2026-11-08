@@ -261,6 +261,7 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
 
     @Override
     public void onVideoClicked(Video video) {
+        PhoneUi.prepareExpandLaunch(video);
         mPresenter.onVideoItemSelected(video);
         mPresenter.onVideoItemClicked(video);
     }

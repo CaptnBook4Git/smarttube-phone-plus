@@ -48,4 +48,6 @@
     <string name="phone_replies">%1$s replies</string>
     <string name="phone_replies_title">Replies</string>
     <string name="phone_signin_connecting">Connecting…</string>
+    <string name="phone_signin_card_title">Sign in for your feed</string>
+    <string name="phone_signin_card_text">Popular videos for now. Your recommendations, subscriptions and history appear after you sign in.</string>
 </resources>

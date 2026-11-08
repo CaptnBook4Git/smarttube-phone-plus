@@ -126,7 +126,10 @@ class ShelfAdapter extends RecyclerView.Adapter<ShelfAdapter.Holder> {
             }
         }
 
-        view.setOnClickListener(v -> mListener.onVideoClicked(video));
+        view.setOnClickListener(v -> {
+            PhoneUi.rememberClick(view);
+            mListener.onVideoClicked(video);
+        });
         view.setOnLongClickListener(v -> {
             mListener.onVideoLongClicked(video);
             return true;

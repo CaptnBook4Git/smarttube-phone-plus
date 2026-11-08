@@ -24,6 +24,19 @@ public class PhoneApplication extends MainApplication {
         super.onCreate();
         CrashReport.install(this);
         setupPhoneViews();
+        applyPhoneDefaults();
+    }
+
+    private void applyPhoneDefaults() {
+        android.content.SharedPreferences prefs = getSharedPreferences("phone_defaults", MODE_PRIVATE);
+        if (!prefs.getBoolean("background_playback_v1", false)) {
+            com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData playerData =
+                    com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData.instance(this);
+            if (playerData.getBackgroundMode() == com.liskovsoft.smartyoutubetv2.common.app.models.playback.manager.PlayerConstants.BACKGROUND_MODE_DEFAULT) {
+                playerData.setBackgroundMode(com.liskovsoft.smartyoutubetv2.common.app.models.playback.manager.PlayerConstants.BACKGROUND_MODE_SOUND);
+            }
+            prefs.edit().putBoolean("background_playback_v1", true).apply();
+        }
     }
 
     private void setupPhoneViews() {

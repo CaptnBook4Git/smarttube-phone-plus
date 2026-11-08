@@ -66,6 +66,7 @@ public class PhoneChannelUploadsActivity extends PhoneListActivity implements Ch
 
     @Override
     public void onVideoClicked(Video video) {
+        PhoneUi.prepareExpandLaunch(video);
         mPresenter.onVideoItemSelected(video);
         mPresenter.onVideoItemClicked(video);
     }

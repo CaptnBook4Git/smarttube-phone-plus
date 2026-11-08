@@ -93,6 +93,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private GestureDetector mCloseDetector;
     private int mStatusInset;
     private boolean mDescriptionExpanded;
+    private Video mLastScrollEndVideo;
 
     private final Runnable mTicker = new Runnable() {
         @Override
@@ -212,6 +213,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (!mPortrait && !isPip()) {
             // Leave full screen first, like the YouTube app
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+            return;
+        }
+        if (!isPip() && !mShortsMode && mPlayer != null && mPlayer.getPlayWhenReady()) {
+            // Playing: shrink to the floating mini player instead of stopping
+            enterMiniPlayer();
             return;
         }
         super.onBackPressed();
@@ -832,11 +838,24 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         addAction(actions, R.id.lb_control_high_quality, R.drawable.ic_phone_settings, getString(R.string.phone_quality));
         addAction(actions, R.id.action_video_speed, R.drawable.ic_phone_speed, getString(R.string.phone_speed));
 
-        // Details only: no suggested videos under the player
+        // Details on top, recommended videos below (TV overlay rows stay hidden)
         mAdapter = new FeedAdapter(this);
         mAdapter.setHeaderView(mHeader);
         mDetails.setItemAnimator(null);
         mDetails.setAdapter(mAdapter);
+        mDetails.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                LinearLayoutManager manager = (LinearLayoutManager) recyclerView.getLayoutManager();
+                if (manager != null && manager.findLastVisibleItemPosition() >= mAdapter.getItemCount() - 4) {
+                    Video last = mAdapter.getScrollEndVideo();
+                    if (last != null && last != mLastScrollEndVideo) {
+                        mLastScrollEndVideo = last;
+                        presenter().onScrollEnd(last);
+                    }
+                }
+            }
+        });
     }
 
     private void addAction(LinearLayout container, int buttonId, int icon, String label) {
@@ -970,11 +989,18 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     @Override
     public void onPlayerSuggestions(VideoGroup group) {
-        // Suggested videos are not shown on the phone player
+        if (mAdapter == null || group == null || group.isChapters()) {
+            return; // chapters stay out of the list
+        }
+        mAdapter.update(group);
     }
 
     @Override
     public void onPlayerSuggestionsCleared() {
+        if (mAdapter != null) {
+            mAdapter.clear();
+        }
+        mLastScrollEndVideo = null;
     }
 
     @Override
@@ -1012,6 +1038,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     @Override
     public void onShelfScrollEnd(Video lastVideo) {
+        if (lastVideo != mLastScrollEndVideo) {
+            mLastScrollEndVideo = lastVideo;
+            presenter().onScrollEnd(lastVideo);
+        }
     }
 
     // endregion

@@ -66,7 +66,14 @@ final class AvatarFetcher {
             return "c:" + video.channelId;
         }
         String handle = handleOf(video);
-        return handle != null ? "h:" + handle : null;
+        if (handle != null) {
+            return "h:" + handle;
+        }
+        // No channel id or handle in the feed item: resolve the channel from the video itself
+        if (!TextUtils.isEmpty(video.videoId)) {
+            return !TextUtils.isEmpty(video.getAuthor()) ? "a:" + video.getAuthor().trim().toLowerCase() : "v:" + video.videoId;
+        }
+        return null;
     }
 
     static void fetch(Context context, Video video, Callback callback) {
@@ -77,6 +84,7 @@ final class AvatarFetcher {
 
         final String channelId = video.channelId;
         final String handle = handleOf(video);
+        final String videoId = video.videoId;
         final String author = video.getAuthor();
         final Context app = context.getApplicationContext();
 
@@ -97,10 +105,15 @@ final class AvatarFetcher {
         POOL.execute(() -> {
             String url = null;
             try {
-                String page = !TextUtils.isEmpty(channelId)
-                        ? "https://www.youtube.com/channel/" + channelId
-                        : "https://www.youtube.com/@" + URLEncoder.encode(handle.substring(1), "UTF-8");
-                url = readOgImage(page);
+                String page;
+                if (!TextUtils.isEmpty(channelId)) {
+                    page = "https://www.youtube.com/channel/" + channelId;
+                } else if (handle != null) {
+                    page = "https://www.youtube.com/@" + URLEncoder.encode(handle.substring(1), "UTF-8");
+                } else {
+                    page = readChannelUrl(videoId);
+                }
+                url = page != null ? readOgImage(page) : null;
             } catch (Throwable ignored) {
                 // Offline, blocked or consent page: keep the initial
             }
@@ -126,6 +139,34 @@ final class AvatarFetcher {
                 });
             }
         });
+    }
+
+    private static final Pattern AUTHOR_URL = Pattern.compile("\"author_url\"\\s*:\\s*\"([^\"]+)\"");
+
+    /**
+     * oEmbed (a tiny JSON) tells which channel a video belongs to.
+     */
+    private static String readChannelUrl(String videoId) throws Exception {
+        if (TextUtils.isEmpty(videoId)) {
+            return null;
+        }
+        String api = "https://www.youtube.com/oembed?format=json&url="
+                + URLEncoder.encode("https://www.youtube.com/watch?v=" + videoId, "UTF-8");
+        HttpURLConnection connection = (HttpURLConnection) new URL(api).openConnection();
+        connection.setConnectTimeout(8000);
+        connection.setReadTimeout(8000);
+        try (InputStream in = connection.getInputStream()) {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] chunk = new byte[4096];
+            int read;
+            while ((read = in.read(chunk)) != -1 && buffer.size() < 64 * 1024) {
+                buffer.write(chunk, 0, read);
+            }
+            Matcher matcher = AUTHOR_URL.matcher(new String(buffer.toByteArray(), StandardCharsets.UTF_8));
+            return matcher.find() ? matcher.group(1).replace("\\/", "/") : null;
+        } finally {
+            connection.disconnect();
+        }
     }
 
     private static String readOgImage(String pageUrl) throws Exception {

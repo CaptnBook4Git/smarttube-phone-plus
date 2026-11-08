@@ -6,6 +6,7 @@ import android.app.Fragment;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.Lifecycle;
@@ -185,6 +186,31 @@ public class ViewManager {
         startActivity(lastActivity);
     }
 
+    private Class<?> mNextLaunchClass;
+    private Bundle mNextLaunchOptions;
+    private long mNextLaunchTimeMs;
+
+    /**
+     * Activity options (e.g. a scale up animation from a thumbnail) for the next launch of the given activity.
+     * Used by the phone UI to open the player from the tapped video. Expires after a few seconds.
+     */
+    public void setNextLaunchOptions(Class<?> activityClass, Bundle options) {
+        mNextLaunchClass = activityClass;
+        mNextLaunchOptions = options;
+        mNextLaunchTimeMs = System.currentTimeMillis();
+    }
+
+    private Bundle takeLaunchOptions(Class<?> activityClass) {
+        Bundle options = null;
+        if (mNextLaunchOptions != null && activityClass == mNextLaunchClass
+                && System.currentTimeMillis() - mNextLaunchTimeMs < 3_000) {
+            options = mNextLaunchOptions;
+        }
+        mNextLaunchOptions = null;
+        mNextLaunchClass = null;
+        return options;
+    }
+
     private void startActivity(Class<?> activityClass) {
         Log.d(TAG, "Launching activity: " + activityClass.getSimpleName());
 
@@ -196,7 +222,7 @@ public class ViewManager {
         // Fix: Calling startActivity() from outside of an Activity  context requires the FLAG_ACTIVITY_NEW_TASK flag
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-        safeStartActivity(mContext, intent);
+        safeStartActivity(mContext, intent, takeLaunchOptions(activityClass));
     }
 
     private boolean doThrottle() {
@@ -389,12 +415,16 @@ public class ViewManager {
      * Small delay to fix PIP transition bug (UI become unresponsive)
      */
     private void safeStartActivity(Context context, Intent intent) {
+        safeStartActivity(context, intent, null);
+    }
+
+    private void safeStartActivity(Context context, Intent intent, Bundle options) {
         mIsFinished = false;
 
         if (PlaybackPresenter.instance(mContext).isEngineBlocked()) { // Android 14 no-pip fix???
-            Utils.postDelayed(() -> safeStartActivityInt(context, intent), 0); // 50 ms old val
+            Utils.postDelayed(() -> safeStartActivityInt(context, intent, options), 0); // 50 ms old val
         } else {
-            safeStartActivityInt(context, intent);
+            safeStartActivityInt(context, intent, options);
         }
     }
 
@@ -402,9 +432,9 @@ public class ViewManager {
      * Fix: java.lang.IllegalArgumentException<br/>
      * View=android.widget.TextView not attached to window manager
      */
-    private void safeStartActivityInt(Context context, Intent intent) {
+    private void safeStartActivityInt(Context context, Intent intent, Bundle options) {
         try {
-            context.startActivity(intent);
+            context.startActivity(intent, options);
         } catch (IllegalArgumentException | ActivityNotFoundException | IndexOutOfBoundsException | NullPointerException | SecurityException e) {
             // NPE: Attempt to write to field 'boolean com.android.server.am.ActivityStack.mConfigWillChange' on a null object reference
             Log.e(TAG, "Error when starting activity: %s", e.getMessage());
