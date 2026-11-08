@@ -94,6 +94,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private boolean mDescriptionExpanded;
     private Video mLastScrollEndVideo;
     private ImageView mPoster;
+    private ImageView mIncomingPoster; // the next Short's picture while swiping
     private boolean mAwaitingNewVideo;
     private String mExpectedVideoId; // the Short a swipe is opening
     private Video mSwipedTo; // the Short a swipe opened, until SmartTube's presenter reports it too
@@ -157,6 +158,12 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mPoster.setScaleType(ImageView.ScaleType.CENTER_CROP);
         mPoster.setBackgroundColor(Color.BLACK);
         mVideoBox.addView(mPoster, 1, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        mIncomingPoster = new ImageView(this);
+        mIncomingPoster.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        mIncomingPoster.setBackgroundColor(Color.BLACK);
+        mIncomingPoster.setVisibility(View.GONE);
+        mVideoBox.addView(mIncomingPoster, 2, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         showPoster(presenter().getVideo());
 
@@ -888,7 +895,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mMiniProgress.setProgress(progress);
 
         if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mAwaitingNewVideo && !mPaging && !mPageAnimating && position > 350
-                && mPlayer.getPlayWhenReady() && (!mShortsMode || android.os.SystemClock.uptimeMillis() - mPosterSince > 300)) {
+                && mPlayer.getPlayWhenReady() && (!mShortsMode || newShortIsPlaying(position))) {
             mPoster.animate().alpha(0f).setDuration(220).withEndAction(() -> mPoster.setVisibility(View.GONE)).start();
         }
 
@@ -1039,14 +1046,23 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         return mPlayer != null ? mPlayer.getView() : null;
     }
 
+    /**
+     * Right after a swipe the player can still report the previous Short's position for a moment. Only uncover the
+     * video once its position fits the time since the new Short arrived, i.e. its own frames are really playing.
+     */
+    private boolean newShortIsPlaying(long position) {
+        long shownFor = android.os.SystemClock.uptimeMillis() - mPosterSince;
+        return shownFor > 300 && position <= shownFor + 1500;
+    }
+
     private void preparePage(Video incoming) {
-        mPoster.animate().cancel();
-        mPoster.setAlpha(1f);
-        mPoster.setVisibility(View.VISIBLE);
+        // The current Short keeps its own picture (or video); the incoming one gets the second poster
         if (incoming != null) {
-            PhoneUi.loadThumb(mPoster, incoming, true);
+            mIncomingPoster.setAlpha(1f);
+            mIncomingPoster.setVisibility(View.VISIBLE);
+            PhoneUi.loadThumb(mIncomingPoster, incoming, true);
         } else {
-            mPoster.setImageDrawable(new android.graphics.drawable.ColorDrawable(Color.BLACK));
+            mIncomingPoster.setVisibility(View.GONE); // nothing there: just a small rubber band
         }
         setPageOffset(0);
     }
@@ -1058,7 +1074,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             video.setTranslationY(offset);
         }
         mShorts.setTranslationY(offset);
-        mPoster.setTranslationY((mPageDirection > 0 ? height : -height) + offset);
+        mPoster.setTranslationY(offset); // the current Short's picture moves with it
+        mIncomingPoster.setTranslationY((mPageDirection > 0 ? height : -height) + offset);
     }
 
     private void commitPage() {
@@ -1066,8 +1083,17 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         float target = mPageDirection > 0 ? -height : height;
         View video = playerView();
         animatePage(target, 230, () -> {
-            // The new Short's thumbnail now fills the screen and stays until its video plays
+            // The new Short's thumbnail now fills the screen and stays until its video plays: it becomes the poster
+            ImageView old = mPoster;
+            mPoster = mIncomingPoster;
+            mIncomingPoster = old;
+            mIncomingPoster.animate().cancel();
+            mIncomingPoster.setVisibility(View.GONE);
+            mIncomingPoster.setTranslationY(0);
             mPoster.setTranslationY(0);
+            mPoster.setAlpha(1f);
+            mPoster.setVisibility(View.VISIBLE);
+            mPosterSince = android.os.SystemClock.uptimeMillis();
             if (video != null) {
                 video.setTranslationY(0);
             }
@@ -1102,8 +1128,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 video.setTranslationY(0);
             }
             mShorts.setTranslationY(0);
-            mPoster.setVisibility(View.GONE);
             mPoster.setTranslationY(0);
+            mIncomingPoster.setVisibility(View.GONE);
+            mIncomingPoster.setTranslationY(0);
         });
     }
 
@@ -1119,9 +1146,6 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             mPageAnimator.end();
         }
         mPageAnimating = true;
-        mPoster.animate().cancel();
-        mPoster.setAlpha(1f);
-        mPoster.setVisibility(View.VISIBLE);
         android.animation.ValueAnimator animator = android.animation.ValueAnimator.ofFloat(mShorts.getTranslationY(), target);
         animator.setDuration(duration);
         animator.setInterpolator(new android.view.animation.DecelerateInterpolator(1.8f));
@@ -1164,6 +1188,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
         mShorts.setTranslationY(0);
         mPoster.setTranslationY(0);
+        mIncomingPoster.setVisibility(View.GONE);
+        mIncomingPoster.setTranslationY(0);
         mPageAnimating = false;
     }
 

@@ -662,13 +662,15 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             PhonePlaybackActivity.releaseDetachedPlayer();
             mPresenter.onVideoItemSelected(first);
             mPresenter.onVideoItemClicked(first);
-            if (group.getVideos().size() < 5) {
-                // Only the first Short came in (so it starts fast): fetch the next ones while it plays
-                mPresenter.onScrollEnd(group.getVideos().get(group.getVideos().size() - 1));
-            }
+            Video last = group.getVideos().get(group.getVideos().size() - 1);
+            boolean fetchMore = group.getVideos().size() < 5; // only the first Short came in (so it starts fast)
             BrowseSection back = mShortsReturnSection;
             if (back != null && back.getId() != MediaGroup.TYPE_SHORTS) {
                 mList.postDelayed(() -> focusSection(back), 400);
+            }
+            if (fetchMore) {
+                // After Home is back in place (switching sections cancels pending loads): the next Shorts
+                mList.postDelayed(() -> mPresenter.onScrollEnd(last), 900);
             }
             return;
         }
