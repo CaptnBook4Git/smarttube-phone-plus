@@ -5,8 +5,9 @@
 <h1 align="center">SmartTube for phones</h1>
 
 <p align="center">
-  An ad-free YouTube app for Android phones that looks and feels like the official one.<br>
-  Portrait player, swipeable Shorts, picture in picture, background play, and Dark or Light appearance.
+  <b>An unofficial Android phone port of <a href="https://github.com/yuliskov/SmartTube">SmartTube</a>, the open-source YouTube client for Android TV.</b><br>
+  Ad-free YouTube with a touch interface that looks and feels like the official app: portrait player,<br>
+  swipeable Shorts, picture in picture, background play, and Dark or Light appearance.
 </p>
 
 <p align="center">
@@ -23,6 +24,11 @@
   <img src="images/phone/05_shorts.jpg" width="200" alt="Shorts">
   <img src="images/phone/11_home_light.jpg" width="200" alt="Home in Light appearance">
 </p>
+
+> [!NOTE]
+> **This project is a port of [SmartTube](https://github.com/yuliskov/SmartTube) by [Yuriy Liskov](https://github.com/yuliskov) from Android TV to Android phones.**
+> SmartTube was built for TVs and TV boxes and is controlled with a remote. This port keeps SmartTube's engine (the YouTube client, playback, sign in, SponsorBlock and settings) and replaces the TV interface with a touch interface designed for phones.
+> It is an independent project, not affiliated with SmartTube's developer, YouTube or Google. For the TV app, visit the [original SmartTube repository](https://github.com/yuliskov/SmartTube).
 
 ---
 
@@ -53,7 +59,17 @@
 
 ## What it is
 
-SmartTube for phones is a phone edition of SmartTube, the open-source YouTube client for Android TV. It keeps everything that makes SmartTube good (no ads, SponsorBlock, high quality playback, no Google services needed) and replaces the TV interface with a touch interface built for a phone held in one hand.
+SmartTube for phones is a port of [SmartTube](https://github.com/yuliskov/SmartTube), the popular open-source YouTube client for Android TV, to Android phones.
+
+The original SmartTube is designed for the big screen: it is navigated with a TV remote and does not support phones or tablets. This port brings it to phones by rebuilding the interface for touch, in portrait, held in one hand, while keeping SmartTube's proven core unchanged underneath:
+
+| From SmartTube (unchanged) | New in this port |
+| --- | --- |
+| YouTube client and video playback | Phone interface with bottom tabs and topic chips |
+| Ad-free viewing and SponsorBlock | Portrait player with details, comments and recommendations |
+| Account sign in with a device code | Full screen vertical Shorts with swipe navigation |
+| Quality up to 8K, 60 fps and HDR | Picture in picture and background play with notification controls |
+| Settings, history, playlists and subscriptions | Touch gestures, phone search with voice input, Dark and Light appearance |
 
 It installs as its own app (`org.smarttube.phone`), so it can sit next to the official YouTube app or SmartTube for TV without conflicts.
 
