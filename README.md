@@ -110,9 +110,9 @@ When Android asks to allow notifications, tap **Allow**. The app uses the notifi
 
 Each build is listed on the [releases page](https://github.com/shreyas-bangera/smarttube-phone/releases). The download link above always points to the newest one.
 
-> **Important:** builds are not yet signed with one fixed key, so Android refuses to install a new build over an old one ("App not installed" or "package conflicts with an existing package"). Uninstall the old SmartTube first (long press the icon, then **Uninstall**), then install the new APK.
->
-> Uninstalling also signs you out and resets your settings, so you need to sign in again after each update. This goes away once builds are signed with a permanent key.
+To update, download the latest APK and install it over the app you have. Android shows **Update** instead of Install, and you stay signed in with all your settings kept.
+
+> **Coming from build 38 or older?** Those builds were signed with a temporary key, so Android refuses to install the new version over them ("App not installed" or "package conflicts with an existing package"). Uninstall the old SmartTube once (long press the icon, then **Uninstall**) and install the latest APK. Every update after that installs normally.
 
 ## Connect your YouTube account
 
@@ -251,7 +251,7 @@ Open the **You** tab and tap the **Settings** chip.
 ## Troubleshooting
 
 **"App not installed" when installing a new build**
-Uninstall the old SmartTube first, then install again. See [Update to a new build](#update-to-a-new-build).
+You probably have one of the early builds signed with a temporary key. Uninstall it once, then install the latest APK. See [Update to a new build](#update-to-a-new-build).
 
 **Install is blocked**
 Allow your browser or file manager to install unknown apps (Settings, Apps, Special app access, Install unknown apps), and choose **Install anyway** if Play Protect warns.
