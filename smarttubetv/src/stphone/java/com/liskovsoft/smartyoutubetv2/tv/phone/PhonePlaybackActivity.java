@@ -97,6 +97,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private ImageView mPoster;
     private boolean mAwaitingNewVideo;
     private String mExpectedVideoId; // the Short a swipe is opening
+    private Video mShownVideo; // the video on screen (SmartTube's presenter reports a new one a moment late)
     private long mPosterSince;
     private final java.util.List<Video> mShortsHistory = new java.util.ArrayList<>();
     private android.content.BroadcastReceiver mPlayPauseReceiver;
@@ -992,6 +993,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             mShorts.setAlpha(1f);
             if (mIncoming != null) {
                 refreshShorts(mIncoming);
+                mShownVideo = mIncoming;
                 String expected = mIncoming.videoId;
                 mExpectedVideoId = expected;
                 // Safety net: never wait forever if the player reports the Short under another id
@@ -1040,8 +1042,6 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private Video nextShort() {
         Video current = currentVideo();
         Video next = PhoneShortsQueue.next(current);
-        android.util.Log.d("SmartTubePhone", "nextShort queue=" + PhoneShortsQueue.videos().size()
-                + " current=" + (current != null ? current.videoId : null) + " next=" + (next != null ? next.videoId : null));
         if (next != null) {
             return next;
         }
@@ -1284,8 +1284,6 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (mShorts == null || video == null) {
             return;
         }
-        android.util.Log.d("SmartTubePhone", "refreshShorts id=" + video.videoId + " title=" + video.getTitle()
-                + " author=" + video.getAuthor() + " awaiting=" + mAwaitingNewVideo, new Throwable());
         ((TextView) findViewById(R.id.phone_shorts_title)).setText(video.getTitle());
         ((TextView) findViewById(R.id.phone_shorts_author)).setText(video.getAuthor());
         PhoneUi.bindAuthorAvatar(findViewById(R.id.phone_shorts_avatar), video);
@@ -1401,6 +1399,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     private Video currentVideo() {
+        if (mShownVideo != null) {
+            return mShownVideo;
+        }
         Video video = presenter().getVideo();
         if (video == null && mPlayer != null) {
             video = mPlayer.getVideo();
@@ -1489,10 +1490,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     @Override
     public void onPlayerVideo(Video video) {
-        android.util.Log.d("SmartTubePhone", "onPlayerVideo id=" + (video != null ? video.videoId : null)
-                + " title=" + (video != null ? video.getTitle() : null) + " expected=" + mExpectedVideoId + " awaiting=" + mAwaitingNewVideo);
         if (mAwaitingNewVideo && video != null && mExpectedVideoId != null && !mExpectedVideoId.equals(video.videoId)) {
             return; // late update of the Short we just swiped away from
+        }
+        if (video != null) {
+            mShownVideo = video;
         }
         if (mAwaitingNewVideo && video != null) {
             mExpectedVideoId = null;
