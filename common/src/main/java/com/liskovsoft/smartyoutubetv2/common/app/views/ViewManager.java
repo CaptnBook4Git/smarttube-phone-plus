@@ -278,6 +278,11 @@ public class ViewManager {
     }
 
     private Class<?> getDefaultParent(Activity activity) {
+        // An exact match wins over a parent class (e.g. the phone player extends the TV player)
+        if (mParentMapping.containsKey(activity.getClass())) {
+            return mParentMapping.get(activity.getClass());
+        }
+
         Class<?> parentActivity = null;
 
         for (Class<?> activityClass : mParentMapping.keySet()) {
