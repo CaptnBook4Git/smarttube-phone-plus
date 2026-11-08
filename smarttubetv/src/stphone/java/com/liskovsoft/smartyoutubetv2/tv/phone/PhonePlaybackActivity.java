@@ -96,6 +96,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private Video mLastScrollEndVideo;
     private ImageView mPoster;
     private boolean mAwaitingNewVideo;
+    private String mExpectedVideoId; // the Short a swipe is opening
     private long mPosterSince;
     private final java.util.List<Video> mShortsHistory = new java.util.ArrayList<>();
     private android.content.BroadcastReceiver mPlayPauseReceiver;
@@ -987,7 +988,20 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 video.setTranslationY(0);
             }
             mShorts.setTranslationY(0);
-            mShorts.setAlpha(0f);
+            // The overlay already shows the incoming Short, so title and channel match the picture
+            mShorts.setAlpha(1f);
+            if (mIncoming != null) {
+                refreshShorts(mIncoming);
+                String expected = mIncoming.videoId;
+                mExpectedVideoId = expected;
+                // Safety net: never wait forever if the player reports the Short under another id
+                mShorts.postDelayed(() -> {
+                    if (mAwaitingNewVideo && expected.equals(mExpectedVideoId)) {
+                        mExpectedVideoId = null;
+                        onPlayerVideo(currentVideo());
+                    }
+                }, 5000);
+            }
             mAwaitingNewVideo = true;
             mPageAnimating = false;
             openShort(mIncoming);
@@ -1393,7 +1407,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     private void refreshDetails() {
-        Video video = currentVideo();
+        refreshDetails(currentVideo());
+    }
+
+    private void refreshDetails(Video video) {
         if (video == null || mHeader == null) {
             return;
         }
@@ -1467,7 +1484,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     @Override
     public void onPlayerVideo(Video video) {
+        if (mAwaitingNewVideo && video != null && mExpectedVideoId != null && !mExpectedVideoId.equals(video.videoId)) {
+            return; // late update of the Short we just swiped away from
+        }
         if (mAwaitingNewVideo && video != null) {
+            mExpectedVideoId = null;
             // Swipe finished loading: keep the poster (now the real thumbnail) until frames play
             mAwaitingNewVideo = false;
             mPosterSince = android.os.SystemClock.uptimeMillis();
@@ -1493,7 +1514,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             applySystemBars();
         }
         mDescriptionExpanded = false;
-        refreshDetails();
+        refreshDetails(video);
         if (mDetails != null) {
             mDetails.scrollToPosition(0);
         }
