@@ -58,6 +58,12 @@ jobs:
           mkdir -p out
           cp ./smarttubetv/build/outputs/apk/stphone/release/*_arm64-v8a.apk out/SmartTube-Phone-arm64.apk
 
+      - name: Show signer and version
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
+          $BT/apksigner verify --print-certs out/SmartTube-Phone-arm64.apk | grep -E "SHA-256|DN"
+          $BT/aapt dump badging out/SmartTube-Phone-arm64.apk | head -n 1
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
