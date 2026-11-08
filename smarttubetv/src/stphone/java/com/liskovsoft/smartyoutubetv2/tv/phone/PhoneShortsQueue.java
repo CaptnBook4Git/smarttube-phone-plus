@@ -7,43 +7,44 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The Shorts the user is swiping through (the row or grid the first Short came from).
+ * The Shorts the user is swiping through (the row or grid the first Short came from, plus every batch loaded after it).
  * Swiping only ever moves inside this list, so it never lands on a regular video.
  */
 final class PhoneShortsQueue {
-    private static VideoGroup sGroup;
+    private static final List<Video> sVideos = new ArrayList<>();
 
     private PhoneShortsQueue() {
     }
 
-    static void set(VideoGroup group) {
-        sGroup = group;
+    static synchronized void set(VideoGroup group) {
+        sVideos.clear();
+        append(group);
     }
 
-    static List<Video> videos() {
-        List<Video> result = new ArrayList<>();
-        if (sGroup != null && sGroup.getVideos() != null) {
-            for (Video video : sGroup.getVideos()) {
-                // The group comes from the Shorts section or a Shorts row: every item is a Short
-                // (items there don't always carry the isShorts flag)
-                if (video != null && video.videoId != null) {
-                    result.add(video);
-                }
+    /** A further batch of the same Shorts list (loaded while the user swipes) */
+    static synchronized void append(VideoGroup group) {
+        if (group == null || group.getVideos() == null) {
+            return;
+        }
+        // The group comes from the Shorts section or a Shorts row: every item is a Short
+        // (items there don't always carry the isShorts flag)
+        for (Video video : new ArrayList<>(group.getVideos())) {
+            if (video != null && video.videoId != null && indexOf(sVideos, video) < 0) {
+                sVideos.add(video);
             }
         }
-        return result;
+    }
+
+    static synchronized boolean isActive() {
+        return !sVideos.isEmpty();
+    }
+
+    static synchronized List<Video> videos() {
+        return new ArrayList<>(sVideos);
     }
 
     static boolean contains(Video video) {
-        if (video == null || video.videoId == null) {
-            return false;
-        }
-        for (Video item : videos()) {
-            if (video.videoId.equals(item.videoId)) {
-                return true;
-            }
-        }
-        return false;
+        return indexOf(videos(), video) >= 0;
     }
 
     static Video next(Video current) {

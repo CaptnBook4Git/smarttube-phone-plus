@@ -353,7 +353,12 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         if (shorts == null) {
             return;
         }
-        mShortsReturnSection = mCurrentSection;
+        // Come back to where the user was (Home if they were already on Shorts), never to an empty Shorts tab
+        BrowseSection back = mCurrentSection;
+        if (back == null || back.getId() == MediaGroup.TYPE_SHORTS) {
+            back = sectionById(MediaGroup.TYPE_HOME);
+        }
+        mShortsReturnSection = back;
         mShortsAutoplay = true;
         focusSection(shorts);
     }
@@ -640,6 +645,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             return;
         }
         BrowseSection section = group.getSection();
+        if (section != null && section.getId() == MediaGroup.TYPE_SHORTS && !mShortsAutoplay && PhoneShortsQueue.isActive()) {
+            PhoneShortsQueue.append(group); // next batch for the Shorts player, even though Home is behind it
+        }
         BrowseSection expected = mLoadedSection != null ? mLoadedSection : mCurrentSection;
         if (section != null && expected != null && section.getId() != expected.getId()) {
             return; // late result of a section the user already left
@@ -654,6 +662,10 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             PhonePlaybackActivity.releaseDetachedPlayer();
             mPresenter.onVideoItemSelected(first);
             mPresenter.onVideoItemClicked(first);
+            if (group.getVideos().size() < 5) {
+                // Only the first Short came in (so it starts fast): fetch the next ones while it plays
+                mPresenter.onScrollEnd(group.getVideos().get(group.getVideos().size() - 1));
+            }
             BrowseSection back = mShortsReturnSection;
             if (back != null && back.getId() != MediaGroup.TYPE_SHORTS) {
                 mList.postDelayed(() -> focusSection(back), 400);

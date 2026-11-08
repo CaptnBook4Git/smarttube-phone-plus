@@ -233,6 +233,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     protected void onPause() {
         super.onPause();
+        finishPageAnimation();
         mHandler.removeCallbacks(mTicker);
         mHandler.removeCallbacks(mAutoHide);
     }
@@ -592,8 +593,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     // endregion
 
     private void showPoster(Video video) {
-        if (mPoster == null || video == null) {
-            return;
+        if (mPoster == null || video == null || mPaging || mPageAnimating) {
+            return; // mid swipe the poster belongs to the swipe
         }
         mPoster.animate().cancel();
         mPoster.setAlpha(1f);
@@ -886,7 +887,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
         mMiniProgress.setProgress(progress);
 
-        if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mAwaitingNewVideo && position > 350
+        if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mAwaitingNewVideo && !mPaging && !mPageAnimating && position > 350
                 && mPlayer.getPlayWhenReady() && (!mShortsMode || android.os.SystemClock.uptimeMillis() - mPosterSince > 300)) {
             mPoster.animate().alpha(0f).setDuration(220).withEndAction(() -> mPoster.setVisibility(View.GONE)).start();
         }
@@ -1064,14 +1065,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         float height = mVideoBox.getHeight();
         float target = mPageDirection > 0 ? -height : height;
         View video = playerView();
-        mPageAnimating = true;
-        android.view.animation.Interpolator interpolator = new android.view.animation.DecelerateInterpolator(1.8f);
-        if (video != null) {
-            video.animate().translationY(target).setDuration(230).setInterpolator(interpolator).start();
-        }
-        mShorts.animate().translationY(target).setDuration(230).setInterpolator(interpolator).start();
-        mPoster.animate().translationY(0).setDuration(230).setInterpolator(interpolator).withEndAction(() -> {
+        animatePage(target, 230, () -> {
             // The new Short's thumbnail now fills the screen and stays until its video plays
+            mPoster.setTranslationY(0);
             if (video != null) {
                 video.setTranslationY(0);
             }
@@ -1095,24 +1091,80 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 }, 5000);
             }
             mAwaitingNewVideo = true;
-            mPageAnimating = false;
             openShort(mIncoming);
-        }).start();
+        });
     }
 
     private void settlePage() {
-        View video = playerView();
-        float height = mVideoBox.getHeight();
-        mPageAnimating = true;
-        if (video != null) {
-            video.animate().translationY(0).setDuration(200).start();
-        }
-        mShorts.animate().translationY(0).setDuration(200).start();
-        mPoster.animate().translationY(mPageDirection > 0 ? height : -height).setDuration(200).withEndAction(() -> {
+        animatePage(0, 200, () -> {
+            View video = playerView();
+            if (video != null) {
+                video.setTranslationY(0);
+            }
+            mShorts.setTranslationY(0);
             mPoster.setVisibility(View.GONE);
             mPoster.setTranslationY(0);
-            mPageAnimating = false;
-        }).start();
+        });
+    }
+
+    private android.animation.ValueAnimator mPageAnimator;
+
+    /**
+     * Slides the current Short and the incoming one together to the given offset. Owned by this screen, so nothing
+     * else (poster fades, overlay fades, player updates) can cancel it halfway; the cleanup runs even if it's ended
+     * early, so the video can never stay stuck off screen.
+     */
+    private void animatePage(float target, long duration, Runnable onDone) {
+        if (mPageAnimator != null) {
+            mPageAnimator.end();
+        }
+        mPageAnimating = true;
+        mPoster.animate().cancel();
+        mPoster.setAlpha(1f);
+        mPoster.setVisibility(View.VISIBLE);
+        android.animation.ValueAnimator animator = android.animation.ValueAnimator.ofFloat(mShorts.getTranslationY(), target);
+        animator.setDuration(duration);
+        animator.setInterpolator(new android.view.animation.DecelerateInterpolator(1.8f));
+        animator.addUpdateListener(a -> setPageOffset((float) a.getAnimatedValue()));
+        animator.addListener(new android.animation.AnimatorListenerAdapter() {
+            private boolean mDone;
+
+            @Override
+            public void onAnimationEnd(android.animation.Animator a) {
+                if (mDone) {
+                    return;
+                }
+                mDone = true;
+                if (mPageAnimator == a) {
+                    mPageAnimator = null;
+                }
+                mPageAnimating = false;
+                onDone.run();
+            }
+        });
+        mPageAnimator = animator;
+        animator.start();
+    }
+
+    /** Leaving the screen mid swipe: finish the swipe right away so nothing stays half moved */
+    private void finishPageAnimation() {
+        if (mPageAnimator != null) {
+            mPageAnimator.end();
+        }
+        if (mPaging) {
+            mPaging = false;
+            settlePageNow();
+        }
+    }
+
+    private void settlePageNow() {
+        View video = playerView();
+        if (video != null) {
+            video.setTranslationY(0);
+        }
+        mShorts.setTranslationY(0);
+        mPoster.setTranslationY(0);
+        mPageAnimating = false;
     }
 
     private void openShort(Video video) {

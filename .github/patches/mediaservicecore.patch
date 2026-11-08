@@ -1,5 +1,5 @@
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
-index ad4bafa..15b2f33 100644
+index ad4bafa..2b87a92 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
 +++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
 @@ -14,6 +14,8 @@ import com.liskovsoft.youtubeapi.next.v2.gen.getItems
@@ -11,7 +11,27 @@ index ad4bafa..15b2f33 100644
  internal open class BrowseService2 {
      private val mBrowseApi = RetrofitHelper.create(BrowseApi::class.java)
  
-@@ -243,20 +245,25 @@ internal open class BrowseService2 {
+@@ -143,6 +145,19 @@ internal open class BrowseService2 {
+         return getShortsWeb()
+     }
+ 
++    /**
++     * Phone: just the first Short (one request) so playback starts right away.
++     * The rest of the feed arrives as an ordinary continuation of this group.
++     */
++    fun getShortsFirst(): MediaGroup? {
++        val firstResult = mBrowseApi.getReelResult(BrowseApiHelper.getReelQuery())
++
++        return RetrofitHelper.get(firstResult, false)?.let { firstItem ->
++            ShortsMediaGroup(mutableListOf<MediaItem?>(ShortsMediaItem(null, firstItem)), firstItem.getContinuationToken(),
++                MediaGroupOptions.create(MediaGroup.TYPE_SHORTS))
++        }
++    }
++
+     private fun getShortsWeb(auth: Boolean = false): MediaGroup? {
+         val firstResult = mBrowseApi.getReelResult(BrowseApiHelper.getReelQuery())
+ 
+@@ -243,20 +258,25 @@ internal open class BrowseService2 {
  
          val continuation = mBrowseApi?.getReelContinuationResult(BrowseApiHelper.getReelContinuationQuery(AppClient.WEB, continuationKey))
  
@@ -48,22 +68,26 @@ index ad4bafa..15b2f33 100644
      }
  
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
-index 1bfecfd..e09e780 100644
+index 1bfecfd..41cfa5e 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
 +++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
-@@ -295,14 +295,14 @@ class YouTubeContentService implements ContentService {
+@@ -295,14 +295,18 @@ class YouTubeContentService implements ContentService {
  
              //emitGroup(emitter, getBrowseService2().getShorts());
  
 -            MediaGroup shorts = getBrowseService2().getShorts();
 +            // Phone: the Shorts tab is the general Shorts feed (like the YouTube app), not only subscriptions
-+            MediaGroup shorts = getBrowseService2().getShorts2();
++            MediaGroup shorts = getBrowseService2().getShortsFirst();
  
 -            if (shorts != null && shorts.getNextPageKey() != null) {
 -                emitGroup(emitter, shorts);
 -            } else {
 -                emitGroupPartial(emitter, shorts);
 -                emitGroup(emitter, getBrowseService2().getShorts2());
++            if (shorts == null || shorts.isEmpty() || shorts.getNextPageKey() == null) {
++                shorts = getBrowseService2().getShorts2();
++            }
++
 +            if (shorts == null || shorts.isEmpty()) {
 +                shorts = getBrowseService2().getShorts();
              }
