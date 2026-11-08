@@ -2,6 +2,7 @@ package com.liskovsoft.smartyoutubetv2.tv.phone;
 
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.TypedValue;
@@ -87,6 +88,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mPresenter.onViewInitialized();
 
         CrashReport.showIfAny(this);
+        mList.postDelayed(this::askNotificationPermission, 1500);
     }
 
     @Override
@@ -329,6 +331,18 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     /**
      * Shorts tab: open the first Short full screen (swipe for more) and stay on the current tab underneath.
      */
+    private void askNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33 || isFinishing()
+                || checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        android.content.SharedPreferences prefs = getSharedPreferences("phone_defaults", MODE_PRIVATE);
+        if (!prefs.getBoolean("asked_notifications", false)) {
+            prefs.edit().putBoolean("asked_notifications", true).apply();
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 4712);
+        }
+    }
+
     private void playShorts() {
         BrowseSection shorts = sectionById(MediaGroup.TYPE_SHORTS);
         if (shorts == null) {
@@ -630,6 +644,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         if (mShortsAutoplay && group.getVideos() != null && !group.getVideos().isEmpty()
                 && mCurrentSection != null && mCurrentSection.getId() == MediaGroup.TYPE_SHORTS) {
             mShortsAutoplay = false;
+            PhoneShortsQueue.set(group);
             Video first = group.getVideos().get(0);
             mPresenter.onVideoItemSelected(first);
             mPresenter.onVideoItemClicked(first);

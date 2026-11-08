@@ -39,6 +39,7 @@ public abstract class PhoneActivity extends MotherActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        PhoneTheme.apply(this);
         PhoneUi.applyPhoneDensity(this); // before the subclass inflates its layout
         getWindow().setWindowAnimations(R.style.PhoneScreenAnimation); // open/close in place instead of sliding pages
         setupSystemBars();
@@ -47,12 +48,14 @@ public abstract class PhoneActivity extends MotherActivity {
     @Override
     public void onConfigurationChanged(android.content.res.Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        PhoneTheme.apply(this);
         PhoneUi.applyPhoneDensity(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        PhoneTheme.apply(this);
         PhoneUi.applyPhoneDensity(this); // MotherActivity re-applies the TV density on resume
         // MotherActivity may switch to immersive mode (TV fullscreen setting). Phones keep their bars.
         setupSystemBars();

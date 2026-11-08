@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:layout_margin="4dp"
     android:background="@drawable/phone_round_thumb"
-    android:foreground="?android:attr/selectableItemBackground">
+    android:foreground="@drawable/phone_ripple">
 
     <ImageView
         android:id="@+id/phone_thumb"

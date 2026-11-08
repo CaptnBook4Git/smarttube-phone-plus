@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:layout_marginEnd="12dp"
     android:orientation="vertical"
-    android:background="?android:attr/selectableItemBackground">
+    android:background="@drawable/phone_ripple">
 
     <include layout="@layout/phone_thumb"
         android:layout_width="match_parent"

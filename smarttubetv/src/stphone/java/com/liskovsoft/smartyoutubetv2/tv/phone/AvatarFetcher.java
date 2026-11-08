@@ -109,7 +109,26 @@ final class AvatarFetcher {
 
         POOL.execute(() -> {
             String url = null;
-            for (int attempt = 0; attempt < 2 && url == null; attempt++) {
+            String resolvedChannelId = channelId;
+
+            // 1. SmartTube's own API (the player gets the channel picture the same way)
+            if (!TextUtils.isEmpty(videoId)) {
+                try {
+                    com.liskovsoft.mediaserviceinterfaces.data.MediaItemMetadata metadata =
+                            com.liskovsoft.youtubeapi.service.YouTubeServiceManager.instance().getMediaItemService().getMetadata(videoId);
+                    if (metadata != null) {
+                        url = metadata.getAuthorImageUrl();
+                        if (TextUtils.isEmpty(resolvedChannelId)) {
+                            resolvedChannelId = metadata.getChannelId();
+                        }
+                    }
+                } catch (Throwable ignored) {
+                    // fall back to the channel page
+                }
+            }
+
+            // 2. Channel page picture
+            for (int attempt = 0; attempt < 2 && TextUtils.isEmpty(url); attempt++) {
                 try {
                     String page;
                     if (!TextUtils.isEmpty(channelId)) {
@@ -125,9 +144,9 @@ final class AvatarFetcher {
                 }
             }
 
-            final String result = url;
+            final String result = TextUtils.isEmpty(url) ? null : url;
             if (result != null) {
-                AvatarCache.rememberUrl(app, channelId, author, handle, result);
+                AvatarCache.rememberUrl(app, resolvedChannelId, author, handle, result);
             }
 
             List<Callback> callbacks;

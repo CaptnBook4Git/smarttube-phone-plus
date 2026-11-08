@@ -63,6 +63,9 @@ final class PhoneUi {
      * The next player launch scales up from the tapped thumbnail (like the YouTube app) instead of opening a new page.
      */
     static void prepareExpandLaunch(Video video) {
+        if (video != null && video.isShorts && video.getGroup() != null) {
+            PhoneShortsQueue.set(video.getGroup());
+        }
         View view = sLastClickedThumb != null ? sLastClickedThumb.get() : null;
         sLastClickedThumb = null;
         if (view == null || video == null || TextUtils.isEmpty(video.videoId) || !view.isAttachedToWindow()) {

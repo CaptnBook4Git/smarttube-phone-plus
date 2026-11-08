@@ -44,13 +44,31 @@ final class PhoneTheme {
             return null;
         }
         int mode = get(base);
-        if (mode == SYSTEM) {
-            return base;
+        if (mode == SYSTEM || (mode == DARK) == isNight(base)) {
+            return base; // already what the phone uses: leave the context untouched
         }
         Configuration config = new Configuration(base.getResources().getConfiguration());
         config.uiMode = (config.uiMode & ~Configuration.UI_MODE_NIGHT_MASK)
                 | (mode == LIGHT ? Configuration.UI_MODE_NIGHT_NO : Configuration.UI_MODE_NIGHT_YES);
         return base.createConfigurationContext(config);
+    }
+
+    /**
+     * SmartTube re-applies the system configuration on create/resume (locale, dpi), which resets day/night.
+     * Put the chosen mode back on the activity resources afterwards.
+     */
+    static void apply(android.app.Activity activity) {
+        int mode = get(activity);
+        if (mode == SYSTEM) {
+            return;
+        }
+        int wanted = mode == LIGHT ? Configuration.UI_MODE_NIGHT_NO : Configuration.UI_MODE_NIGHT_YES;
+        android.content.res.Resources resources = activity.getResources();
+        Configuration config = new Configuration(resources.getConfiguration());
+        if ((config.uiMode & Configuration.UI_MODE_NIGHT_MASK) != wanted) {
+            config.uiMode = (config.uiMode & ~Configuration.UI_MODE_NIGHT_MASK) | wanted;
+            resources.updateConfiguration(config, resources.getDisplayMetrics());
+        }
     }
 
     static boolean isNight(Context context) {

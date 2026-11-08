@@ -100,6 +100,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        PhoneTheme.apply(this);
         PhoneUi.applyPhoneDensity(this);
         setContentView(R.layout.phone_dialog);
 
@@ -156,6 +157,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     @Override
     protected void onResume() {
         super.onResume();
+        PhoneTheme.apply(this);
         PhoneUi.applyPhoneDensity(this);
         mIsPaused = false;
         showSystemBars();

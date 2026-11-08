@@ -128,6 +128,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState); // inflates the phone fragment_playback layout (TV player keeps TV density)
+        PhoneTheme.apply(this); // details panel follows the Appearance setting
         PhoneUi.applyPhoneDensity(this); // phone views use the phone's real density
 
         Fragment fragment = getSupportFragmentManager().findFragmentByTag(getString(R.string.playback_tag));
@@ -228,6 +229,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     protected void onResume() {
         super.onResume();
+        PhoneTheme.apply(this);
         PhoneUi.applyPhoneDensity(this);
         cancelPlaybackNotification();
         applySystemBars();
@@ -281,6 +283,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        PhoneTheme.apply(this);
         PhoneUi.applyPhoneDensity(this);
         boolean portrait = newConfig.orientation != Configuration.ORIENTATION_LANDSCAPE;
         if (portrait != mPortrait) {
@@ -319,7 +322,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     private static boolean isShort(Video video) {
-        return video != null && (video.isShorts || video.belongsToShorts());
+        return video != null && (video.isShorts || video.belongsToShorts() || PhoneShortsQueue.contains(video));
     }
 
     // region Layout modes
@@ -795,7 +798,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mMiniProgress.setProgress(progress);
 
         if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mAwaitingNewVideo && position > 350
-                && mPlayer.getPlayWhenReady() && android.os.SystemClock.uptimeMillis() - mPosterSince > 450) {
+                && mPlayer.getPlayWhenReady() && (!mShortsMode || android.os.SystemClock.uptimeMillis() - mPosterSince > 300)) {
             mPoster.animate().alpha(0f).setDuration(220).withEndAction(() -> mPoster.setVisibility(View.GONE)).start();
         }
 
@@ -860,7 +863,194 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 return true;
             }
         });
-        mShorts.setOnTouchListener((v, event) -> detector.onTouchEvent(event));
+        mShorts.setOnTouchListener((v, event) -> handleShortsTouch(event));
+    }
+
+    // TikTok style paging: the current Short follows the finger, the next one comes in right behind it
+
+    private float mPageStartY;
+    private boolean mPaging;
+    private int mPageDirection; // 1 next, -1 previous
+    private Video mIncoming;
+    private android.view.VelocityTracker mVelocity;
+    private boolean mPageAnimating;
+
+    private boolean handleShortsTouch(MotionEvent event) {
+        if (mPageAnimating) {
+            return true;
+        }
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                mPageStartY = event.getRawY();
+                mPaging = false;
+                if (mVelocity != null) {
+                    mVelocity.recycle();
+                }
+                mVelocity = android.view.VelocityTracker.obtain();
+                mVelocity.addMovement(event);
+                return true;
+            case MotionEvent.ACTION_MOVE: {
+                if (mVelocity != null) {
+                    mVelocity.addMovement(event);
+                }
+                float dy = event.getRawY() - mPageStartY;
+                if (!mPaging && Math.abs(dy) > android.view.ViewConfiguration.get(this).getScaledTouchSlop()) {
+                    mPaging = true;
+                    mPageDirection = dy < 0 ? 1 : -1;
+                    mIncoming = mPageDirection > 0 ? nextShort() : previousShortInQueue();
+                    preparePage(mIncoming);
+                }
+                if (mPaging) {
+                    // Only follow the finger in the chosen direction; rubber band when there is nothing there
+                    float offset = mPageDirection > 0 ? Math.min(0, dy) : Math.max(0, dy);
+                    if (mIncoming == null) {
+                        offset *= 0.25f;
+                    }
+                    setPageOffset(offset);
+                }
+                return true;
+            }
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL: {
+                if (!mPaging) {
+                    if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                        togglePlay();
+                    }
+                } else {
+                    float dy = event.getRawY() - mPageStartY;
+                    float velocity = 0;
+                    if (mVelocity != null) {
+                        mVelocity.addMovement(event);
+                        mVelocity.computeCurrentVelocity(1000);
+                        velocity = mVelocity.getYVelocity();
+                    }
+                    float height = mVideoBox.getHeight();
+                    boolean farEnough = Math.abs(dy) > height * 0.18f || Math.abs(velocity) > 900;
+                    boolean rightWay = mPageDirection > 0 ? dy < 0 : dy > 0;
+                    if (mIncoming != null && farEnough && rightWay) {
+                        commitPage();
+                    } else {
+                        settlePage();
+                    }
+                }
+                if (mVelocity != null) {
+                    mVelocity.recycle();
+                    mVelocity = null;
+                }
+                mPaging = false;
+                return true;
+            }
+            default:
+                return true;
+        }
+    }
+
+    private View playerView() {
+        return mPlayer != null ? mPlayer.getView() : null;
+    }
+
+    private void preparePage(Video incoming) {
+        mPoster.animate().cancel();
+        mPoster.setAlpha(1f);
+        mPoster.setVisibility(View.VISIBLE);
+        if (incoming != null) {
+            PhoneUi.loadThumb(mPoster, incoming, true);
+        } else {
+            mPoster.setImageDrawable(new android.graphics.drawable.ColorDrawable(Color.BLACK));
+        }
+        setPageOffset(0);
+    }
+
+    private void setPageOffset(float offset) {
+        float height = mVideoBox.getHeight();
+        View video = playerView();
+        if (video != null) {
+            video.setTranslationY(offset);
+        }
+        mShorts.setTranslationY(offset);
+        mPoster.setTranslationY((mPageDirection > 0 ? height : -height) + offset);
+    }
+
+    private void commitPage() {
+        float height = mVideoBox.getHeight();
+        float target = mPageDirection > 0 ? -height : height;
+        View video = playerView();
+        mPageAnimating = true;
+        android.view.animation.Interpolator interpolator = new android.view.animation.DecelerateInterpolator(1.8f);
+        if (video != null) {
+            video.animate().translationY(target).setDuration(230).setInterpolator(interpolator).start();
+        }
+        mShorts.animate().translationY(target).setDuration(230).setInterpolator(interpolator).start();
+        mPoster.animate().translationY(0).setDuration(230).setInterpolator(interpolator).withEndAction(() -> {
+            // The new Short's thumbnail now fills the screen and stays until its video plays
+            if (video != null) {
+                video.setTranslationY(0);
+            }
+            mShorts.setTranslationY(0);
+            mShorts.setAlpha(0f);
+            mAwaitingNewVideo = true;
+            mPageAnimating = false;
+            openShort(mIncoming);
+        }).start();
+    }
+
+    private void settlePage() {
+        View video = playerView();
+        float height = mVideoBox.getHeight();
+        mPageAnimating = true;
+        if (video != null) {
+            video.animate().translationY(0).setDuration(200).start();
+        }
+        mShorts.animate().translationY(0).setDuration(200).start();
+        mPoster.animate().translationY(mPageDirection > 0 ? height : -height).setDuration(200).withEndAction(() -> {
+            mPoster.setVisibility(View.GONE);
+            mPoster.setTranslationY(0);
+            mPageAnimating = false;
+        }).start();
+    }
+
+    private void openShort(Video video) {
+        if (video == null) {
+            return;
+        }
+        presenter().openVideo(video);
+        if (PhoneShortsQueue.isNearEnd(video)) {
+            // Load more Shorts into the same list
+            Video last = PhoneShortsQueue.last();
+            if (last != null) {
+                com.liskovsoft.smartyoutubetv2.common.app.presenters.BrowsePresenter.instance(this).onScrollEnd(last);
+            }
+        }
+    }
+
+    private Video nextShort() {
+        Video current = currentVideo();
+        Video next = PhoneShortsQueue.next(current);
+        if (next != null) {
+            return next;
+        }
+        // Not from a Shorts list: suggested Shorts only (never a regular video)
+        for (Video video : mAdapter.allVideos()) {
+            if (video.videoId == null || !video.isShorts || (current != null && video.videoId.equals(current.videoId))) {
+                continue;
+            }
+            boolean seen = false;
+            for (Video played : mShortsHistory) {
+                if (video.videoId.equals(played.videoId)) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) {
+                return video;
+            }
+        }
+        return null;
+    }
+
+    private Video previousShortInQueue() {
+        Video previous = PhoneShortsQueue.previous(currentVideo());
+        return previous != null ? previous : previousShort();
     }
 
     /**
@@ -946,15 +1136,6 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                         NOTIFICATION_CHANNEL, getString(R.string.phone_notification_channel), android.app.NotificationManager.IMPORTANCE_LOW);
                 channel.setShowBadge(false);
                 manager.createNotificationChannel(channel);
-            }
-        }
-
-        if (Build.VERSION.SDK_INT >= 33
-                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            android.content.SharedPreferences prefs = getSharedPreferences("phone_defaults", MODE_PRIVATE);
-            if (!prefs.getBoolean("asked_notifications", false)) {
-                prefs.edit().putBoolean("asked_notifications", true).apply();
-                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 4712);
             }
         }
 
