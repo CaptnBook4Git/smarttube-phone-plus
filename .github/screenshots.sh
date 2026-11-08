@@ -66,14 +66,14 @@ sleep 25
 adb shell input tap 540 400
 sleep 1
 shot 02_player
-tap_text "Comments"
+adb shell input tap 612 1124
 sleep 8
 shot 03_comments
 adb shell input keyevent KEYCODE_BACK
-sleep 2
+sleep 4
 # Mini player (drag the video down)
-adb shell input swipe 540 350 540 1500 120
-sleep 5
+adb shell input swipe 540 300 540 1600 150
+sleep 6
 shot 04_mini_player
 adb shell input keyevent KEYCODE_BACK
 sleep 2
@@ -109,15 +109,11 @@ sleep 6
 tap_text "You"
 sleep 8
 shot 08_you
-adb shell input swipe 540 1800 540 900 300
-sleep 3
+tap_text "Settings"
+sleep 6
 shot 09_settings
 
 # Sign in screen
-tap_text "You"
-sleep 3
-adb shell input swipe 540 900 540 1900 300
-sleep 2
 tap_text "Sign in"
 sleep 15
 shot 10_sign_in
@@ -129,14 +125,14 @@ adb shell am start -n "$PKG/$SPLASH"
 sleep 4
 tap_text "You"
 sleep 4
-tap_text "Appearance: Dark"
+tap_text "Settings"
 sleep 6
+tap_text "Appearance: Dark"
+sleep 8
+shot 12_settings_light
 tap_text "Home"
 sleep 15
 shot 11_home_light
-tap_text "You"
-sleep 6
-shot 12_you_light
 
 adb shell am broadcast -a com.android.systemui.demo -e command exit
 adb logcat -d -b crash > smoke/crash.txt
