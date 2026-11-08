@@ -208,6 +208,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mCloseDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                android.util.Log.d("SmartTubePhone", "close fling vy=" + velocityY + " vx=" + velocityX
+                        + " dy=" + (e1 != null ? e2.getY() - e1.getY() : -1));
                 if (e1 != null && velocityY > 1200 && Math.abs(velocityY) > Math.abs(velocityX) * 1.5f
                         && e2.getY() - e1.getY() > dp(80)) {
                     enterMiniPlayer();
@@ -340,6 +342,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
      */
     static void releaseDetachedPlayer() {
         PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
+        android.util.Log.d("SmartTubePhone", "releaseDetachedPlayer " + (activity == null ? "none"
+                : "pip=" + activity.isPip() + " task=" + activity.getTaskId() + " home=" + PhoneBrowseActivity.sTaskId));
         if (activity == null || activity.isFinishing() || (!activity.isPip() && !activity.isInOwnTask())) {
             return;
         }
@@ -541,6 +545,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             mVideoBox.getGlobalVisibleRect(box);
             boolean onVideo = box.contains((int) event.getRawX(), (int) event.getRawY());
             mTouchStartedOnVideo = onVideo;
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                android.util.Log.d("SmartTubePhone", "down onVideo=" + onVideo + " box=" + box + " portrait=" + mPortrait
+                        + " shorts=" + mShortsMode + " y=" + event.getRawY());
+            }
             mRouteTouchToPlayer = onVideo && !mShortsMode && mControls.getVisibility() != View.VISIBLE;
         }
 
@@ -601,6 +609,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
      * Drag the player down: keep watching in a floating window and go back to the app.
      */
     private void enterMiniPlayer() {
+        android.util.Log.d("SmartTubePhone", "enterMiniPlayer task=" + getTaskId() + " home=" + PhoneBrowseActivity.sTaskId);
         if (Build.VERSION.SDK_INT < 26) {
             finish();
             return;
