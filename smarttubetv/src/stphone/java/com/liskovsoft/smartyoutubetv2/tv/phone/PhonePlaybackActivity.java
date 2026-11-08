@@ -1407,6 +1407,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     private void refreshDetails() {
+        if (mAwaitingNewVideo && mExpectedVideoId != null) {
+            return; // mid swipe: the player still reports the old Short, keep the incoming one on screen
+        }
         refreshDetails(currentVideo());
     }
 
