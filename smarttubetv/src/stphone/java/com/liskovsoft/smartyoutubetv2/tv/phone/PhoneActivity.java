@@ -32,6 +32,11 @@ public abstract class PhoneActivity extends MotherActivity {
     private TextView mEmptyAction;
 
     @Override
+    protected void attachBaseContext(android.content.Context context) {
+        super.attachBaseContext(PhoneTheme.wrap(context));
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         PhoneUi.applyPhoneDensity(this); // before the subclass inflates its layout
@@ -81,13 +86,19 @@ public abstract class PhoneActivity extends MotherActivity {
             WindowInsetsController controller = window.getInsetsController();
             if (controller != null) {
                 controller.show(WindowInsets.Type.systemBars());
-                controller.setSystemBarsAppearance(0,
+                int light = PhoneTheme.isNight(this) ? 0
+                        : WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                controller.setSystemBarsAppearance(light,
                         WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
             }
         } else {
-            window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                     | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
+            if (!PhoneTheme.isNight(this)) {
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
+            window.getDecorView().setSystemUiVisibility(flags);
         }
     }
 

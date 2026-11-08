@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Light appearance (YouTube light colors). Dark appearance: values-night/phone_colors.xml -->
 <resources>
-    <color name="phone_bg">#0F0F0F</color>
-    <color name="phone_surface">#1C1C1C</color>
-    <color name="phone_surface_2">#272727</color>
-    <color name="phone_link">#3EA6FF</color>
-    <color name="phone_text">#F1F1F1</color>
-    <color name="phone_text_2">#A8A8A8</color>
-    <color name="phone_icon_inactive">#9A9A9A</color>
+    <color name="phone_bg">#FFFFFF</color>
+    <color name="phone_surface">#F2F2F2</color>
+    <color name="phone_surface_2">#F2F2F2</color>
+    <color name="phone_link">#065FD4</color>
+    <color name="phone_text">#0F0F0F</color>
+    <color name="phone_text_2">#606060</color>
+    <color name="phone_icon_inactive">#606060</color>
     <color name="phone_accent">#FF0033</color>
     <color name="phone_brand_violet">#7C3AED</color>
-    <color name="phone_sheet">#212121</color>
-    <color name="phone_divider">#1FFFFFFF</color>
+    <color name="phone_sheet">#FFFFFF</color>
+    <color name="phone_divider">#1A000000</color>
     <color name="phone_badge">#CC000000</color>
 </resources>

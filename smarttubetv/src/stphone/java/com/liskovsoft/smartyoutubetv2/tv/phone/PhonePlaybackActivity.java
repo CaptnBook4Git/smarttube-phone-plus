@@ -95,6 +95,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private boolean mDescriptionExpanded;
     private Video mLastScrollEndVideo;
     private ImageView mPoster;
+    private boolean mAwaitingNewVideo;
+    private long mPosterSince;
+    private final java.util.List<Video> mShortsHistory = new java.util.ArrayList<>();
+    private android.content.BroadcastReceiver mPlayPauseReceiver;
+    private static final String ACTION_PLAY_PAUSE = "org.smarttube.phone.PLAY_PAUSE";
+    private static final String NOTIFICATION_CHANNEL = "phone_playback";
+    private static final int NOTIFICATION_ID = 4711;
     private android.view.ScaleGestureDetector mPinchDetector;
     private float mPinchScale = 1f;
     private boolean mPinching;
@@ -112,6 +119,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             showPhoneControls(false);
         }
     };
+
+    @Override
+    protected void attachBaseContext(android.content.Context context) {
+        super.attachBaseContext(PhoneTheme.wrap(context));
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -144,6 +156,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mVideoBox.addView(mPoster, 1, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         showPoster(presenter().getVideo());
+
+        setupNotification();
 
         mPinchDetector = new android.view.ScaleGestureDetector(this, new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
             @Override
@@ -215,6 +229,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     protected void onResume() {
         super.onResume();
         PhoneUi.applyPhoneDensity(this);
+        cancelPlaybackNotification();
         applySystemBars();
         mHandler.removeCallbacks(mTicker);
         mHandler.post(mTicker);
@@ -226,6 +241,33 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         super.onPause();
         mHandler.removeCallbacks(mTicker);
         mHandler.removeCallbacks(mAutoHide);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (isPip() || isChangingConfigurations() || mPlayer == null) {
+            return;
+        }
+        if (mShortsMode) {
+            // No background playback for Shorts
+            mPlayer.setPlayWhenReady(false);
+        } else if (mPlayer.getPlayWhenReady() && !isFinishing()) {
+            showPlaybackNotification();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        cancelPlaybackNotification();
+        if (mPlayPauseReceiver != null) {
+            try {
+                unregisterReceiver(mPlayPauseReceiver);
+            } catch (IllegalArgumentException ignored) {
+                // not registered
+            }
+        }
+        super.onDestroy();
     }
 
     @Override
@@ -343,7 +385,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 WindowInsetsController controller = window.getInsetsController();
                 if (controller != null) {
                     controller.show(WindowInsets.Type.systemBars());
-                    controller.setSystemBarsAppearance(0,
+                    controller.setSystemBarsAppearance(
+                            !mShortsMode && !PhoneTheme.isNight(this) ? WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS : 0,
                             WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
                 }
             } else {
@@ -462,7 +505,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
         mPoster.animate().cancel();
         mPoster.setAlpha(1f);
+        mPoster.setTranslationY(0);
         mPoster.setVisibility(View.VISIBLE);
+        mPosterSince = android.os.SystemClock.uptimeMillis();
         PhoneUi.loadThumb(mPoster, video, isShort(video));
     }
 
@@ -749,7 +794,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
         mMiniProgress.setProgress(progress);
 
-        if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && position > 350 && mPlayer.getPlayWhenReady()) {
+        if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mAwaitingNewVideo && position > 350
+                && mPlayer.getPlayWhenReady() && android.os.SystemClock.uptimeMillis() - mPosterSince > 450) {
             mPoster.animate().alpha(0f).setDuration(220).withEndAction(() -> mPoster.setVisibility(View.GONE)).start();
         }
 
@@ -817,23 +863,195 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mShorts.setOnTouchListener((v, event) -> detector.onTouchEvent(event));
     }
 
+    /**
+     * Seamless swipe: the next Short's thumbnail slides over the current video right away and stays until
+     * the new video is playing, so there is never a blank frame.
+     */
     private void swipeTo(boolean next) {
-        float height = mShorts.getHeight();
-        mShorts.animate()
-                .translationY(next ? -height * 0.15f : height * 0.15f)
-                .alpha(0f)
-                .setDuration(140)
-                .withEndAction(() -> {
-                    if (next) {
-                        presenter().onNextClicked();
-                    } else {
-                        presenter().onPreviousClicked();
-                    }
-                    mShorts.setTranslationY(next ? height * 0.15f : -height * 0.15f);
-                    mShorts.animate().translationY(0).alpha(1f).setDuration(180).start();
-                })
+        Video incoming = next ? nextShortGuess() : previousShort();
+        float height = mVideoBox.getHeight();
+
+        mAwaitingNewVideo = true;
+        mPoster.animate().cancel();
+        mPoster.setAlpha(1f);
+        mPoster.setVisibility(View.VISIBLE);
+        if (incoming != null) {
+            PhoneUi.loadThumb(mPoster, incoming, true);
+        } else {
+            mPoster.setImageDrawable(new android.graphics.drawable.ColorDrawable(Color.BLACK));
+        }
+        mPoster.setTranslationY(next ? height : -height);
+        mPoster.animate()
+                .translationY(0)
+                .setDuration(280)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f))
                 .start();
+
+        mShorts.animate().alpha(0f).setDuration(120).start();
+
+        if (next) {
+            presenter().onNextClicked();
+        } else {
+            presenter().onPreviousClicked();
+        }
     }
+
+    private Video nextShortGuess() {
+        Video current = currentVideo();
+        for (Video video : mAdapter.allVideos()) {
+            if (video.videoId == null || (current != null && video.videoId.equals(current.videoId))) {
+                continue;
+            }
+            boolean seen = false;
+            for (Video played : mShortsHistory) {
+                if (video.videoId.equals(played.videoId)) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) {
+                return video;
+            }
+        }
+        return null;
+    }
+
+    private Video previousShort() {
+        return mShortsHistory.size() >= 2 ? mShortsHistory.get(mShortsHistory.size() - 2) : null;
+    }
+
+    private void preloadNextShorts() {
+        if (!PhoneUi.isAlive(this)) {
+            return;
+        }
+        int count = 0;
+        for (Video video : mAdapter.allVideos()) {
+            if (video.videoId == null) {
+                continue;
+            }
+            com.bumptech.glide.Glide.with(this).load("https://i.ytimg.com/vi/" + video.videoId + "/oar2.jpg").preload();
+            if (++count >= 3) {
+                break;
+            }
+        }
+    }
+
+    // region Background playback notification
+
+    private void setupNotification() {
+        if (Build.VERSION.SDK_INT >= 26) {
+            android.app.NotificationManager manager = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (manager != null && manager.getNotificationChannel(NOTIFICATION_CHANNEL) == null) {
+                android.app.NotificationChannel channel = new android.app.NotificationChannel(
+                        NOTIFICATION_CHANNEL, getString(R.string.phone_notification_channel), android.app.NotificationManager.IMPORTANCE_LOW);
+                channel.setShowBadge(false);
+                manager.createNotificationChannel(channel);
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            android.content.SharedPreferences prefs = getSharedPreferences("phone_defaults", MODE_PRIVATE);
+            if (!prefs.getBoolean("asked_notifications", false)) {
+                prefs.edit().putBoolean("asked_notifications", true).apply();
+                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 4712);
+            }
+        }
+
+        mPlayPauseReceiver = new android.content.BroadcastReceiver() {
+            @Override
+            public void onReceive(android.content.Context context, android.content.Intent intent) {
+                if (mPlayer != null) {
+                    mPlayer.setPlayWhenReady(!mPlayer.getPlayWhenReady());
+                    showPlaybackNotification();
+                }
+            }
+        };
+        android.content.IntentFilter filter = new android.content.IntentFilter(ACTION_PLAY_PAUSE);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(mPlayPauseReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(mPlayPauseReceiver, filter);
+        }
+    }
+
+    /**
+     * Media notification while a video keeps playing in the background. It is tied to the player's media session,
+     * so the lock screen, media controls and Live Alerts show the video with its thumbnail.
+     */
+    private void showPlaybackNotification() {
+        Video video = currentVideo();
+        if (video == null || mPlayer == null) {
+            return;
+        }
+
+        boolean playing = mPlayer.getPlayWhenReady();
+        android.content.Intent open = new android.content.Intent(this, PhonePlaybackActivity.class)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+        android.app.PendingIntent contentIntent = android.app.PendingIntent.getActivity(this, 0, open,
+                android.app.PendingIntent.FLAG_IMMUTABLE | android.app.PendingIntent.FLAG_UPDATE_CURRENT);
+        android.app.PendingIntent toggleIntent = android.app.PendingIntent.getBroadcast(this, 1,
+                new android.content.Intent(ACTION_PLAY_PAUSE).setPackage(getPackageName()),
+                android.app.PendingIntent.FLAG_IMMUTABLE | android.app.PendingIntent.FLAG_UPDATE_CURRENT);
+
+        androidx.media.app.NotificationCompat.MediaStyle style = new androidx.media.app.NotificationCompat.MediaStyle()
+                .setShowActionsInCompactView(0);
+        android.support.v4.media.session.MediaSessionCompat.Token token = mPlayer.getMediaSessionToken();
+        if (token != null) {
+            style.setMediaSession(token);
+        }
+
+        final androidx.core.app.NotificationCompat.Builder builder = new androidx.core.app.NotificationCompat.Builder(this, NOTIFICATION_CHANNEL)
+                .setSmallIcon(R.drawable.ic_phone_play)
+                .setContentTitle(video.getTitle())
+                .setContentText(video.getAuthor())
+                .setContentIntent(contentIntent)
+                .setOngoing(playing)
+                .setSilent(true)
+                .setShowWhen(false)
+                .setCategory(androidx.core.app.NotificationCompat.CATEGORY_TRANSPORT)
+                .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+                .addAction(playing ? R.drawable.ic_phone_pause : R.drawable.ic_phone_play,
+                        getString(R.string.phone_play_pause), toggleIntent)
+                .setStyle(style);
+
+        notifyPlayback(builder);
+
+        // Thumbnail as the large icon (shown in media controls and Live Alerts)
+        com.bumptech.glide.Glide.with(getApplicationContext())
+                .asBitmap()
+                .load("https://i.ytimg.com/vi/" + video.videoId + "/hqdefault.jpg")
+                .into(new com.bumptech.glide.request.target.CustomTarget<android.graphics.Bitmap>() {
+                    @Override
+                    public void onResourceReady(@androidx.annotation.NonNull android.graphics.Bitmap resource,
+                                                @androidx.annotation.Nullable com.bumptech.glide.request.transition.Transition<? super android.graphics.Bitmap> transition) {
+                        builder.setLargeIcon(resource);
+                        notifyPlayback(builder);
+                    }
+
+                    @Override
+                    public void onLoadCleared(@androidx.annotation.Nullable android.graphics.drawable.Drawable placeholder) {
+                    }
+                });
+    }
+
+    private void notifyPlayback(androidx.core.app.NotificationCompat.Builder builder) {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        try {
+            androidx.core.app.NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, builder.build());
+        } catch (SecurityException ignored) {
+            // notifications blocked
+        }
+    }
+
+    private void cancelPlaybackNotification() {
+        androidx.core.app.NotificationManagerCompat.from(this).cancel(NOTIFICATION_ID);
+    }
+
+    // endregion
 
     private void addShortsAction(LinearLayout container, int buttonId, int icon, String label) {
         LinearLayout item = new LinearLayout(this);
@@ -954,7 +1172,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         LinearLayout pill = new LinearLayout(this);
         pill.setOrientation(LinearLayout.HORIZONTAL);
         pill.setGravity(Gravity.CENTER_VERTICAL);
-        pill.setBackgroundResource(PhoneGlass.pill(this));
+        pill.setBackgroundResource(R.drawable.phone_pill_bg);
         pill.setPadding(dp(14), 0, label != null ? dp(16) : dp(14), 0);
         pill.setTag(buttonId);
 
@@ -1066,8 +1284,24 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     @Override
     public void onPlayerVideo(Video video) {
-        if (video != null && mPoster != null && mPlayer != null && mPlayer.getPositionMs() < 350) {
+        if (mAwaitingNewVideo && video != null) {
+            // Swipe finished loading: keep the poster (now the real thumbnail) until frames play
+            mAwaitingNewVideo = false;
+            mPosterSince = android.os.SystemClock.uptimeMillis();
+            PhoneUi.loadThumb(mPoster, video, true);
+            mShorts.animate().alpha(1f).setDuration(180).start();
+        } else if (video != null && mPoster != null && mPlayer != null && mPlayer.getPositionMs() < 350) {
             showPoster(video);
+        }
+        if (video != null && isShort(video)) {
+            if (mShortsHistory.isEmpty() || !Helpers_equals(mShortsHistory.get(mShortsHistory.size() - 1).videoId, video.videoId)) {
+                // Went back: drop the newer entry
+                if (mShortsHistory.size() >= 2 && Helpers_equals(mShortsHistory.get(mShortsHistory.size() - 2).videoId, video.videoId)) {
+                    mShortsHistory.remove(mShortsHistory.size() - 1);
+                } else {
+                    mShortsHistory.add(video);
+                }
+            }
         }
         boolean shorts = isShort(video);
         if (shorts != mShortsMode) {
@@ -1088,6 +1322,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             return; // chapters stay out of the list
         }
         mAdapter.update(group);
+        if (mShortsMode) {
+            preloadNextShorts();
+        }
+    }
+
+    private static boolean Helpers_equals(String a, String b) {
+        return a == null ? b == null : a.equals(b);
     }
 
     @Override

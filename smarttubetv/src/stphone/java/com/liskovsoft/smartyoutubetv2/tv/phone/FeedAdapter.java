@@ -269,6 +269,14 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return null;
     }
 
+    public List<Video> allVideos() {
+        List<Video> result = new ArrayList<>();
+        for (Group group : mGroups) {
+            result.addAll(group.videos);
+        }
+        return result;
+    }
+
     public int indexOf(Video video) {
         for (int i = 0; i < mItems.size(); i++) {
             Object item = mItems.get(i);

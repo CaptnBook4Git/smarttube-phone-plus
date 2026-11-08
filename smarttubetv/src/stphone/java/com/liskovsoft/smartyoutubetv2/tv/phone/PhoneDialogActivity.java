@@ -84,7 +84,6 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     private TextView mTitle;
     private View mBack;
     private RecyclerView mList;
-    private View mAddComment;
     private com.liskovsoft.smartyoutubetv2.tv.phone.widget.MaxHeightFrameLayout mListFrame;
     private boolean mIsTransparent;
     private boolean mIsOverlay;
@@ -92,6 +91,11 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     private boolean mIsDelegated;
     private boolean mIsFinishing;
     private int mId;
+
+    @Override
+    protected void attachBaseContext(android.content.Context context) {
+        super.attachBaseContext(PhoneTheme.wrap(context));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -131,16 +135,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         mBack.setOnClickListener(v -> goBack());
 
         View sheet = findViewById(R.id.phone_sheet);
-        sheet.setBackgroundResource(PhoneGlass.sheet(this));
-        mAddComment = findViewById(R.id.phone_sheet_action);
-        mAddComment.setOnClickListener(v -> {
-            com.liskovsoft.smartyoutubetv2.common.app.models.data.Video video =
-                    com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter.instance(this).getVideo();
-            if (video != null && !TextUtils.isEmpty(video.videoId)) {
-                // Posting goes through YouTube's own page, signed in with your Google account
-                com.liskovsoft.smartyoutubetv2.common.utils.Utils.openLinkExt(this, "https://m.youtube.com/watch?v=" + video.videoId);
-            }
-        });
+
         final int sheetBottom = sheet.getPaddingBottom();
         findViewById(R.id.phone_dialog_root).setOnApplyWindowInsetsListener((v, insets) -> {
             sheet.setPadding(sheet.getPaddingLeft(), sheet.getPaddingTop(), sheet.getPaddingRight(),
@@ -199,6 +194,8 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             WindowInsetsController controller = window.getInsetsController();
             if (controller != null) {
                 controller.show(WindowInsets.Type.systemBars());
+                controller.setSystemBarsAppearance(PhoneTheme.isNight(this) ? 0 : WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+                        WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
             }
         } else {
             window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -399,7 +396,6 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         mTitle.setText(page.title);
         mTitle.setVisibility(TextUtils.isEmpty(page.title) ? View.INVISIBLE : View.VISIBLE);
         mBack.setVisibility(mStack.size() > 1 ? View.VISIBLE : View.GONE);
-        mAddComment.setVisibility(page.comments != null ? View.VISIBLE : View.GONE);
         if (page.comments != null) {
             // Comments keep a steady, tall sheet while they load
             mListFrame.setMinimumHeight((int) (android.content.res.Resources.getSystem().getDisplayMetrics().heightPixels * 0.72f));

@@ -52,7 +52,8 @@
     <string name="phone_signin_card_text">Popular videos for now. Your recommendations, subscriptions and history appear after you sign in.</string>
     <string name="phone_zoom_fill">Zoomed to fill</string>
     <string name="phone_zoom_fit">Original size</string>
-    <string name="phone_add_comment">Add a comment</string>
-    <string name="phone_liquid_glass_on">Liquid Glass look: On</string>
-    <string name="phone_liquid_glass_off">Liquid Glass look: Off</string>
+    <string name="phone_appearance_dark">Appearance: Dark</string>
+    <string name="phone_appearance_light">Appearance: Light</string>
+    <string name="phone_appearance_system">Appearance: Same as device</string>
+    <string name="phone_notification_channel">Background playback</string>
 </resources>

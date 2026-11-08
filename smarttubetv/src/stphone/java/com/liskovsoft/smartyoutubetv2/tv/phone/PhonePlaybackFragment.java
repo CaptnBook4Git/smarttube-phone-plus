@@ -63,6 +63,21 @@ public class PhonePlaybackFragment extends PlaybackFragment {
         }
     }
 
+    /**
+     * SmartTube's own media session (connected to the player): used for the background playback notification.
+     */
+    public android.support.v4.media.session.MediaSessionCompat.Token getMediaSessionToken() {
+        try {
+            java.lang.reflect.Field field = com.liskovsoft.smartyoutubetv2.tv.ui.playback.PlaybackFragment.class.getDeclaredField("mMediaSession");
+            field.setAccessible(true);
+            Object session = field.get(this);
+            return session instanceof android.support.v4.media.session.MediaSessionCompat
+                    ? ((android.support.v4.media.session.MediaSessionCompat) session).getSessionToken() : null;
+        } catch (Throwable e) {
+            return null;
+        }
+    }
+
     private Host getPhoneHost() {
         return getActivity() instanceof Host ? (Host) getActivity() : null;
     }

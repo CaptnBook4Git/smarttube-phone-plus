@@ -58,6 +58,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private final View[] mTabViews = new View[TAB_COUNT];
     private boolean mIsFirstResume = true;
     private boolean mIsInitialSelection = true;
+    private boolean mShortsAutoplay;
+    private BrowseSection mShortsReturnSection;
     private BrowseSection mLoadedSection; // what the presenter actually loads (Home falls back when signed out)
     private View mSignInCard;
     private ImageView mTopAvatar;
@@ -161,9 +163,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
      */
     private void setupBars() {
         View topBar = findViewById(R.id.phone_top_bar);
-        boolean glass = PhoneGlass.isEnabled(this);
-        topBar.setBackgroundResource(glass ? R.drawable.phone_glass_bar : R.color.phone_bg);
-        mBottomBar.setBackgroundResource(glass ? R.drawable.phone_glass_bottom : R.drawable.phone_bottom_bar_bg);
+        topBar.setBackgroundResource(R.color.phone_bg);
+        mBottomBar.setBackgroundResource(R.drawable.phone_bottom_bar_bg);
 
         View.OnLayoutChangeListener sync = (v, l, t, r, b, ol, ot, or, ob) -> v.post(this::syncBarPadding);
         topBar.addOnLayoutChangeListener(sync);
@@ -245,7 +246,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
             final int index = i;
             tab.setOnClickListener(v -> {
-                if (index == mCurrentTab) {
+                if (index == TAB_SHORTS) {
+                    playShorts();
+                } else if (index == mCurrentTab) {
                     scrollToTopOrRefresh();
                 } else {
                     selectTab(index);
@@ -295,7 +298,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
             chip.setGravity(Gravity.CENTER);
             chip.setPadding(dp(14), 0, dp(14), 0);
-            chip.setBackgroundResource(PhoneGlass.chip(this));
+            chip.setBackgroundResource(R.drawable.phone_chip_bg);
             boolean selected = mCurrentSection != null && mCurrentSection.getId() == section.getId();
             chip.setSelected(selected);
             chip.setTextColor(getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
@@ -321,6 +324,19 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 chip.post(() -> mChipsScroll.smoothScrollTo(Math.max(0, chip.getLeft() - dp(16)), 0));
             }
         }
+    }
+
+    /**
+     * Shorts tab: open the first Short full screen (swipe for more) and stay on the current tab underneath.
+     */
+    private void playShorts() {
+        BrowseSection shorts = sectionById(MediaGroup.TYPE_SHORTS);
+        if (shorts == null) {
+            return;
+        }
+        mShortsReturnSection = mCurrentSection;
+        mShortsAutoplay = true;
+        focusSection(shorts);
     }
 
     private void scrollToTopOrRefresh() {
@@ -610,6 +626,20 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             return; // late result of a section the user already left
         }
         hideMessage();
+
+        if (mShortsAutoplay && group.getVideos() != null && !group.getVideos().isEmpty()
+                && mCurrentSection != null && mCurrentSection.getId() == MediaGroup.TYPE_SHORTS) {
+            mShortsAutoplay = false;
+            Video first = group.getVideos().get(0);
+            mPresenter.onVideoItemSelected(first);
+            mPresenter.onVideoItemClicked(first);
+            BrowseSection back = mShortsReturnSection;
+            if (back != null && back.getId() != MediaGroup.TYPE_SHORTS) {
+                mList.postDelayed(() -> focusSection(back), 400);
+            }
+            return;
+        }
+
         mAdapter.update(group);
         checkScrollEndLater();
     }
@@ -622,12 +652,12 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         hideMessage();
         // Phone only setting on top of SmartTube's settings
         java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items = new ArrayList<>();
-        boolean glass = PhoneGlass.isEnabled(this);
+        int appearance = PhoneTheme.get(this);
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                getString(glass ? R.string.phone_liquid_glass_on : R.string.phone_liquid_glass_off), () -> {
-                    PhoneGlass.setEnabled(this, !glass);
+                getString(PhoneTheme.titleRes(appearance)), () -> {
+                    PhoneTheme.set(this, PhoneTheme.next(appearance));
                     recreate();
-                }, R.drawable.ic_phone_brand));
+                }, R.drawable.ic_phone_brightness));
         if (group.getItems() != null) {
             items.addAll(group.getItems());
         }

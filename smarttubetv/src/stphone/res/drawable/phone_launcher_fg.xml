@@ -1,14 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Same mark scaled into the adaptive icon safe zone -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="8"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M66,42.5C66,37 60.6,34 54,34C47.4,34 42,37.5 42,43.2C42,49.2 48,50.8 54,52.3C60,53.8 66,55.8 66,62.5C66,68.8 60.5,72.3 54,72.3C47,72.3 42,69.2 41.7,63.7" />
+    <group android:translateX="30" android:translateY="31">
+        <path
+            android:fillColor="#FFFF0033"
+            android:pathData="M7,5h34a5,5 0,0 1,5 5v20a5,5 0,0 1,-5 5h-34a5,5 0,0 1,-5 -5v-20a5,5 0,0 1,5 -5z" />
+        <path
+            android:fillColor="#FFFF0033"
+            android:pathData="M11,39h26a2,2 0,0 1,0 4h-26a2,2 0,0 1,0 -4z" />
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="3.6"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M29.5,15.6C29.5,13.3 27,12 24,12C21,12 18.5,13.5 18.5,15.9C18.5,18.5 21.2,19.2 24,19.9C26.8,20.6 29.5,21.5 29.5,24.3C29.5,27 27,28.5 24,28.5C20.8,28.5 18.5,27.1 18.3,24.8" />
+    </group>
 </vector>
