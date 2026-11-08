@@ -35,6 +35,7 @@ public abstract class PhoneActivity extends MotherActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         PhoneUi.applyPhoneDensity(this); // before the subclass inflates its layout
+        getWindow().setWindowAnimations(R.style.PhoneScreenAnimation); // open/close in place instead of sliding pages
         setupSystemBars();
     }
 

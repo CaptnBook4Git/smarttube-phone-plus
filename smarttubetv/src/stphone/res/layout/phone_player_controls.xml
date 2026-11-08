@@ -107,6 +107,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/phone_ctl_bottom"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
@@ -143,8 +144,10 @@
         <SeekBar
             android:id="@+id/phone_ctl_seek"
             android:layout_width="match_parent"
-            android:layout_height="24dp"
-            android:layout_marginBottom="-8dp"
+            android:layout_height="30dp"
+            android:layout_marginBottom="-11dp"
+            android:minHeight="4dp"
+            android:maxHeight="4dp"
             android:max="1000"
             android:paddingStart="0dp"
             android:paddingEnd="0dp"

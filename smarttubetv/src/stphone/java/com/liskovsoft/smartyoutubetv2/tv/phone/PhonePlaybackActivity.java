@@ -73,6 +73,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private boolean mShortsMode;
     private boolean mIsSeeking;
     private Boolean mRouteTouchToPlayer;
+    private boolean mTouchStartedOnVideo;
+    private GestureDetector mCloseDetector;
     private int mStatusInset;
     private boolean mDescriptionExpanded;
 
@@ -100,9 +102,19 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             mPlayer = (PhonePlaybackFragment) fragment;
         }
 
+        // Open/close like a sheet sliding up from the app, not a new page
+        getWindow().setWindowAnimations(R.style.PhonePlayerAnimation);
+
         mRoot = findViewById(R.id.phone_player_root);
         mVideoBox = findViewById(R.id.phone_video_box);
         mDetails = findViewById(R.id.phone_player_details);
+
+        // Inflated here (not in the layout) so they get the phone density, not the TV one
+        LayoutInflater inflater = LayoutInflater.from(this);
+        inflater.inflate(R.layout.phone_mini_progress, mVideoBox, true);
+        inflater.inflate(R.layout.phone_player_controls, mVideoBox, true);
+        inflater.inflate(R.layout.phone_shorts_overlay, mVideoBox, true);
+
         mControls = findViewById(R.id.phone_controls);
         mPlayButton = findViewById(R.id.phone_ctl_play);
         mFullscreenButton = findViewById(R.id.phone_ctl_fullscreen);
@@ -116,6 +128,18 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         setupControls();
         setupDetails();
         setupShorts();
+
+        mCloseDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                if (e1 != null && velocityY > 1200 && Math.abs(velocityY) > Math.abs(velocityX) * 1.5f
+                        && e2.getY() - e1.getY() > dp(80)) {
+                    finish();
+                    return true;
+                }
+                return false;
+            }
+        });
 
         mRoot.setOnApplyWindowInsetsListener((v, insets) -> {
             mStatusInset = insets.getSystemWindowInsetTop();
@@ -221,6 +245,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         back.setLayoutParams(backParams);
 
         mControlsTitle.setVisibility(mPortrait ? View.GONE : View.VISIBLE);
+        // Full screen: keep the seek bar and time clear of the screen edges
+        View bottom = findViewById(R.id.phone_ctl_bottom);
+        int side = mPortrait ? 0 : dp(28);
+        bottom.setPadding(side, 0, side, mPortrait ? 0 : dp(26));
         mFullscreenButton.setImageResource(mPortrait ? R.drawable.ic_phone_fullscreen : R.drawable.ic_phone_fullscreen_exit);
 
         if (shorts || pip) {
@@ -301,7 +329,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             Rect box = new Rect();
             mVideoBox.getGlobalVisibleRect(box);
             boolean onVideo = box.contains((int) event.getRawX(), (int) event.getRawY());
+            mTouchStartedOnVideo = onVideo;
             mRouteTouchToPlayer = onVideo && !mShortsMode && mControls.getVisibility() != View.VISIBLE;
+        }
+
+        // Swipe the video down to close the player (portrait, regular videos)
+        if (mTouchStartedOnVideo && mPortrait && !mShortsMode && mCloseDetector != null) {
+            mCloseDetector.onTouchEvent(event);
         }
 
         boolean result;
@@ -453,6 +487,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         LinearLayout actions = findViewById(R.id.phone_shorts_actions);
         addShortsAction(actions, R.id.action_thumbs_up, R.drawable.ic_phone_like, getString(R.string.phone_like));
         addShortsAction(actions, R.id.action_thumbs_down, R.drawable.ic_phone_dislike, getString(R.string.phone_dislike));
+        addShortsAction(actions, R.id.action_chat, R.drawable.ic_phone_comments, getString(R.string.phone_comments));
         addShortsAction(actions, R.id.action_share, R.drawable.ic_phone_share, getString(R.string.phone_share));
         addShortsAction(actions, R.id.action_playlist_add, R.drawable.ic_phone_save, getString(R.string.phone_save));
         addShortsAction(actions, R.id.lb_control_high_quality, R.drawable.ic_phone_more, null);
@@ -592,6 +627,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         LinearLayout actions = mHeader.findViewById(R.id.phone_player_actions);
         addAction(actions, R.id.action_thumbs_up, R.drawable.ic_phone_like, getString(R.string.phone_like));
         addAction(actions, R.id.action_thumbs_down, R.drawable.ic_phone_dislike, null);
+        addAction(actions, R.id.action_chat, R.drawable.ic_phone_comments, getString(R.string.phone_comments));
         addAction(actions, R.id.action_share, R.drawable.ic_phone_share, getString(R.string.phone_share));
         addAction(actions, R.id.action_playlist_add, R.drawable.ic_phone_save, getString(R.string.phone_save));
         addAction(actions, R.id.lb_control_high_quality, R.drawable.ic_phone_settings, getString(R.string.phone_quality));

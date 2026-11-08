@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Phone build: overrides the TV player layout. Video on top (16:9 in portrait, full screen in landscape), details below. -->
+<!-- Phone build: overrides the TV player layout. Video on top (16:9 in portrait, full screen in landscape), details below.
+     The phone controls are added from code after switching to the phone density (this layout inflates with TV density). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/phone_player_root"
     android:layout_width="match_parent"
@@ -19,20 +20,6 @@
             android:tag="@string/playback_tag"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
-
-        <ProgressBar
-            android:id="@+id/phone_mini_progress"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="3dp"
-            android:layout_gravity="bottom"
-            android:max="1000"
-            android:progressBackgroundTint="#55FFFFFF"
-            android:progressTint="@color/phone_accent" />
-
-        <include layout="@layout/phone_player_controls" />
-
-        <include layout="@layout/phone_shorts_overlay" />
     </com.liskovsoft.smartyoutubetv2.tv.phone.widget.RatioFrameLayout>
 
     <androidx.recyclerview.widget.RecyclerView

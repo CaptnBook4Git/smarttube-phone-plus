@@ -19,7 +19,12 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+import com.liskovsoft.mediaserviceinterfaces.data.CommentGroup;
+import com.liskovsoft.mediaserviceinterfaces.data.CommentItem;
+import com.liskovsoft.sharedutils.helpers.Helpers;
 import com.liskovsoft.sharedutils.helpers.MessageHelpers;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.CommentsReceiver;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionCategory;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionItem;
 import com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter;
@@ -65,6 +70,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     private static final class Page {
         final CharSequence title;
         final List<Row> rows;
+        CommentsState comments;
 
         Page(CharSequence title, List<Row> rows) {
             this.title = title;
@@ -77,6 +83,8 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     private final RowsAdapter mAdapter = new RowsAdapter();
     private TextView mTitle;
     private View mBack;
+    private RecyclerView mList;
+    private com.liskovsoft.smartyoutubetv2.tv.phone.widget.MaxHeightFrameLayout mListFrame;
     private boolean mIsTransparent;
     private boolean mIsOverlay;
     private boolean mIsPaused;
@@ -93,9 +101,30 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         mTitle = findViewById(R.id.phone_sheet_title);
         mBack = findViewById(R.id.phone_sheet_back);
         RecyclerView list = findViewById(R.id.phone_sheet_list);
+        mList = list;
+        mListFrame = findViewById(R.id.phone_sheet_list_frame);
         list.setLayoutManager(new LinearLayoutManager(this));
         list.setItemAnimator(null);
         list.setAdapter(mAdapter);
+        list.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                Page page = currentPage();
+                LinearLayoutManager manager = (LinearLayoutManager) recyclerView.getLayoutManager();
+                if (page != null && page.comments != null && manager != null
+                        && manager.findLastVisibleItemPosition() >= page.comments.adapter.getItemCount() - 4) {
+                    page.comments.loadMore();
+                }
+            }
+        });
+
+        // Frosted background behind the sheet (Android 12+)
+        if (Build.VERSION.SDK_INT >= 31) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+            WindowManager.LayoutParams attrs = getWindow().getAttributes();
+            attrs.setBlurBehindRadius(48);
+            getWindow().setAttributes(attrs);
+        }
 
         findViewById(R.id.phone_dialog_root).setOnClickListener(v -> finish());
         mBack.setOnClickListener(v -> goBack());
@@ -180,7 +209,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
 
         if (categories != null) {
             for (OptionCategory category : categories) {
-                if (category.type == OptionCategory.TYPE_CHAT || category.type == OptionCategory.TYPE_COMMENTS) {
+                if (category.type == OptionCategory.TYPE_CHAT) {
                     delegateToTvDialog();
                     return;
                 }
@@ -190,13 +219,18 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         Page page;
         if (isExpandable && categories != null && categories.size() == 1 && categories.get(0).options != null) {
             OptionCategory category = categories.get(0);
-            page = categoryPage(category, category.title != null ? category.title : title);
+            page = category.type == OptionCategory.TYPE_COMMENTS
+                    ? commentsPage(category)
+                    : categoryPage(category, category.title != null ? category.title : title);
         } else {
             page = rootPage(categories, title);
         }
 
         mStack.add(page);
         render();
+        if (page.comments != null) {
+            page.comments.start();
+        }
     }
 
     @Override
@@ -205,6 +239,11 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             return;
         }
         mIsFinishing = true;
+        for (Page page : mStack) {
+            if (page.comments != null) {
+                page.comments.finish();
+            }
+        }
         if (!mIsDelegated) {
             mPresenter.onFinish();
         }
@@ -214,7 +253,10 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     @Override
     public void goBack() {
         if (canGoBack()) {
-            mStack.remove(mStack.size() - 1);
+            Page removed = mStack.remove(mStack.size() - 1);
+            if (removed.comments != null) {
+                removed.comments.finish();
+            }
             render();
         } else {
             finish();
@@ -334,25 +376,59 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         return new Page(title, rows);
     }
 
+    private Page currentPage() {
+        return mStack.isEmpty() ? null : mStack.get(mStack.size() - 1);
+    }
+
     private void render() {
-        if (mStack.isEmpty()) {
+        Page page = currentPage();
+        if (page == null) {
             return;
         }
-        Page page = mStack.get(mStack.size() - 1);
         mTitle.setText(page.title);
         mTitle.setVisibility(TextUtils.isEmpty(page.title) ? View.INVISIBLE : View.VISIBLE);
         mBack.setVisibility(mStack.size() > 1 ? View.VISIBLE : View.GONE);
-        mAdapter.setRows(page.rows);
+        if (page.comments != null) {
+            // Comments keep a steady, tall sheet while they load
+            mListFrame.setMinimumHeight((int) (android.content.res.Resources.getSystem().getDisplayMetrics().heightPixels * 0.72f));
+            mList.setAdapter(page.comments.adapter);
+        } else {
+            mListFrame.setMinimumHeight(0);
+            if (mList.getAdapter() != mAdapter) {
+                mList.setAdapter(mAdapter);
+            }
+            mAdapter.setRows(page.rows);
+        }
+    }
+
+    private Page commentsPage(OptionCategory category) {
+        boolean nested = false;
+        for (Page page : mStack) {
+            if (page.comments != null) {
+                nested = true;
+                break;
+            }
+        }
+        Page page = new Page(getString(nested ? R.string.phone_replies_title : R.string.phone_comments), new ArrayList<>());
+        page.comments = new CommentsState(category.options.get(0).getCommentsReceiver());
+        return page;
     }
 
     private void onRowClicked(Row row) {
         int depth = mStack.size();
 
         switch (row.kind) {
-            case ROW_CATEGORY:
-                mStack.add(categoryPage(row.category, row.category.title));
+            case ROW_CATEGORY: {
+                Page page = row.category.type == OptionCategory.TYPE_COMMENTS
+                        ? commentsPage(row.category)
+                        : categoryPage(row.category, row.category.title);
+                mStack.add(page);
                 render();
+                if (page.comments != null) {
+                    page.comments.start();
+                }
                 return;
+            }
             case ROW_BUTTON:
             case ROW_STRING:
                 row.item.onSelect(true);
@@ -406,6 +482,202 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             }
             default:
                 // Long text: nothing to do
+        }
+    }
+
+    // endregion
+
+    // region Comments
+
+    private static final class PhoneCommentsBackup implements CommentsReceiver.Backup {
+        final List<CommentItem> items;
+        final CommentGroup group;
+
+        PhoneCommentsBackup(List<CommentItem> items, CommentGroup group) {
+            this.items = items;
+            this.group = group;
+        }
+    }
+
+    private final class CommentsState implements CommentsReceiver.Callback {
+        final CommentsReceiver receiver;
+        final List<CommentItem> items = new ArrayList<>();
+        final CommentsAdapter adapter;
+        CommentGroup group;
+        String footer;
+        boolean loading = true;
+        boolean finished;
+
+        CommentsState(CommentsReceiver receiver) {
+            this.receiver = receiver;
+            this.adapter = new CommentsAdapter(this);
+            footer = receiver != null ? receiver.getLoadingMessage() : null;
+        }
+
+        void start() {
+            if (receiver == null) {
+                return;
+            }
+            receiver.setCallback(this);
+            receiver.onStart();
+        }
+
+        @Override
+        public void onCommentGroup(CommentGroup commentGroup) {
+            runOnUiThread(() -> {
+                loading = false;
+                if (commentGroup == null || commentGroup.getComments() == null) {
+                    footer = items.isEmpty() ? receiver.getErrorMessage() : null;
+                    adapter.notifyDataSetChanged();
+                    return;
+                }
+                for (CommentItem item : commentGroup.getComments()) {
+                    if (item != null && !item.isEmpty()) {
+                        items.add(item);
+                    }
+                }
+                group = commentGroup;
+                footer = items.isEmpty() ? receiver.getErrorMessage()
+                        : commentGroup.getNextCommentsKey() != null ? receiver.getLoadingMessage() : null;
+                adapter.notifyDataSetChanged();
+                if (items.size() <= 10 && commentGroup.getNextCommentsKey() != null) {
+                    loadMore();
+                }
+            });
+        }
+
+        @Override
+        public void onBackup(CommentsReceiver.Backup backup) {
+            runOnUiThread(() -> {
+                loading = false;
+                if (backup instanceof PhoneCommentsBackup) {
+                    items.clear();
+                    items.addAll(((PhoneCommentsBackup) backup).items);
+                    group = ((PhoneCommentsBackup) backup).group;
+                    footer = items.isEmpty() ? receiver.getErrorMessage()
+                            : group != null && group.getNextCommentsKey() != null ? receiver.getLoadingMessage() : null;
+                } else {
+                    footer = receiver.getErrorMessage();
+                }
+                adapter.notifyDataSetChanged();
+            });
+        }
+
+        @Override
+        public void onSync(CommentItem commentItem) {
+            runOnUiThread(() -> {
+                for (int i = 0; i < items.size(); i++) {
+                    if (Helpers.equals(items.get(i).getId(), commentItem.getId())) {
+                        items.set(i, commentItem);
+                        adapter.notifyItemChanged(i);
+                    }
+                }
+            });
+        }
+
+        void loadMore() {
+            if (loading || finished || group == null || group.getNextCommentsKey() == null) {
+                return;
+            }
+            loading = true;
+            receiver.onLoadMore(group);
+        }
+
+        void finish() {
+            if (finished || receiver == null) {
+                return;
+            }
+            finished = true;
+            receiver.onFinish(new PhoneCommentsBackup(new ArrayList<>(items), group));
+        }
+    }
+
+    private final class CommentsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        private static final int TYPE_COMMENT = 0;
+        private static final int TYPE_FOOTER = 1;
+        private final CommentsState mState;
+
+        CommentsAdapter(CommentsState state) {
+            mState = state;
+        }
+
+        @Override
+        public int getItemCount() {
+            return mState.items.size() + (TextUtils.isEmpty(mState.footer) ? 0 : 1);
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            return position < mState.items.size() ? TYPE_COMMENT : TYPE_FOOTER;
+        }
+
+        @NonNull
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view;
+            if (viewType == TYPE_FOOTER) {
+                TextView text = new TextView(parent.getContext());
+                text.setTextColor(getResources().getColor(R.color.phone_text_2));
+                text.setTextSize(14);
+                text.setGravity(android.view.Gravity.CENTER);
+                int pad = (int) (24 * getResources().getDisplayMetrics().density);
+                text.setPadding(pad, pad, pad, pad);
+                text.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                view = text;
+            } else {
+                view = LayoutInflater.from(parent.getContext()).inflate(R.layout.phone_comment_row, parent, false);
+            }
+            return new RecyclerView.ViewHolder(view) {
+            };
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+            if (getItemViewType(position) == TYPE_FOOTER) {
+                ((TextView) holder.itemView).setText(mState.footer);
+                return;
+            }
+
+            CommentItem item = mState.items.get(position);
+            View view = holder.itemView;
+            android.widget.ImageView avatar = view.findViewById(R.id.phone_thumb);
+            TextView meta = view.findViewById(R.id.phone_meta);
+            TextView message = view.findViewById(R.id.phone_title);
+            TextView likes = view.findViewById(R.id.phone_comment_likes);
+            android.widget.ImageView likeIcon = view.findViewById(R.id.phone_comment_like_icon);
+            TextView replies = view.findViewById(R.id.phone_comment_replies);
+
+            String author = item.getAuthorName() != null ? item.getAuthorName() : "";
+            String date = item.getPublishedDate();
+            meta.setText(TextUtils.isEmpty(date) ? author : author + "  ·  " + date);
+            message.setText(item.getMessage());
+            likes.setText(item.getLikeCount());
+            likeIcon.setImageTintList(android.content.res.ColorStateList.valueOf(getResources().getColor(
+                    item.isLiked() ? R.color.phone_accent : R.color.phone_text_2)));
+
+            boolean hasReplies = item.getNestedCommentsKey() != null && !TextUtils.isEmpty(item.getReplyCount());
+            replies.setText(hasReplies ? getString(R.string.phone_replies, item.getReplyCount()) : null);
+            replies.setVisibility(hasReplies ? View.VISIBLE : View.GONE);
+
+            if (PhoneUi.isAlive(PhoneDialogActivity.this)) {
+                if (!TextUtils.isEmpty(item.getAuthorPhoto())) {
+                    Glide.with(PhoneDialogActivity.this).load(item.getAuthorPhoto()).circleCrop()
+                            .placeholder(new AvatarCache.LetterDrawable(author)).into(avatar);
+                } else {
+                    Glide.with(PhoneDialogActivity.this).clear(avatar);
+                    avatar.setImageDrawable(new AvatarCache.LetterDrawable(author));
+                }
+            }
+
+            view.setOnClickListener(v -> {
+                if (item.getNestedCommentsKey() != null) {
+                    mState.receiver.onCommentClicked(item);
+                }
+            });
+            view.setOnLongClickListener(v -> {
+                mState.receiver.onCommentLongClicked(item);
+                return true;
+            });
         }
     }
 

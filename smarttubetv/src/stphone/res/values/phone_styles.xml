@@ -11,4 +11,33 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@color/phone_sheet</item>
     </style>
+    <!-- Screens open and close in place (fade + scale), the player slides up and back down -->
+    <style name="PhoneScreenAnimation">
+        <item name="android:activityOpenEnterAnimation">@anim/phone_screen_open_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/phone_hold</item>
+        <item name="android:activityCloseEnterAnimation">@anim/phone_screen_close_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/phone_screen_close_exit</item>
+        <item name="android:taskOpenEnterAnimation">@anim/phone_screen_open_enter</item>
+        <item name="android:taskOpenExitAnimation">@anim/phone_hold</item>
+        <item name="android:taskCloseEnterAnimation">@anim/phone_screen_close_enter</item>
+        <item name="android:taskCloseExitAnimation">@anim/phone_screen_close_exit</item>
+        <item name="android:taskToFrontEnterAnimation">@anim/phone_screen_open_enter</item>
+        <item name="android:taskToFrontExitAnimation">@anim/phone_hold</item>
+        <item name="android:taskToBackEnterAnimation">@anim/phone_screen_close_enter</item>
+        <item name="android:taskToBackExitAnimation">@anim/phone_screen_close_exit</item>
+    </style>
+    <style name="PhonePlayerAnimation">
+        <item name="android:activityOpenEnterAnimation">@anim/phone_player_open_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/phone_hold</item>
+        <item name="android:activityCloseEnterAnimation">@anim/phone_screen_close_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/phone_player_close_exit</item>
+        <item name="android:taskOpenEnterAnimation">@anim/phone_player_open_enter</item>
+        <item name="android:taskOpenExitAnimation">@anim/phone_hold</item>
+        <item name="android:taskCloseEnterAnimation">@anim/phone_screen_close_enter</item>
+        <item name="android:taskCloseExitAnimation">@anim/phone_player_close_exit</item>
+        <item name="android:taskToFrontEnterAnimation">@anim/phone_player_open_enter</item>
+        <item name="android:taskToFrontExitAnimation">@anim/phone_hold</item>
+        <item name="android:taskToBackEnterAnimation">@anim/phone_screen_close_enter</item>
+        <item name="android:taskToBackExitAnimation">@anim/phone_player_close_exit</item>
+    </style>
 </resources>

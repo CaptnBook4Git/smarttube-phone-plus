@@ -23,6 +23,35 @@ public class PhonePlaybackFragment extends PlaybackFragment {
         void onPlayerButtonState(int buttonId, int buttonState);
     }
 
+    @Override
+    public void onViewCreated(@androidx.annotation.NonNull android.view.View view, @androidx.annotation.Nullable android.os.Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        hideTvLayers(view);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        hideTvLayers(getView());
+    }
+
+    /**
+     * The TV overlay (title, control rows, Recommended, Chapters) and its dim layer never show on the phone.
+     */
+    private static void hideTvLayers(android.view.View root) {
+        if (root == null) {
+            return;
+        }
+        android.view.View dock = root.findViewById(com.liskovsoft.smartyoutubetv2.tv.R.id.playback_controls_dock);
+        if (dock != null) {
+            dock.setVisibility(android.view.View.GONE);
+        }
+        android.view.View background = root.findViewById(com.liskovsoft.smartyoutubetv2.tv.R.id.playback_fragment_background);
+        if (background != null) {
+            background.setVisibility(android.view.View.GONE);
+        }
+    }
+
     private Host getPhoneHost() {
         return getActivity() instanceof Host ? (Host) getActivity() : null;
     }
