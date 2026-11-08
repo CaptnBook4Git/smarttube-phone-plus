@@ -41,6 +41,7 @@ adb shell input tap 405 2250
 sleep 20
 adb exec-out screencap -p > smoke/5_shorts.png
 adb shell input swipe 540 1700 540 500 180
+adb exec-out screencap -p > smoke/6a_shorts_swipe_now.png
 sleep 1
 adb exec-out screencap -p > smoke/6_shorts_swipe.png
 sleep 12
@@ -49,5 +50,5 @@ adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActi
 
 adb logcat -d -b crash > smoke/crash.txt
 adb logcat -d > smoke/logcat_full.txt
-grep -E "AndroidRuntime|FATAL|SmartTube|liskovsoft" smoke/logcat_full.txt | tail -400 > smoke/logcat_app.txt
+grep -E "AndroidRuntime|FATAL|SmartTube|liskovsoft|SmartTubePhone" smoke/logcat_full.txt | tail -400 > smoke/logcat_app.txt
 exit 0
