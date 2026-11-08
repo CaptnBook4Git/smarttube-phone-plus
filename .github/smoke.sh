@@ -27,6 +27,7 @@ adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActi
 
 # Shorts: open the Shorts tab from Home, swipe up to the next Short
 dismiss_anr
+echo "shorts tap $(date +%H:%M:%S.%N)" > smoke/shorts_timing.txt
 adb shell input tap 405 2250
 sleep 20
 dismiss_anr; adb exec-out screencap -p > smoke/5_shorts.png
@@ -36,6 +37,11 @@ sleep 1
 adb exec-out screencap -p > smoke/6_shorts_swipe.png
 sleep 12
 dismiss_anr; adb exec-out screencap -p > smoke/7_shorts_next.png
+for i in 2 3 4 5; do
+  adb shell input swipe 540 1700 540 500 180
+  sleep 6
+  adb exec-out screencap -p > smoke/7_shorts_next_$i.png
+done
 adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity" > smoke/5_activity.txt
 adb shell input keyevent KEYCODE_BACK
 sleep 3
