@@ -21,6 +21,10 @@ jobs:
         with:
           submodules: recursive
 
+      # Phone changes to the MediaServiceCore submodule (Shorts feed)
+      - name: Apply submodule patches
+        run: git -C MediaServiceCore apply --whitespace=nowarn ../.github/patches/mediaservicecore.patch
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:

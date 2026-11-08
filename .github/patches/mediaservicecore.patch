@@ -1,0 +1,74 @@
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
+index ad4bafa..15b2f33 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
+@@ -14,6 +14,8 @@ import com.liskovsoft.youtubeapi.next.v2.gen.getItems
+ import com.liskovsoft.youtubeapi.next.v2.gen.getContinuationToken
+ import com.liskovsoft.youtubeapi.next.v2.gen.getShelves
+ 
++private val SHORTS_POOL = java.util.concurrent.Executors.newFixedThreadPool(6)
++
+ internal open class BrowseService2 {
+     private val mBrowseApi = RetrofitHelper.create(BrowseApi::class.java)
+ 
+@@ -243,20 +245,25 @@ internal open class BrowseService2 {
+ 
+         val continuation = mBrowseApi?.getReelContinuationResult(BrowseApiHelper.getReelContinuationQuery(AppClient.WEB, continuationKey))
+ 
+-        return RetrofitHelper.get(continuation, auth)?.let {
++        return RetrofitHelper.get(continuation, auth)?.let { sequence ->
++            // One details request per Short: run them side by side instead of one after another
++            val entries = sequence.getItems()?.filter { it?.videoId != null && it.params != null } ?: emptyList()
++            val futures = entries.map { entry ->
++                SHORTS_POOL.submit<MediaItem?> {
++                    val details = mBrowseApi?.getReelResult(BrowseApiHelper.getReelDetailsQuery(AppClient.WEB, entry!!.videoId!!, entry.params!!))
++                    RetrofitHelper.get(details, auth)?.let { info -> ShortsMediaItem(entry, info) }
++                }
++            }
+             val result = mutableListOf<MediaItem?>()
+-
+-            it.getItems()?.forEach {
+-                if (it?.videoId != null && it.params != null) {
+-                    val details = mBrowseApi?.getReelResult(BrowseApiHelper.getReelDetailsQuery(AppClient.WEB, it.videoId, it.params))
+-
+-                    RetrofitHelper.get(details, auth)?.let {
+-                            info -> result.add(ShortsMediaItem(it, info))
+-                    }
++            futures.forEach { future ->
++                try {
++                    future.get(20, java.util.concurrent.TimeUnit.SECONDS)?.let { result.add(it) }
++                } catch (e: Exception) {
++                    // skip a Short whose details failed
+                 }
+             }
+ 
+-            ShortsMediaGroup(result, it.getContinuationToken(), MediaGroupOptions.create(MediaGroup.TYPE_SHORTS))
++            ShortsMediaGroup(result, sequence.getContinuationToken(), MediaGroupOptions.create(MediaGroup.TYPE_SHORTS))
+         }
+     }
+ 
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
+index 1bfecfd..e09e780 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
+@@ -295,14 +295,14 @@ class YouTubeContentService implements ContentService {
+ 
+             //emitGroup(emitter, getBrowseService2().getShorts());
+ 
+-            MediaGroup shorts = getBrowseService2().getShorts();
++            // Phone: the Shorts tab is the general Shorts feed (like the YouTube app), not only subscriptions
++            MediaGroup shorts = getBrowseService2().getShorts2();
+ 
+-            if (shorts != null && shorts.getNextPageKey() != null) {
+-                emitGroup(emitter, shorts);
+-            } else {
+-                emitGroupPartial(emitter, shorts);
+-                emitGroup(emitter, getBrowseService2().getShorts2());
++            if (shorts == null || shorts.isEmpty()) {
++                shorts = getBrowseService2().getShorts();
+             }
++
++            emitGroup(emitter, shorts);
+         });
+     }
+ 
