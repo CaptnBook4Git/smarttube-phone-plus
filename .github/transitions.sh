@@ -38,8 +38,8 @@ event "tap card 1 (first open)"
 adb shell input tap 540 1000
 sleep 12
 stack 1_open1
-event "back"
-adb shell input keyevent KEYCODE_BACK
+event "swipe player down (picture in picture)"
+adb shell input swipe 540 350 540 1500 120
 sleep 5
 stack 2_back1
 
@@ -49,8 +49,8 @@ event "tap card 2 (second open)"
 adb shell input tap 540 1800
 sleep 12
 stack 3_open2
-event "back"
-adb shell input keyevent KEYCODE_BACK
+event "swipe player down (picture in picture)"
+adb shell input swipe 540 350 540 1500 120
 sleep 5
 stack 4_back2
 
