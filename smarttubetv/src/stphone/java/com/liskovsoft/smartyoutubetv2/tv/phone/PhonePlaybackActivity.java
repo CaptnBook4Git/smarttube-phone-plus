@@ -327,6 +327,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (isInPictureInPictureMode) {
             showPhoneControls(false);
             resetShrink(); // the floating window shows the plain video
+            setSeeThrough(false);
         } else {
             mLeftPip = true; // expanded (onResume follows) or closed (onStop follows)
         }
@@ -600,6 +601,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     cancel.recycle();
                     mRouteTouchToPlayer = null;
                     showPhoneControls(false);
+                    setSeeThrough(true); // the screen underneath shows while the video shrinks
                 } else {
                     return false;
                 }
@@ -649,7 +651,47 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mShrinkAnimator.setDuration(220);
         mShrinkAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f));
         mShrinkAnimator.addUpdateListener(a -> setShrinkProgress((float) a.getAnimatedValue()));
+        if (target == 0) {
+            mShrinkAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(android.animation.Animator animation) {
+                    if (!mShrinkDragging) {
+                        setSeeThrough(false); // back to the normal opaque player
+                    }
+                }
+            });
+        }
         mShrinkAnimator.start();
+    }
+
+    private boolean mSeeThrough;
+
+    /**
+     * While the video is dragged down, the player window turns translucent so the screen it was opened from (home,
+     * search...) shows behind it, like the YouTube app. Android 11+ (Activity.setTranslucent).
+     */
+    private void setSeeThrough(boolean seeThrough) {
+        if (seeThrough == mSeeThrough || Build.VERSION.SDK_INT < 30 || mRoot == null) {
+            return;
+        }
+        mSeeThrough = seeThrough;
+        if (seeThrough) {
+            getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+            mRoot.setBackgroundColor(Color.TRANSPARENT);
+            try {
+                setTranslucent(true);
+            } catch (Throwable ignored) {
+                // stays opaque: black behind the video, as before
+            }
+        } else {
+            try {
+                setTranslucent(false);
+            } catch (Throwable ignored) {
+                // already opaque
+            }
+            mRoot.setBackgroundColor(Color.BLACK);
+            getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.BLACK));
+        }
     }
 
     private void resetShrink() {
