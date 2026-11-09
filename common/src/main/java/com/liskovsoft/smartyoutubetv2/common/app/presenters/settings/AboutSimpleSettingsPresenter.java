@@ -34,7 +34,7 @@ public class AboutSimpleSettingsPresenter extends BasePresenter<Void> {
         AppDialogPresenter settingsPresenter = AppDialogPresenter.instance(getContext());
 
         // Builds with their own updater (phone) show it as a separate setting instead
-        if (!AppUpdatePresenter.hasUpdateHandler()) {
+        if (!com.liskovsoft.smartyoutubetv2.common.misc.AppUpdateHook.isSet()) {
             appendAutoUpdateSwitch(settingsPresenter);
 
             appendUpdateCheckButton(settingsPresenter);

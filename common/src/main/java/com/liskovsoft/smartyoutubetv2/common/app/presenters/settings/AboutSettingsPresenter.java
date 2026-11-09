@@ -45,7 +45,7 @@ public class AboutSettingsPresenter extends BasePresenter<Void> {
         String country = LocaleUtility.getCurrentLocale(getContext()).getCountry();
 
         // Builds with their own updater (phone) show it as a separate setting instead
-        if (!AppUpdatePresenter.hasUpdateHandler()) {
+        if (!com.liskovsoft.smartyoutubetv2.common.misc.AppUpdateHook.isSet()) {
             appendUpdateCheckButton(settingsPresenter);
 
             appendAutoUpdateSwitch(settingsPresenter);

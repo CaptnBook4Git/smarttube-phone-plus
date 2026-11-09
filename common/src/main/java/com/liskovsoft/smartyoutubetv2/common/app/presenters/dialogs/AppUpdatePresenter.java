@@ -48,24 +48,9 @@ public class AppUpdatePresenter extends BasePresenter<Void> implements AppUpdate
         sInstance = null;
     }
 
-    /** Lets a build use its own updater (the phone app updates from its GitHub releases) */
-    public interface UpdateHandler {
-        void start(Context context, boolean forceCheck);
-    }
-
-    private static UpdateHandler sUpdateHandler;
-
-    public static void setUpdateHandler(UpdateHandler handler) {
-        sUpdateHandler = handler;
-    }
-
-    public static boolean hasUpdateHandler() {
-        return sUpdateHandler != null;
-    }
-
     public void start(boolean forceCheck) {
-        if (sUpdateHandler != null) {
-            sUpdateHandler.start(getContext(), forceCheck);
+        if (com.liskovsoft.smartyoutubetv2.common.misc.AppUpdateHook.isSet()) {
+            com.liskovsoft.smartyoutubetv2.common.misc.AppUpdateHook.getHandler().start(getContext(), forceCheck);
             return;
         }
 

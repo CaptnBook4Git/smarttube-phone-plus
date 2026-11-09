@@ -27,7 +27,7 @@ public class PhoneApplication extends MainApplication {
         applyPhoneDefaults();
         // Updates come from this project's GitHub releases: a manual check opens the update screen. The automatic
         // check at start is done by Home (PhoneUpdater.checkInBackground), so SmartTube's own one does nothing here.
-        com.liskovsoft.smartyoutubetv2.common.app.presenters.dialogs.AppUpdatePresenter.setUpdateHandler((context, forceCheck) -> {
+        com.liskovsoft.smartyoutubetv2.common.misc.AppUpdateHook.setHandler((context, forceCheck) -> {
             if (forceCheck) {
                 PhoneUpdater.open(context);
             }
