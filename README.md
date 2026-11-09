@@ -46,6 +46,7 @@
   - [Full screen gestures](#full-screen-gestures)
   - [Mini player and background play](#mini-player-and-background-play)
   - [Shorts](#shorts)
+  - [Channels](#channels)
   - [Search](#search)
   - [Subscriptions and the You tab](#subscriptions-and-the-you-tab)
   - [Settings and appearance](#settings-and-appearance)
@@ -247,6 +248,16 @@ Rotate back to portrait, or press back, to leave full screen.
 - **Tap** to pause or resume.
 - On the right: **Like**, **Dislike**, **Comments**, **Share**, **Save** and more options. At the bottom: the channel (tap it to open the channel), **Subscribe** and the title.
 - Press back (or tap the arrow at the top left) to return to Home.
+
+### Channels
+
+<p align="center">
+  <img src="images/phone/13_channel.jpg" width="240" alt="Channel page">
+</p>
+
+- Tap a channel picture or name anywhere to open the channel.
+- The top shows the channel's banner, picture, name, handle, subscriber and video counts, and its description (tap it to read all of it). **Subscribe** is right below.
+- Tabs switch between **Videos**, **Shorts**, **Live**, **Playlists** and the channel's other sections. Videos are a list (thumbnail on the left), Shorts a grid. More load as you scroll.
 
 ### Search
 
