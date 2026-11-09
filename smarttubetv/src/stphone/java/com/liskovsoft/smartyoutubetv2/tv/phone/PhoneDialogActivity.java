@@ -547,7 +547,9 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                     return;
                 }
                 for (CommentItem item : commentGroup.getComments()) {
-                    if (item != null && !item.isEmpty()) {
+                    // Note: isEmpty() means "no replies to open", not "no content": replies (and comments without
+                    // replies) are all "empty", so filtering on it hid every reply
+                    if (item != null && (!TextUtils.isEmpty(item.getMessage()) || !TextUtils.isEmpty(item.getAuthorName()))) {
                         items.add(item);
                     }
                 }
@@ -671,7 +673,10 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                     item.isLiked() ? R.color.phone_accent : R.color.phone_text_2)));
 
             boolean hasReplies = item.getNestedCommentsKey() != null && !TextUtils.isEmpty(item.getReplyCount());
-            replies.setText(hasReplies ? getString(R.string.phone_replies, item.getReplyCount()) : null);
+            String count = item.getReplyCount();
+            // YouTube sends "68 replies" (already worded) or just "68"
+            boolean worded = count != null && count.matches(".*[^0-9.,KkMm\\s].*");
+            replies.setText(hasReplies ? (worded ? count : getString(R.string.phone_replies, count)) : null);
             replies.setVisibility(hasReplies ? View.VISIBLE : View.GONE);
 
             if (PhoneUi.isAlive(PhoneDialogActivity.this)) {
