@@ -133,7 +133,23 @@ public class ViewManager {
         }
     }
 
+    private long mSkipNextParentStartMs;
+
+    /**
+     * Phone UI: the next startParentView only forgets the closing screen and opens nothing. Used when the app closes a
+     * detached player (picture in picture, own task): the screen underneath (e.g. search) must stay as it is.
+     */
+    public void skipNextParentStart() {
+        mSkipNextParentStartMs = System.currentTimeMillis();
+    }
+
     public void startParentView(Activity activity) {
+        if (mSkipNextParentStartMs != 0 && System.currentTimeMillis() - mSkipNextParentStartMs < 2_000) {
+            mSkipNextParentStartMs = 0;
+            removeTop(activity);
+            return;
+        }
+
         if (activity.getIntent() != null) {
             removeTopActivity();
 

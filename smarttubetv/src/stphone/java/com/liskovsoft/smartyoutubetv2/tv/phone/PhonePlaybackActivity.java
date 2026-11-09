@@ -326,6 +326,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         super.onPictureInPictureModeChanged(isInPictureInPictureMode);
         if (isInPictureInPictureMode) {
             showPhoneControls(false);
+            resetShrink(); // the floating window shows the plain video
         } else {
             mLeftPip = true; // expanded (onResume follows) or closed (onStop follows)
         }
@@ -357,6 +358,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     private void closePlayer() {
         cancelPlaybackNotification();
+        // A detached player closing itself must not reopen Home: that would also close the screen the user is on
+        // (search, a channel...)
+        getViewManager().skipNextParentStart();
         if (mPlayer != null) {
             mPlayer.finishReally();
         } else {
@@ -561,6 +565,116 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private long mDragStartTime;
 
     /** True when a quick downward drag that started on the video ends (YouTube: drag the player down) */
+    private boolean mShrinkDragging;
+    private android.animation.ValueAnimator mShrinkAnimator;
+
+    /**
+     * Drag the video down: it moves and shrinks with the finger while the details fade, then becomes the floating
+     * mini player (picture in picture) from exactly where it is, or springs back if the drag was short.
+     */
+    private boolean handleShrinkDrag(MotionEvent event) {
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            trackCloseDrag(event);
+            mShrinkDragging = false;
+            return false;
+        }
+        float dy = event.getRawY() - mDragStartY;
+        float dx = Math.abs(event.getRawX() - mDragStartX);
+        if (action == MotionEvent.ACTION_MOVE) {
+            if (!mShrinkDragging) {
+                int slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop() * 2;
+                if (dy > slop && dy > dx * 1.5f) {
+                    mShrinkDragging = true;
+                    if (mShrinkAnimator != null) {
+                        mShrinkAnimator.cancel();
+                    }
+                    // The player and the details stop handling this touch (no seek, no tap)
+                    MotionEvent cancel = MotionEvent.obtain(event);
+                    cancel.setAction(MotionEvent.ACTION_CANCEL);
+                    if (Boolean.TRUE.equals(mRouteTouchToPlayer)) {
+                        super.dispatchTouchEvent(cancel);
+                    } else {
+                        getWindow().superDispatchTouchEvent(cancel);
+                    }
+                    cancel.recycle();
+                    mRouteTouchToPlayer = null;
+                    showPhoneControls(false);
+                } else {
+                    return false;
+                }
+            }
+            setShrinkProgress(Math.max(0, dy));
+            return true;
+        }
+        if (!mShrinkDragging) {
+            return false;
+        }
+        mShrinkDragging = false;
+        mRouteTouchToPlayer = null;
+        long dt = Math.max(1, event.getEventTime() - mDragStartTime);
+        boolean shrink = action == MotionEvent.ACTION_UP && (dy > dp(160) || (dy > dp(60) && dy / dt > 0.6f));
+        if (shrink) {
+            enterMiniPlayer();
+        } else {
+            animateShrink(0);
+        }
+        return true;
+    }
+
+    private float mShrinkOffset;
+
+    private void setShrinkProgress(float offset) {
+        mShrinkOffset = offset;
+        View root = getWindow().getDecorView();
+        float travel = Math.max(1, root.getHeight() * 0.55f);
+        float progress = Math.min(1f, offset / travel);
+        float scale = 1f - 0.45f * progress;
+        mVideoBox.setPivotX(mVideoBox.getWidth() / 2f);
+        mVideoBox.setPivotY(0);
+        mVideoBox.setScaleX(scale);
+        mVideoBox.setScaleY(scale);
+        mVideoBox.setTranslationY(offset * 0.85f);
+        if (mDetails != null) {
+            mDetails.setAlpha(Math.max(0f, 1f - progress * 2.2f));
+            mDetails.setTranslationY(offset * 0.85f);
+        }
+    }
+
+    private void animateShrink(float target) {
+        if (mShrinkAnimator != null) {
+            mShrinkAnimator.cancel();
+        }
+        mShrinkAnimator = android.animation.ValueAnimator.ofFloat(mShrinkOffset, target);
+        mShrinkAnimator.setDuration(220);
+        mShrinkAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f));
+        mShrinkAnimator.addUpdateListener(a -> setShrinkProgress((float) a.getAnimatedValue()));
+        mShrinkAnimator.start();
+    }
+
+    private void resetShrink() {
+        if (mShrinkAnimator != null) {
+            mShrinkAnimator.cancel();
+        }
+        mShrinkDragging = false;
+        setShrinkProgress(0);
+    }
+
+    /** Where the video is on screen right now (after the drag transform), for a seamless picture-in-picture start */
+    private Rect videoRectOnScreen() {
+        if (mVideoBox == null || mVideoBox.getWidth() == 0) {
+            return null;
+        }
+        android.graphics.RectF rect = new android.graphics.RectF(0, 0, mVideoBox.getWidth(), mVideoBox.getHeight());
+        mVideoBox.getMatrix().mapRect(rect);
+        int[] parent = new int[2];
+        ((View) mVideoBox.getParent()).getLocationInWindow(parent);
+        rect.offset(parent[0] + mVideoBox.getLeft(), parent[1] + mVideoBox.getTop());
+        Rect result = new Rect();
+        rect.round(result);
+        return result;
+    }
+
     private boolean trackCloseDrag(MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
@@ -589,19 +703,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             mRouteTouchToPlayer = onVideo && !mShortsMode && mControls.getVisibility() != View.VISIBLE;
         }
 
-        // Swipe the video down to shrink the player (portrait, regular videos)
-        if (mTouchStartedOnVideo && mPortrait && !mShortsMode && trackCloseDrag(event)) {
-            MotionEvent cancel = MotionEvent.obtain(event);
-            cancel.setAction(MotionEvent.ACTION_CANCEL);
-            boolean toPlayer = Boolean.TRUE.equals(mRouteTouchToPlayer);
-            mRouteTouchToPlayer = null;
-            if (toPlayer) {
-                super.dispatchTouchEvent(cancel);
-            } else {
-                getWindow().superDispatchTouchEvent(cancel);
-            }
-            cancel.recycle();
-            enterMiniPlayer();
+        // Swipe the video down to shrink the player (portrait, regular videos): the video follows the finger
+        if (mTouchStartedOnVideo && mPortrait && !mShortsMode && handleShrinkDrag(event)) {
             return true;
         }
 
@@ -662,9 +765,14 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             return;
         }
         try {
-            android.app.PictureInPictureParams params = new android.app.PictureInPictureParams.Builder()
-                    .setAspectRatio(mShortsMode ? new android.util.Rational(9, 16) : new android.util.Rational(16, 9))
-                    .build();
+            android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder()
+                    .setAspectRatio(mShortsMode ? new android.util.Rational(9, 16) : new android.util.Rational(16, 9));
+            // The floating window grows out of the video itself (where the drag left it), not the whole screen
+            Rect hint = videoRectOnScreen();
+            if (hint != null && !hint.isEmpty()) {
+                builder.setSourceRectHint(hint);
+            }
+            android.app.PictureInPictureParams params = builder.build();
             showPhoneControls(false);
             if (!enterPictureInPictureMode(params)) {
                 finish();
