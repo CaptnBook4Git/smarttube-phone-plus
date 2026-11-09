@@ -50,7 +50,7 @@ sleep 3
 # Player settings (gear in the controls)
 adb shell input tap 540 400
 sleep 1
-tap_text "Settings"
+tap_text "Quality"
 sleep 5
 shot 3_settings
 adb shell input keyevent KEYCODE_BACK
