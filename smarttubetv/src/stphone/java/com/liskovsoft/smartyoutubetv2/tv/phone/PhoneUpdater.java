@@ -14,6 +14,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.util.Log;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -44,6 +45,7 @@ final class PhoneUpdater {
     private static final int BASE_VERSION_CODE = 2462;
     private static final String ACTION_INSTALL_STATUS = "org.smarttube.phone.INSTALL_STATUS";
 
+    private static final String TAG = "PhoneUpdater";
     private static volatile boolean sBusy;
 
     private PhoneUpdater() {
@@ -79,7 +81,14 @@ final class PhoneUpdater {
             try {
                 release = fetchLatest();
             } catch (Throwable e) {
-                // handled below
+                Log.w(TAG, "GitHub API check failed, trying the releases page: " + e);
+            }
+            if (release == null) {
+                try {
+                    release = fetchLatestFromRedirect();
+                } catch (Throwable e) {
+                    Log.w(TAG, "Releases page check failed: " + e);
+                }
             }
             final Release result = release;
             main.post(() -> {
@@ -206,6 +215,7 @@ final class PhoneUpdater {
             } catch (InterruptedException e) {
                 error = "";
             } catch (Throwable e) {
+                Log.w(TAG, "Update download failed: " + e);
                 error = e.getClass().getSimpleName() + (e.getMessage() != null ? ": " + e.getMessage() : "");
             }
             if (error != null && sessionId != -1) {
@@ -261,6 +271,32 @@ final class PhoneUpdater {
         int build;
         String apkUrl;
         long size;
+    }
+
+    /**
+     * No API (and no API rate limit): github.com/.../releases/latest redirects to .../releases/tag/build-N
+     */
+    private static Release fetchLatestFromRedirect() throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL("https://github.com/" + REPO + "/releases/latest").openConnection();
+        connection.setConnectTimeout(15000);
+        connection.setReadTimeout(30000);
+        connection.setInstanceFollowRedirects(false);
+        connection.setRequestProperty("User-Agent", "SmartTube-Phone-Updater");
+        try {
+            connection.getResponseCode();
+            String location = connection.getHeaderField("Location");
+            java.util.regex.Matcher matcher = location != null
+                    ? java.util.regex.Pattern.compile("/tag/build-(\\d+)").matcher(location) : null;
+            if (matcher == null || !matcher.find()) {
+                return null;
+            }
+            Release release = new Release();
+            release.build = Integer.parseInt(matcher.group(1));
+            release.apkUrl = "https://github.com/" + REPO + "/releases/download/build-" + release.build + "/" + APK_NAME;
+            return release;
+        } finally {
+            connection.disconnect();
+        }
     }
 
     private static Release fetchLatest() throws Exception {

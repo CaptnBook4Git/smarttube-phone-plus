@@ -3,7 +3,7 @@
 set -x
 PKG=org.smarttube.phone
 SPLASH=com.liskovsoft.smartyoutubetv2.tv.ui.main.SplashActivity
-OLD_TAG="${OLD_TAG:-build-43}"  # first build with Settings > Check for updates
+OLD_TAG="${OLD_TAG:-build-45}"  # first build whose updater falls back to the releases page
 OUT=smoke
 mkdir -p $OUT
 for i in 1 2 3 4 5; do
