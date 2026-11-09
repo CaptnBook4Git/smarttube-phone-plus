@@ -170,15 +170,31 @@ final class PhoneUpdater {
     // region Checking
 
     static void checkAsync(Context context, CheckCallback callback) {
+        checkAsync(context, false, callback);
+    }
+
+    /**
+     * @param quick only the build number (background checks): the releases page answers at once and has no rate limit
+     */
+    static void checkAsync(Context context, boolean quick, CheckCallback callback) {
         Context app = context.getApplicationContext();
         new Thread(() -> {
             Release release = null;
-            try {
-                release = fetchLatest();
-            } catch (Throwable e) {
-                Log.w(TAG, "GitHub API check failed, trying the releases page: " + e);
+            if (quick) {
+                try {
+                    release = fetchLatestFromRedirect();
+                } catch (Throwable e) {
+                    Log.w(TAG, "Releases page check failed: " + e);
+                }
             }
             if (release == null) {
+                try {
+                    release = fetchLatest();
+                } catch (Throwable e) {
+                    Log.w(TAG, "GitHub API check failed, trying the releases page: " + e);
+                }
+            }
+            if (release == null && !quick) {
                 try {
                     release = fetchLatestFromRedirect();
                 } catch (Throwable e) {
@@ -219,7 +235,7 @@ final class PhoneUpdater {
             return;
         }
         sLastBackgroundCheck = now;
-        checkAsync(activity, release -> {
+        checkAsync(activity, true, release -> {
             Log.i(TAG, "Background check: latest " + (release != null ? release.build : -1) + ", installed " + currentBuild(activity));
             if (release != null && isNewer(activity, release)) {
                 showBanner(activity, release.build);
