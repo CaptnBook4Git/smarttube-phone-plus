@@ -635,8 +635,11 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (type == VT_ROW && mHiddenAuthor != null) {
                 TextView meta = holder.itemView.findViewById(R.id.phone_meta);
                 String text = meta.getText().toString();
-                if (text.startsWith(mHiddenAuthor + " · ")) {
-                    meta.setText(text.substring(mHiddenAuthor.length() + 3));
+                if (text.startsWith(mHiddenAuthor)) {
+                    String rest = text.substring(mHiddenAuthor.length()).trim();
+                    if (rest.startsWith("•") || rest.startsWith("·")) {
+                        meta.setText(rest.substring(1).trim());
+                    }
                 }
             }
             bindClicks(holder.itemView, video);
