@@ -45,6 +45,29 @@
         android:layout_margin="4dp"
         android:orientation="horizontal">
 
+        <!-- Autoplay the next video: on/off switch (YouTube style) -->
+        <ImageView
+            android:id="@+id/phone_ctl_autoplay"
+            android:layout_width="54dp"
+            android:layout_height="48dp"
+            android:paddingStart="8dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="12dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/phone_autoplay"
+            android:src="@drawable/ic_phone_autoplay_on" />
+
+        <!-- Playback mode: play next, repeat, shuffle, play the list... -->
+        <ImageView
+            android:id="@+id/phone_ctl_mode"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/phone_playback_mode"
+            android:src="@drawable/ic_phone_mode_next" />
+
         <ImageView
             android:id="@+id/phone_ctl_cc"
             android:layout_width="48dp"

@@ -4,6 +4,7 @@ import android.content.pm.ActivityInfo;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.manager.PlayerConstants;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Build;
@@ -232,6 +233,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         PhoneUi.applyPhoneDensity(this);
         cancelPlaybackNotification();
         applySystemBars();
+        refreshPlaybackMode(); // the playback mode sheet may have changed it
         mHandler.removeCallbacks(mTicker);
         mHandler.post(mTicker);
         refreshDetails();
@@ -840,6 +842,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         findViewById(R.id.phone_ctl_collapse).setOnClickListener(v -> onBackPressed());
         findViewById(R.id.phone_ctl_settings).setOnClickListener(v -> clickButton(R.id.lb_control_high_quality));
         findViewById(R.id.phone_ctl_cc).setOnClickListener(v -> clickButton(R.id.lb_control_closed_captioning));
+        findViewById(R.id.phone_ctl_autoplay).setOnClickListener(v -> toggleAutoplay());
+        // Same list as SmartTube's playback mode button: play next, pause, repeat, shuffle, play the list, close
+        findViewById(R.id.phone_ctl_mode).setOnClickListener(v ->
+                presenter().onButtonLongClicked(R.id.action_repeat, getButtonState(R.id.action_repeat)));
+        refreshPlaybackMode();
 
         mSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -1522,6 +1529,60 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private int getButtonState(int buttonId) {
         return mPlayer != null ? mPlayer.getButtonState(buttonId) : PlayerUI.BUTTON_OFF;
     }
+
+    // region Autoplay and playback mode
+
+    private static boolean isAutoplay(int mode) {
+        return mode != PlayerConstants.PLAYBACK_MODE_PAUSE && mode != PlayerConstants.PLAYBACK_MODE_CLOSE;
+    }
+
+    private void toggleAutoplay() {
+        com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData data =
+                com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData.instance(this);
+        int mode = isAutoplay(data.getPlaybackMode()) ? PlayerConstants.PLAYBACK_MODE_PAUSE : PlayerConstants.PLAYBACK_MODE_ALL;
+        data.setPlaybackMode(mode);
+        if (mPlayer != null) {
+            mPlayer.setButtonState(R.id.action_repeat, mode);
+        }
+        refreshPlaybackMode();
+        android.widget.Toast.makeText(this, isAutoplay(mode) ? R.string.phone_autoplay_on : R.string.phone_autoplay_off,
+                android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    /** Autoplay switch and playback mode icon follow the current mode */
+    private void refreshPlaybackMode() {
+        ImageView autoplay = findViewById(R.id.phone_ctl_autoplay);
+        ImageView modeButton = findViewById(R.id.phone_ctl_mode);
+        if (autoplay == null || modeButton == null) {
+            return;
+        }
+        int mode = com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData.instance(this).getPlaybackMode();
+        autoplay.setImageResource(isAutoplay(mode) ? R.drawable.ic_phone_autoplay_on : R.drawable.ic_phone_autoplay_off);
+        int icon;
+        boolean special = true;
+        switch (mode) {
+            case PlayerConstants.PLAYBACK_MODE_SHUFFLE:
+                icon = R.drawable.ic_phone_mode_shuffle;
+                break;
+            case PlayerConstants.PLAYBACK_MODE_ONE:
+                icon = R.drawable.ic_phone_mode_repeat_one;
+                break;
+            case PlayerConstants.PLAYBACK_MODE_LIST:
+            case PlayerConstants.PLAYBACK_MODE_REVERSE_LIST:
+                icon = R.drawable.ic_phone_mode_repeat;
+                break;
+            default:
+                icon = R.drawable.ic_phone_mode_next;
+                special = false;
+                break;
+        }
+        modeButton.setImageResource(icon);
+        // Shuffle and repeat modes light up in the accent color
+        modeButton.setImageTintList(android.content.res.ColorStateList.valueOf(
+                special ? getResources().getColor(R.color.phone_accent) : Color.WHITE));
+    }
+
+    // endregion
 
     private void clickButton(int buttonId) {
         presenter().onButtonClicked(buttonId, getButtonState(buttonId));

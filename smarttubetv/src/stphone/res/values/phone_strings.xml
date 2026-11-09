@@ -56,4 +56,8 @@
     <string name="phone_appearance_light">Appearance: Light</string>
     <string name="phone_appearance_system">Appearance: Same as device</string>
     <string name="phone_notification_channel">Background playback</string>
+    <string name="phone_autoplay">Autoplay</string>
+    <string name="phone_autoplay_on">Autoplay is on</string>
+    <string name="phone_autoplay_off">Autoplay is off</string>
+    <string name="phone_playback_mode">Playback mode</string>
 </resources>
