@@ -40,6 +40,7 @@ public class PhoneUpdateActivity extends PhoneActivity implements PhoneUpdater.I
     private PhoneUpdater.Release mRelease;
     private PhoneUpdater.Download mDownload;
     private String mError;
+    private Intent mConfirmIntent;
     private long mDone;
     private long mTotal;
 
@@ -207,7 +208,11 @@ public class PhoneUpdateActivity extends PhoneActivity implements PhoneUpdater.I
                 }
                 break;
             case STATE_INSTALLING:
-                startDownload(); // the installer was closed: start over
+                if (mConfirmIntent != null) {
+                    openConfirmation(); // the confirmation was dismissed or hidden: show it again
+                } else {
+                    startDownload();
+                }
                 break;
             default:
                 break;
@@ -219,6 +224,28 @@ public class PhoneUpdateActivity extends PhoneActivity implements PhoneUpdater.I
             mDownload.cancel();
         } else if (mState == STATE_AVAILABLE || mState == STATE_PERMISSION) {
             finish();
+        }
+    }
+
+    @Override
+    public void onConfirmationNeeded(Intent confirm) {
+        mConfirmIntent = confirm;
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        mState = STATE_INSTALLING;
+        render();
+        openConfirmation();
+    }
+
+    private void openConfirmation() {
+        if (mConfirmIntent == null) {
+            return;
+        }
+        try {
+            startActivity(mConfirmIntent);
+        } catch (Throwable e) {
+            onInstallFailed(getString(R.string.phone_update_failed, String.valueOf(e.getMessage())));
         }
     }
 

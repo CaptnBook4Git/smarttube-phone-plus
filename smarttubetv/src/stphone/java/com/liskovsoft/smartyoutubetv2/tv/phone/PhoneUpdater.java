@@ -80,6 +80,9 @@ final class PhoneUpdater {
     }
 
     interface InstallListener {
+        /** Android's "Update" confirmation, to be started by the screen in front */
+        void onConfirmationNeeded(Intent confirm);
+
         void onInstallFailed(String message);
     }
 
@@ -247,7 +250,8 @@ final class PhoneUpdater {
                         connection.disconnect();
                     }
 
-                    Intent status = new Intent(ACTION_INSTALL_STATUS).setPackage(app.getPackageName());
+                    // Explicit receiver: the manifest receiver has no intent filter, so an action-only broadcast never reached it
+                    Intent status = new Intent(app, InstallReceiver.class).setAction(ACTION_INSTALL_STATUS);
                     int flags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
                     PendingIntent pending = PendingIntent.getBroadcast(app, sessionId, status, flags);
                     session.commit(pending.getIntentSender());
@@ -295,15 +299,23 @@ final class PhoneUpdater {
         @Override
         public void onReceive(Context context, Intent intent) {
             int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
+            Log.i(TAG, "Install status " + status + ": " + intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
             if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
                 Intent confirm = intent.getParcelableExtra(Intent.EXTRA_INTENT);
-                if (confirm != null) {
-                    confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    try {
-                        context.startActivity(confirm);
-                    } catch (Throwable e) {
-                        reportInstallFailure(context, context.getString(R.string.phone_update_failed, String.valueOf(e.getMessage())));
-                    }
+                if (confirm == null) {
+                    return;
+                }
+                // The update screen is in front: let it open the confirmation (always allowed for a visible screen)
+                InstallListener listener = sInstallListener != null ? sInstallListener.get() : null;
+                if (listener != null) {
+                    listener.onConfirmationNeeded(confirm);
+                    return;
+                }
+                confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                try {
+                    context.startActivity(confirm);
+                } catch (Throwable e) {
+                    reportInstallFailure(context, context.getString(R.string.phone_update_failed, String.valueOf(e.getMessage())));
                 }
             } else if (status == PackageInstaller.STATUS_FAILURE_CONFLICT || status == PackageInstaller.STATUS_FAILURE_INCOMPATIBLE) {
                 reportInstallFailure(context, context.getString(R.string.phone_update_conflict));
