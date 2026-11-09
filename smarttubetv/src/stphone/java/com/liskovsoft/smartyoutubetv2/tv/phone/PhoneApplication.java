@@ -35,6 +35,14 @@ public class PhoneApplication extends MainApplication {
     }
 
     private void applyPhoneDefaults() {
+        // Sheets open below the video on phones, so never shrink the video aside for them (a TV layout feature: the TV
+        // settings panel covers the right part of the screen)
+        com.liskovsoft.smartyoutubetv2.common.prefs.PlayerTweaksData tweaks =
+                com.liskovsoft.smartyoutubetv2.common.prefs.PlayerTweaksData.instance(this);
+        if (!tweaks.isDontResizeVideoToFitDialogEnabled()) {
+            tweaks.setDontResizeVideoToFitDialogEnabled(true);
+        }
+
         android.content.SharedPreferences prefs = getSharedPreferences("phone_defaults", MODE_PRIVATE);
         if (!prefs.getBoolean("background_playback_v1", false)) {
             com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData playerData =
