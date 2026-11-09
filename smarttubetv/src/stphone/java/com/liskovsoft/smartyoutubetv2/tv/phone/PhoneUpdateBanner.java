@@ -15,12 +15,10 @@ import android.widget.TextView;
 import com.liskovsoft.smartyoutubetv2.tv.R;
 
 /**
- * Small floating card on Home: "Update available · Build N  [Update]". Opens the update screen; slides away by
- * itself after a few seconds.
+ * Small floating card on Home: "Update available · Build N  [Update] [x]". Opens the update screen; stays until the
+ * user taps it or closes it.
  */
 final class PhoneUpdateBanner {
-    private static final long SHOW_FOR_MS = 12_000;
-
     private PhoneUpdateBanner() {
     }
 
@@ -74,6 +72,13 @@ final class PhoneUpdateBanner {
         button.setPadding((int) (18 * density), 0, (int) (18 * density), 0);
         card.addView(button, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, (int) (38 * density)));
 
+        ImageView close = new ImageView(activity);
+        close.setImageResource(R.drawable.ic_phone_close);
+        close.setImageTintList(ColorStateList.valueOf(activity.getResources().getColor(R.color.phone_text_2)));
+        close.setPadding((int) (8 * density), (int) (8 * density), 0, (int) (8 * density));
+        close.setContentDescription(activity.getString(R.string.phone_clear));
+        card.addView(close, new LinearLayout.LayoutParams((int) (32 * density), (int) (38 * density)));
+
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
         int side = (int) (12 * density);
@@ -95,6 +100,6 @@ final class PhoneUpdateBanner {
         card.setAlpha(0f);
         card.setTranslationY(24 * density);
         card.animate().alpha(1f).translationY(0f).setDuration(250).start();
-        card.postDelayed(hide, SHOW_FOR_MS);
+        close.setOnClickListener(v -> hide.run());
     }
 }
