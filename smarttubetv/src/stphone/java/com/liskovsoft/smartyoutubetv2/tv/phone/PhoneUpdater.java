@@ -220,6 +220,7 @@ final class PhoneUpdater {
         }
         sLastBackgroundCheck = now;
         checkAsync(activity, release -> {
+            Log.i(TAG, "Background check: latest " + (release != null ? release.build : -1) + ", installed " + currentBuild(activity));
             if (release != null && isNewer(activity, release)) {
                 showBanner(activity, release.build);
             }
@@ -227,9 +228,10 @@ final class PhoneUpdater {
     }
 
     private static void showBanner(Activity activity, int build) {
-        if (sBannerShownThisSession || activity.isFinishing() || activity.isDestroyed() || !activity.hasWindowFocus()) {
+        if (sBannerShownThisSession || activity.isFinishing() || activity.isDestroyed()) {
             return;
         }
+        Log.i(TAG, "Update card: build " + build + " is waiting");
         sBannerShownThisSession = true;
         prefs(activity).edit().putLong(KEY_LAST_BANNER, System.currentTimeMillis()).apply();
         PhoneUpdateBanner.show(activity, build);
