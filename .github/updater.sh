@@ -3,7 +3,7 @@
 set -x
 PKG=org.smarttube.phone
 SPLASH=com.liskovsoft.smartyoutubetv2.tv.ui.main.SplashActivity
-OLD_TAG="${OLD_TAG:-build-49}"  # first build with the Software update screen
+OLD_TAG="${OLD_TAG:-build-52}"  # first build whose install prompt opens
 OUT=smoke
 mkdir -p $OUT
 for i in 1 2 3 4 5; do
