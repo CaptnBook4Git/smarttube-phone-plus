@@ -6,6 +6,11 @@ on:
     paths-ignore: [ "README.md", "images/**", ".github/*.sh", ".github/workflows/smoke.yml" ]
   workflow_dispatch:
 
+# One build at a time: a slower older build must never finish last and become the "latest" release
+concurrency:
+  group: phone-build
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
