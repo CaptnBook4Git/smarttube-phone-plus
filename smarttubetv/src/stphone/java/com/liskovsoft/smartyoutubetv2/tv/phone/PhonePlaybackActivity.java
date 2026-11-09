@@ -1706,6 +1706,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             applySystemBars();
         }
         mDescriptionExpanded = false;
+        if (mAdapter != null && video != null) {
+            mAdapter.setExcludedVideoId(video.videoId);
+        }
         refreshDetails();
         if (mShortsMode) {
             preloadNextShorts();
@@ -1720,6 +1723,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (mAdapter == null || group == null || group.isChapters()) {
             return; // chapters stay out of the list
         }
+        Video playing = currentVideo();
+        mAdapter.setExcludedVideoId(playing != null ? playing.videoId : null);
         mAdapter.update(group);
         if (mShortsMode) {
             preloadNextShorts();

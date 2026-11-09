@@ -60,14 +60,10 @@
     <string name="phone_update_check_build">Check for updates (build %1$d)</string>
     <string name="phone_update_checking">Checking for updates…</string>
     <string name="phone_update_busy">Already checking for updates</string>
-    <string name="phone_update_none_title">You're up to date</string>
+    <string name="phone_update_none_title">You\'re up to date</string>
     <string name="phone_update_none">Build %1$d is the latest version.</string>
     <string name="phone_update_available_title">Update available</string>
-    <string name="phone_update_available">Build %1$d is ready to install. You have build %2$s.
-
-Download size: %3$s
-
-You stay signed in and your settings are kept.</string>
+    <string name="phone_update_available">Build %1$d is ready to install. You have build %2$s.\n\nDownload size: %3$s\n\nYou stay signed in and your settings are kept.</string>
     <string name="phone_update_install">Download and install</string>
     <string name="phone_update_later">Later</string>
     <string name="phone_update_downloading_title">Downloading update</string>
@@ -75,8 +71,8 @@ You stay signed in and your settings are kept.</string>
     <string name="phone_update_permission_title">Allow updates</string>
     <string name="phone_update_permission">To install updates, Android needs your permission once. Turn on \"Allow from this source\" for SmartTube, come back and tap Check for updates again.</string>
     <string name="phone_update_open_settings">Open settings</string>
-    <string name="phone_update_error_title">Couldn't check for updates</string>
-    <string name="phone_update_error_network">Can't reach GitHub right now. Check your internet connection and try again.</string>
+    <string name="phone_update_error_title">Couldn\'t check for updates</string>
+    <string name="phone_update_error_network">Can\'t reach GitHub right now. Check your internet connection and try again.</string>
     <string name="phone_update_failed">Update failed: %1$s</string>
-    <string name="phone_update_conflict">This copy of SmartTube was signed with an older key, so it can't be updated in place. Uninstall it once and install the latest APK from GitHub.</string>
+    <string name="phone_update_conflict">This copy of SmartTube was signed with an older key, so it can\'t be updated in place. Uninstall it once and install the latest APK from GitHub.</string>
 </resources>

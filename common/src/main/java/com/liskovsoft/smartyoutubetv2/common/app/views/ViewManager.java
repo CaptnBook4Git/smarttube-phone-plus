@@ -6,6 +6,7 @@ import android.app.Fragment;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -52,6 +53,8 @@ public class ViewManager {
     private long mPendingActivityMs;
     private Class<?> mPendingActivityClass;
     private WeakHashSet<Runnable> mOnFinish;
+    private java.lang.ref.WeakReference<Activity> mCallerActivity;
+    private final java.util.Set<Class<?>> mCallerTaskActivities = new java.util.HashSet<>();
 
     private ViewManager(Context context) {
         mContext = context;
@@ -211,11 +214,47 @@ public class ViewManager {
         return options;
     }
 
+    /**
+     * Phone UI: these screens open inside the task of the screen in front (like any app's back stack) instead of
+     * a task looked up by affinity, which could be the picture-in-picture player's own task.
+     */
+    public void setOpenInCallerTask(Class<?>... activityClasses) {
+        java.util.Collections.addAll(mCallerTaskActivities, activityClasses);
+    }
+
+    /** Phone UI: the app screen in front, the one new screens open on top of */
+    public void setCallerActivity(Activity activity) {
+        mCallerActivity = activity != null ? new java.lang.ref.WeakReference<>(activity) : null;
+    }
+
+    public void clearCallerActivity(Activity activity) {
+        if (mCallerActivity != null && mCallerActivity.get() == activity) {
+            mCallerActivity = null;
+        }
+    }
+
+    private Activity getCallerActivity(Class<?> activityClass) {
+        Activity caller = mCallerActivity != null ? mCallerActivity.get() : null;
+        if (caller == null || caller.isFinishing() || !mCallerTaskActivities.contains(activityClass)) {
+            return null;
+        }
+        if (Build.VERSION.SDK_INT >= 24 && caller.isInPictureInPictureMode()) {
+            return null;
+        }
+        return caller;
+    }
+
     private void startActivity(Class<?> activityClass) {
         Log.d(TAG, "Launching activity: " + activityClass.getSimpleName());
 
         mPendingActivityMs = System.currentTimeMillis();
         mPendingActivityClass = activityClass;
+
+        Activity caller = getCallerActivity(activityClass);
+        if (caller != null) {
+            safeStartActivity(caller, new Intent(caller, activityClass), takeLaunchOptions(activityClass));
+            return;
+        }
 
         Intent intent = new Intent(mContext, activityClass);
 

@@ -54,5 +54,43 @@ public class PhoneApplication extends MainApplication {
         viewManager.register(SignInView.class, PhoneSignInActivity.class, PhoneBrowseActivity.class);
         viewManager.register(AddDeviceView.class, AddDeviceActivity.class, PhoneBrowseActivity.class);
         viewManager.register(WebBrowserView.class, WebBrowserActivity.class, PhoneBrowseActivity.class);
+
+        // Search, channels and sign in open on top of the screen in front, in the app's own task. Without this they
+        // could open inside the picture-in-picture player's window.
+        viewManager.setOpenInCallerTask(PhoneSearchActivity.class, PhoneChannelActivity.class,
+                PhoneChannelUploadsActivity.class, PhoneSignInActivity.class);
+        registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityResumed(android.app.Activity activity) {
+                if (android.os.Build.VERSION.SDK_INT < 24 || !activity.isInPictureInPictureMode()) {
+                    viewManager.setCallerActivity(activity);
+                }
+            }
+
+            @Override
+            public void onActivityDestroyed(android.app.Activity activity) {
+                viewManager.clearCallerActivity(activity);
+            }
+
+            @Override
+            public void onActivityCreated(android.app.Activity activity, android.os.Bundle state) {
+            }
+
+            @Override
+            public void onActivityStarted(android.app.Activity activity) {
+            }
+
+            @Override
+            public void onActivityPaused(android.app.Activity activity) {
+            }
+
+            @Override
+            public void onActivityStopped(android.app.Activity activity) {
+            }
+
+            @Override
+            public void onActivitySaveInstanceState(android.app.Activity activity, android.os.Bundle state) {
+            }
+        });
     }
 }

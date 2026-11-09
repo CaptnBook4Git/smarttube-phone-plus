@@ -169,7 +169,7 @@ final class AvatarFetcher {
         });
     }
 
-    private static Map<String, String> headers() {
+    static Map<String, String> headers() {
         Map<String, String> headers = new HashMap<>();
         headers.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36");
         headers.put("Accept-Language", "en-US,en;q=0.8");
@@ -210,7 +210,7 @@ final class AvatarFetcher {
     /**
      * Reads the body up to maxBytes, stopping early once stopAt matches.
      */
-    private static String read(String url, int maxBytes, Pattern stopAt) throws Exception {
+    static String read(String url, int maxBytes, Pattern stopAt) throws Exception {
         Response response = OkHttpManager.instance().doGetRequest(url, headers());
         if (response == null) {
             return null;

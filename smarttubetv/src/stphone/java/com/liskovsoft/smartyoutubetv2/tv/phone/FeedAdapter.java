@@ -41,6 +41,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public static final int MODE_SETTINGS = 4;
     /** Rows flattened into one continuous feed, Shorts rows shown as a 2x2 block (phone home feed). */
     public static final int MODE_FEED = 5;
+    /** Compact rows, thumbnail left and text right (channel Videos tab, like the YouTube app). */
+    public static final int MODE_ROWS = 6;
 
     private static final int SHORTS_BLOCK_SIZE = 4;
 
@@ -52,6 +54,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int VT_SETTING = 6;
     private static final int VT_SECTION_HEADER = 7;
     private static final int VT_CUSTOM_HEADER = 8;
+    private static final int VT_ROW = 9;
 
     private static final Object HEADER_ITEM = new Object();
     private View mHeaderView;
@@ -190,6 +193,53 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    private String mExcludedVideoId;
+    private String mHiddenAuthor;
+
+    /** Rows on a channel page: drop the channel's own name from each row's details line */
+    public void setHiddenAuthor(String author) {
+        mHiddenAuthor = TextUtils.isEmpty(author) ? null : author;
+    }
+
+    /**
+     * Player recommendations: never list the video that is playing.
+     */
+    public void setExcludedVideoId(String videoId) {
+        if (videoId == null ? mExcludedVideoId == null : videoId.equals(mExcludedVideoId)) {
+            return;
+        }
+        mExcludedVideoId = videoId;
+        if (videoId == null) {
+            return;
+        }
+        boolean changed = false;
+        for (Group group : mGroups) {
+            int oldCount = group.videos.size();
+            if (group.videos.removeIf(v -> v != null && videoId.equals(v.videoId))) {
+                changed = true;
+                if (group.innerAdapter != null) {
+                    group.innerAdapter.onDataChanged(oldCount);
+                }
+            }
+        }
+        if (changed) {
+            rebuild();
+        }
+    }
+
+    private List<Video> withoutExcluded(List<Video> videos) {
+        if (mExcludedVideoId == null || videos == null) {
+            return videos;
+        }
+        List<Video> result = new ArrayList<>(videos.size());
+        for (Video video : videos) {
+            if (video == null || !mExcludedVideoId.equals(video.videoId)) {
+                result.add(video);
+            }
+        }
+        return result;
+    }
+
     /**
      * Same semantics as the TV adapters (VideoGroupObjectAdapter / MultipleRowsFragment).
      */
@@ -232,13 +282,13 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             existing.ref = group;
             int oldCount = existing.videos.size();
             existing.videos.clear();
-            existing.videos.addAll(group.getVideos());
+            existing.videos.addAll(withoutExcluded(group.getVideos()));
             if (existing.innerAdapter != null) {
                 existing.innerAdapter.onDataChanged(oldCount);
             }
         } else {
             Group newGroup = new Group(group);
-            newGroup.videos.addAll(group.getVideos());
+            newGroup.videos.addAll(withoutExcluded(group.getVideos()));
             int position = group.getPosition();
             if ((mMode == MODE_SHELVES || mMode == MODE_FEED) && position >= 0 && position < mGroups.size()) {
                 mGroups.add(position, newGroup);
@@ -335,7 +385,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     private boolean isShortsBlock(Group group) {
-        return mMode != MODE_SHORTS && mMode != MODE_SHELVES && group.ref.isShorts();
+        return mMode != MODE_SHORTS && mMode != MODE_SHELVES && mMode != MODE_ROWS && group.ref.isShorts();
     }
 
     public boolean isShortTile(int position) {
@@ -499,6 +549,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             return VT_SHORT;
         } else if (isChannelItem(video)) {
             return VT_CHANNEL;
+        } else if (mMode == MODE_ROWS) {
+            return VT_ROW;
         }
         return VT_VIDEO;
     }
@@ -536,6 +588,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 });
                 return holder;
             }
+            case VT_ROW:
+                return new Holder(inflater.inflate(R.layout.phone_item_row, parent, false));
             case VT_SETTING:
                 return new Holder(inflater.inflate(R.layout.phone_item_setting, parent, false));
             case VT_SECTION_HEADER:
@@ -578,6 +632,13 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         } else {
             Video video = (Video) item;
             PhoneUi.bindCard(holder.itemView, video);
+            if (type == VT_ROW && mHiddenAuthor != null) {
+                TextView meta = holder.itemView.findViewById(R.id.phone_meta);
+                String text = meta.getText().toString();
+                if (text.startsWith(mHiddenAuthor + " · ")) {
+                    meta.setText(text.substring(mHiddenAuthor.length() + 3));
+                }
+            }
             bindClicks(holder.itemView, video);
         }
     }
