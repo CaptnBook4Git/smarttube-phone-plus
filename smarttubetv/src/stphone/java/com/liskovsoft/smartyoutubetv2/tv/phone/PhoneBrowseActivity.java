@@ -231,8 +231,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     @Override
     protected boolean wantsSkeleton() {
-        // Pull to refresh already shows its own spinner; Settings isn't a video feed
-        return !mUserRefreshing && (mCurrentSection == null || mCurrentSection.getId() != MediaGroup.TYPE_SETTINGS);
+        // Settings isn't a video feed
+        return mCurrentSection == null || mCurrentSection.getId() != MediaGroup.TYPE_SETTINGS;
     }
 
     private void syncBarPadding() {

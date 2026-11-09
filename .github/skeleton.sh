@@ -19,6 +19,24 @@ done
 sleep 10
 adb exec-out screencap -p > $OUT/2_home.png
 
+# Switch topic: the feed reloads, placeholders show until it arrives
+python3 - > /dev/null 2>&1 <<'PY' || true
+PY
+adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1
+XY=$(adb shell cat /sdcard/ui.xml | python3 -c "
+import re,sys
+x=sys.stdin.read()
+m=re.search(r'text=\"Kids\"[^>]*bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]', x)
+print((int(m.group(1))+int(m.group(3)))//2, (int(m.group(2))+int(m.group(4)))//2) if m else print('')
+")
+if [ -n "$XY" ]; then
+  adb shell input tap $XY
+  for t in a b c d; do adb exec-out screencap -p > "$OUT/2b_switch_$t.png"; sleep 0.4; done
+  sleep 8
+  adb shell input tap 120 300
+  sleep 6
+fi
+
 # Pull down to refresh
 adb shell input swipe 540 700 540 1700 900
 sleep 0.3
