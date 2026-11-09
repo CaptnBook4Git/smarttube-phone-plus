@@ -3,7 +3,7 @@
 set -x
 PKG=org.smarttube.phone
 SPLASH=com.liskovsoft.smartyoutubetv2.tv.ui.main.SplashActivity
-OLD_TAG="${OLD_TAG:-build-45}"  # first build whose updater falls back to the releases page
+OLD_TAG="${OLD_TAG:-build-47}"  # first build with the Software update screen
 OUT=smoke
 mkdir -p $OUT
 for i in 1 2 3 4 5; do
@@ -52,17 +52,27 @@ shot 2_check_result
 tap_text "Download and install"
 sleep 4
 shot 3_after_install_tap
-# First time: Android's "allow from this source" screen
-if grep -qi "Allow from this source" <(dump; cat $OUT/ui.xml); then
-  shot 3b_permission
+# First time: the update screen asks for Android's "install unknown apps" permission
+dump
+if grep -q 'text="Open settings"' $OUT/ui.xml; then
+  shot 3a_permission_card
+  tap_text "Open settings"
+  sleep 4
+  shot 3b_android_permission
   tap_text "Allow from this source"
   sleep 2
   adb shell input keyevent KEYCODE_BACK
   sleep 3
+fi
+# Older builds (dialogs instead of the update screen) need the check started again
+dump
+if grep -q 'text="Check for updates' $OUT/ui.xml && ! grep -q 'Downloading build' $OUT/ui.xml; then
   tap_text "Check for updates"
   sleep 8
   tap_text "Download and install"
 fi
+sleep 2
+shot 3c_downloading
 # Download, then the installer's confirmation
 for i in $(seq 1 30); do
   sleep 4
