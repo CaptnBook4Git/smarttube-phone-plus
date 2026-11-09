@@ -103,6 +103,22 @@ sleep 2
 adb shell input keyevent KEYCODE_BACK
 sleep 2
 
+# Channel page
+adb shell am start -n "$PKG/$SPLASH"
+sleep 6
+tap_text "Search YouTube"
+sleep 3
+adb shell input text "t%sseries"
+adb shell input keyevent KEYCODE_ENTER
+sleep 12
+tap_text "T-Series"
+sleep 15
+shot 13_channel
+adb shell input keyevent KEYCODE_BACK
+sleep 2
+adb shell input keyevent KEYCODE_BACK
+sleep 2
+
 # You tab and settings
 adb shell am start -n "$PKG/$SPLASH"
 sleep 6
