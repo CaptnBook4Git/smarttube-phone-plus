@@ -242,6 +242,16 @@ public abstract class PhoneActivity extends MotherActivity {
         return true;
     }
 
+    /** Placeholders right away (pull to refresh: the old cards are about to be replaced) */
+    protected void showLoadingPlaceholders() {
+        if (wantsSkeleton()) {
+            showSkeleton();
+            if (mProgressBar != null) {
+                mProgressBar.setVisibility(View.GONE);
+            }
+        }
+    }
+
     private void showSkeleton() {
         if (mList == null || mProgressBar == null || !(mProgressBar.getParent() instanceof android.view.ViewGroup)) {
             return;
@@ -273,7 +283,16 @@ public abstract class PhoneActivity extends MotherActivity {
     }
 
     private void onFeedChanged() {
-        if (mAdapter != null && !mAdapter.isEmpty()) {
+        if (mAdapter == null) {
+            return;
+        }
+        // Loading started before the old cards were cleared (a refresh): switch the thin line to placeholders
+        if (mAdapter.isEmpty() && mProgressBar != null && mProgressBar.getVisibility() == View.VISIBLE && wantsSkeleton()) {
+            showSkeleton();
+            mProgressBar.setVisibility(View.GONE);
+            return;
+        }
+        if (!mAdapter.isEmpty()) {
             hideSkeleton();
             if (mProgressBar != null && mSkeleton != null && mSkeleton.getVisibility() != View.VISIBLE
                     && mProgressBar.getVisibility() == View.VISIBLE && !hasPendingActions()) {

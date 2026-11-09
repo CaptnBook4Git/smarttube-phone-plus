@@ -217,6 +217,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 return;
             }
             mUserRefreshing = true;
+            showLoadingPlaceholders();
+            mRefresh.setRefreshing(false); // the pulsing placeholders take over from the spinner (like YouTube)
             mPresenter.refresh(false);
             mRefresh.postDelayed(this::stopRefreshing, 15_000); // never spin forever
         });

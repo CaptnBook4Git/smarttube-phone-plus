@@ -1,6 +1,5 @@
 package com.liskovsoft.smartyoutubetv2.tv.phone;
 
-import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.drawable.GradientDrawable;
@@ -18,12 +17,14 @@ import com.liskovsoft.smartyoutubetv2.tv.phone.widget.RatioFrameLayout;
  */
 final class PhoneSkeleton extends LinearLayout {
     private static final int CARDS = 4;
-    private ObjectAnimator mPulse;
+    private ValueAnimator mPulse;
 
     PhoneSkeleton(Context context) {
         super(context);
         setOrientation(VERTICAL);
-        setClickable(false);
+        // Solid background: on a refresh the placeholders cover the old cards until the new ones arrive
+        setBackgroundColor(getResources().getColor(R.color.phone_bg));
+        setClickable(true); // no taps on the hidden old cards
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
 
         float density = getResources().getDisplayMetrics().density;
@@ -90,7 +91,14 @@ final class PhoneSkeleton extends LinearLayout {
         setVisibility(VISIBLE);
         setAlpha(1f);
         if (mPulse == null) {
-            mPulse = ObjectAnimator.ofFloat(this, View.ALPHA, 1f, 0.45f);
+            // Pulse the cards only (the background stays solid)
+            mPulse = ValueAnimator.ofFloat(1f, 0.45f);
+            mPulse.addUpdateListener(animation -> {
+                float alpha = (float) animation.getAnimatedValue();
+                for (int i = 0; i < getChildCount(); i++) {
+                    getChildAt(i).setAlpha(alpha);
+                }
+            });
             mPulse.setDuration(750);
             mPulse.setRepeatMode(ValueAnimator.REVERSE);
             mPulse.setRepeatCount(ValueAnimator.INFINITE);
