@@ -42,11 +42,14 @@ sleep 20
 shot 1_player
 
 # The UI dump fails while video plays: tap the Comments chip by position
-adb shell input tap 576 1126
-sleep 8
+adb shell input tap 612 1126
+sleep 3
+shot 2a_comments_tap
+sleep 10
 shot 2_comments
 adb shell input keyevent KEYCODE_BACK
 sleep 3
+shot 2c_after_back
 
 # Player settings (gear in the controls)
 adb shell input tap 540 400
