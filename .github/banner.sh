@@ -20,5 +20,14 @@ for t in 1 2 3 4 5 6; do
   adb exec-out screencap -p > "$OUT/home_$t.png"
   sleep 2
 done
+# Player controls: Autoplay switch and playback mode button
+adb shell input tap 540 1000
+sleep 20
+adb shell input tap 540 400
+sleep 1
+adb exec-out screencap -p > "$OUT/player_controls.png"
+adb shell input tap 862 200
+sleep 6
+adb exec-out screencap -p > "$OUT/playback_mode.png"
 adb logcat -d | grep -iE "PhoneUpdater|AndroidRuntime" | tail -50 > $OUT/logcat_updater.txt
 exit 0
