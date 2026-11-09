@@ -52,8 +52,15 @@ final class PhoneUpdater {
     private static final String PREFS = "phone_updates";
     private static final String KEY_NOTIFY = "notify";
     private static final String KEY_LAST_CHECK = "last_check";
-    private static final String KEY_LAST_PROMPTED = "last_prompted_build";
-    private static final long BACKGROUND_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L;
+    private static final String KEY_LATEST_BUILD = "latest_build";
+    private static final String KEY_LAST_BANNER = "last_banner";
+    /** Background checks: at most this often (coming back to Home) */
+    private static final long BACKGROUND_CHECK_INTERVAL_MS = 30 * 60 * 1000L;
+    /** The Home card for a waiting update: once per app session, and not more often than this */
+    private static final long BANNER_INTERVAL_MS = 3 * 60 * 60 * 1000L;
+
+    private static long sLastBackgroundCheck;
+    private static boolean sBannerShownThisSession;
 
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
@@ -126,6 +133,11 @@ final class PhoneUpdater {
     }
 
     static String settingsTitle(Context context) {
+        int latest = prefs(context).getInt(KEY_LATEST_BUILD, 0);
+        int current = currentBuild(context);
+        if (current > 0 && latest > current) {
+            return context.getString(R.string.phone_update_check_available, latest);
+        }
         return context.getString(R.string.phone_update_check);
     }
 
@@ -174,7 +186,10 @@ final class PhoneUpdater {
                 }
             }
             if (release != null) {
-                prefs(app).edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply();
+                prefs(app).edit()
+                        .putLong(KEY_LAST_CHECK, System.currentTimeMillis())
+                        .putInt(KEY_LATEST_BUILD, release.build)
+                        .apply();
             }
             final Release result = release;
             MAIN.post(() -> callback.onResult(result));
@@ -182,24 +197,42 @@ final class PhoneUpdater {
     }
 
     /**
-     * App start: at most every few hours, look for a new build and offer it once (a small card on Home).
+     * Coming back to Home: look for a new build (at most every half hour) and, while one is waiting, show the
+     * Update card once per app session (at most every few hours).
      */
     static void checkInBackground(Activity activity) {
-        if (!isNotifyEnabled(activity)
-                || System.currentTimeMillis() - lastCheckTime(activity) < BACKGROUND_CHECK_INTERVAL_MS) {
+        if (!isNotifyEnabled(activity) || sBannerShownThisSession) {
             return;
         }
+        SharedPreferences prefs = prefs(activity);
+        if (System.currentTimeMillis() - prefs.getLong(KEY_LAST_BANNER, 0) < BANNER_INTERVAL_MS) {
+            return;
+        }
+        int known = prefs.getInt(KEY_LATEST_BUILD, 0);
+        int current = currentBuild(activity);
+        if (current > 0 && known > current) {
+            showBanner(activity, known); // already known from an earlier check
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - sLastBackgroundCheck < BACKGROUND_CHECK_INTERVAL_MS) {
+            return;
+        }
+        sLastBackgroundCheck = now;
         checkAsync(activity, release -> {
-            if (release == null || !isNewer(activity, release) || activity.isFinishing() || activity.isDestroyed()) {
-                return;
+            if (release != null && isNewer(activity, release)) {
+                showBanner(activity, release.build);
             }
-            SharedPreferences prefs = prefs(activity);
-            if (prefs.getInt(KEY_LAST_PROMPTED, 0) >= release.build) {
-                return; // already offered this build
-            }
-            prefs.edit().putInt(KEY_LAST_PROMPTED, release.build).apply();
-            PhoneUpdateBanner.show(activity, release.build);
         });
+    }
+
+    private static void showBanner(Activity activity, int build) {
+        if (sBannerShownThisSession || activity.isFinishing() || activity.isDestroyed() || !activity.hasWindowFocus()) {
+            return;
+        }
+        sBannerShownThisSession = true;
+        prefs(activity).edit().putLong(KEY_LAST_BANNER, System.currentTimeMillis()).apply();
+        PhoneUpdateBanner.show(activity, build);
     }
 
     // endregion

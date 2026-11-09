@@ -2,6 +2,7 @@
 <!-- Software update screen (Settings > Check for updates) -->
 <resources>
     <string name="phone_update_check">Check for updates</string>
+    <string name="phone_update_check_available">Check for updates  ·  build %1$d available</string>
     <string name="phone_update_screen_title">Software update</string>
     <string name="phone_update_current">Build %1$d  ·  version %2$s</string>
     <string name="phone_update_build">Build %1$d</string>

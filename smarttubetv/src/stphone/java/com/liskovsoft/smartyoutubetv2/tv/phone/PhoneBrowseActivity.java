@@ -75,12 +75,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         super.onCreate(savedInstanceState);
         sTaskId = getTaskId();
         setContentView(R.layout.phone_activity_browse);
-        // Quiet check for a new build (at most every few hours, can be turned off on the update screen)
-        getWindow().getDecorView().postDelayed(() -> {
-            if (!isFinishing() && !isDestroyed()) {
-                PhoneUpdater.checkInBackground(this);
-            }
-        }, 5000);
 
         mBottomBar = findViewById(R.id.phone_bottom_bar);
         mChips = findViewById(R.id.phone_chips);
@@ -108,6 +102,12 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     protected void onResume() {
         super.onResume();
         sTaskId = getTaskId();
+        // New build waiting? A small Update card (can be turned off on the update screen)
+        getWindow().getDecorView().postDelayed(() -> {
+            if (!isFinishing() && !isDestroyed()) {
+                PhoneUpdater.checkInBackground(this);
+            }
+        }, 2500);
         if (!mIsFirstResume) {
             mPresenter.onViewResumed();
         }
