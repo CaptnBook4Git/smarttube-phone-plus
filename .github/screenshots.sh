@@ -138,13 +138,14 @@ sleep 3
 
 # Light appearance
 adb shell am start -n "$PKG/$SPLASH"
-sleep 4
+sleep 12
 tap_text "You"
-sleep 4
-tap_text "Settings"
-sleep 6
-tap_text "Appearance: Dark"
 sleep 8
+tap_text "Settings"
+sleep 8
+shot 12a_before_appearance
+tap_text "Appearance: Dark"
+sleep 10
 shot 12_settings_light
 tap_text "Home"
 sleep 15
