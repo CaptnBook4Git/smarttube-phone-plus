@@ -117,6 +117,19 @@ final class PhoneUi {
         }
     }
 
+    /** Fetches a card thumbnail into the disk cache ahead of time (no decoding, no memory used) */
+    static void prefetchThumb(Context context, Video video) {
+        if (video == null || TextUtils.isEmpty(video.videoId) || video.isChannel() || !isAlive(context)) {
+            return;
+        }
+        String url = "https://i.ytimg.com/vi/" + video.videoId + (video.isShorts ? "/oar2.jpg" : "/hq720.jpg");
+        try {
+            Glide.with(context).downloadOnly().load(url).submit();
+        } catch (Throwable ignored) {
+            // best effort
+        }
+    }
+
     static void loadAvatar(ImageView view, String url) {
         Context context = view.getContext();
         if (!isAlive(context)) {

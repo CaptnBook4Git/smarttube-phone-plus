@@ -47,6 +47,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private static final int TAB_COUNT = 5;
 
     private BrowsePresenter mPresenter;
+    private androidx.swiperefreshlayout.widget.SwipeRefreshLayout mRefresh;
+    private boolean mUserRefreshing;
     private final List<BrowseSection> mSections = new ArrayList<>();
     private final int[] mTabSectionIds = {-1, -1, -1, -1, -1};
     private BrowseSection mCurrentSection;
@@ -87,6 +89,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
         applyInsets(findViewById(R.id.phone_root), findViewById(R.id.phone_top_bar), mBottomBar);
         setupList(this);
+        setupPullToRefresh();
         setupBars();
         setupTopBar();
         setupTabs();
@@ -201,9 +204,43 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         });
     }
 
+    private void setupPullToRefresh() {
+        mRefresh = findViewById(R.id.phone_refresh);
+        if (mRefresh == null) {
+            return;
+        }
+        mRefresh.setColorSchemeColors(getResources().getColor(R.color.phone_accent));
+        mRefresh.setProgressBackgroundColorSchemeColor(getResources().getColor(R.color.phone_surface_2));
+        mRefresh.setOnRefreshListener(() -> {
+            if (mCurrentSection == null || mCurrentSection.getId() == MediaGroup.TYPE_SETTINGS) {
+                mRefresh.setRefreshing(false);
+                return;
+            }
+            mUserRefreshing = true;
+            mPresenter.refresh(false);
+            mRefresh.postDelayed(this::stopRefreshing, 15_000); // never spin forever
+        });
+    }
+
+    private void stopRefreshing() {
+        mUserRefreshing = false;
+        if (mRefresh != null && mRefresh.isRefreshing()) {
+            mRefresh.setRefreshing(false);
+        }
+    }
+
+    @Override
+    protected boolean wantsSkeleton() {
+        // Pull to refresh already shows its own spinner; Settings isn't a video feed
+        return !mUserRefreshing && (mCurrentSection == null || mCurrentSection.getId() != MediaGroup.TYPE_SETTINGS);
+    }
+
     private void syncBarPadding() {
         View topBar = findViewById(R.id.phone_top_bar);
         int top = topBar.getHeight();
+        if (mRefresh != null && mRefresh.getProgressViewEndOffset() != top + dp(24)) {
+            mRefresh.setProgressViewOffset(false, top - dp(40), top + dp(24)); // the spinner comes out under the top bar
+        }
         int bottom = mBottomBar.getHeight();
         if (mList.getPaddingTop() != top || mList.getPaddingBottom() != bottom + dp(8)) {
             mList.setPadding(mList.getPaddingLeft(), top, mList.getPaddingRight(), bottom + dp(8));
@@ -742,6 +779,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     @Override
     public void showProgressBar(boolean show) {
+        if (!show) {
+            stopRefreshing();
+        }
         showProgress(show);
     }
 

@@ -319,6 +319,20 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return null;
     }
 
+    /** Up to count videos at or after a list position (for thumbnail prefetching) */
+    public List<Video> videosFrom(int position, int count) {
+        List<Video> result = new ArrayList<>();
+        for (int i = Math.max(0, position); i < mItems.size() && result.size() < count; i++) {
+            Object item = mItems.get(i);
+            if (item instanceof Video) {
+                result.add((Video) item);
+            } else if (item instanceof ShortTile) {
+                result.add(((ShortTile) item).video);
+            }
+        }
+        return result;
+    }
+
     public List<Video> allVideos() {
         List<Video> result = new ArrayList<>();
         for (Group group : mGroups) {

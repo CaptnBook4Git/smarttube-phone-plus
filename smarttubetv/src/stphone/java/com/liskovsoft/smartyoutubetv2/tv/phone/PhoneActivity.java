@@ -27,6 +27,7 @@ public abstract class PhoneActivity extends MotherActivity {
     protected RecyclerView mList;
     protected FeedAdapter mAdapter;
     private View mProgressBar;
+    private PhoneSkeleton mSkeleton;
     private View mEmptyView;
     private TextView mEmptyText;
     private TextView mEmptyAction;
@@ -149,6 +150,20 @@ public abstract class PhoneActivity extends MotherActivity {
         mList.setLayoutManager(manager);
         mList.setAdapter(mAdapter);
         mList.setItemAnimator(null);
+        // Smoother scrolling: keep more ready-made rows around and prefetch the next thumbnails
+        mList.setItemViewCacheSize(8);
+        manager.setInitialPrefetchItemCount(4);
+        mAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
+            @Override
+            public void onChanged() {
+                onFeedChanged();
+            }
+
+            @Override
+            public void onItemRangeInserted(int positionStart, int itemCount) {
+                onFeedChanged();
+            }
+        });
         final int edge = (int) (8 * getResources().getDisplayMetrics().density);
         mList.addItemDecoration(new RecyclerView.ItemDecoration() {
             @Override
@@ -169,6 +184,9 @@ public abstract class PhoneActivity extends MotherActivity {
             @Override
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                 checkScrollEnd();
+                if (dy > 0) {
+                    prefetchThumbs();
+                }
             }
         });
     }
@@ -204,12 +222,82 @@ public abstract class PhoneActivity extends MotherActivity {
     protected abstract void onListScrollEnd(Video lastVideo);
 
     protected void showProgress(boolean show) {
+        // An empty feed shows placeholder cards; a feed that is loading more keeps the thin line
+        boolean skeleton = show && wantsSkeleton() && mAdapter != null && mAdapter.isEmpty();
+        if (skeleton) {
+            showSkeleton();
+        } else if (!show) {
+            hideSkeleton();
+        }
         if (mProgressBar != null) {
-            mProgressBar.setVisibility(show ? View.VISIBLE : View.GONE);
+            mProgressBar.setVisibility(show && !skeleton ? View.VISIBLE : View.GONE);
         }
         if (!show) {
             updateEmptyState();
         }
+    }
+
+    /** Placeholder cards while the feed is empty (screens whose list isn't a video feed turn this off) */
+    protected boolean wantsSkeleton() {
+        return true;
+    }
+
+    private void showSkeleton() {
+        if (mList == null || mProgressBar == null || !(mProgressBar.getParent() instanceof android.view.ViewGroup)) {
+            return;
+        }
+        android.view.ViewGroup container = (android.view.ViewGroup) mProgressBar.getParent();
+        if (mSkeleton == null) {
+            mSkeleton = new PhoneSkeleton(this);
+            View anchor = mList;
+            while (anchor.getParent() != container && anchor.getParent() instanceof View) {
+                anchor = (View) anchor.getParent();
+            }
+            int index = anchor.getParent() == container ? container.indexOfChild(anchor) + 1 : container.getChildCount();
+            container.addView(mSkeleton, index, PhoneSkeleton.layoutParams());
+        }
+        mSkeleton.setPadding(0, mList.getPaddingTop() + (int) (4 * getResources().getDisplayMetrics().density), 0, 0);
+        hideMessage();
+        mSkeleton.start();
+    }
+
+    private void hideSkeleton() {
+        if (mSkeleton != null && mSkeleton.getVisibility() == View.VISIBLE) {
+            mSkeleton.stop();
+            // Let the real cards fade in where the placeholders were
+            if (mList != null && mAdapter != null && !mAdapter.isEmpty()) {
+                mList.setAlpha(0f);
+                mList.animate().alpha(1f).setDuration(180).start();
+            }
+        }
+    }
+
+    private void onFeedChanged() {
+        if (mAdapter != null && !mAdapter.isEmpty()) {
+            hideSkeleton();
+            if (mProgressBar != null && mSkeleton != null && mSkeleton.getVisibility() != View.VISIBLE
+                    && mProgressBar.getVisibility() == View.VISIBLE && !hasPendingActions()) {
+                mProgressBar.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    private int mPrefetchedUpTo = -1;
+
+    /** Downloads the thumbnails just below the screen so they are ready when they scroll in */
+    private void prefetchThumbs() {
+        if (mList == null || mAdapter == null || !(mList.getLayoutManager() instanceof GridLayoutManager)) {
+            return;
+        }
+        int last = ((GridLayoutManager) mList.getLayoutManager()).findLastVisibleItemPosition();
+        if (last < 0 || last + 6 <= mPrefetchedUpTo) {
+            return;
+        }
+        java.util.List<Video> videos = mAdapter.videosFrom(last + 1, 6);
+        for (Video video : videos) {
+            PhoneUi.prefetchThumb(this, video);
+        }
+        mPrefetchedUpTo = last + 6;
     }
 
     protected boolean isProgressShowing() {

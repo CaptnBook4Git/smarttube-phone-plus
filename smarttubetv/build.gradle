@@ -275,6 +275,7 @@ dependencies {
 
     // Phone UI: channel picture lookups through SmartTube's OkHttp client
     stphoneImplementation 'com.squareup.okhttp3:okhttp:' + okhttpVersion
+    stphoneImplementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0' // pull to refresh on Home
 
     implementation 'androidx.work:work-runtime:' + workVersion
 }

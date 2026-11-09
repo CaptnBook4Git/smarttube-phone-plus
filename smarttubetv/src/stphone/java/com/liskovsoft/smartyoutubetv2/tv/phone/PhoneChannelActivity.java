@@ -464,6 +464,11 @@ public class PhoneChannelActivity extends PhoneListActivity implements ChannelVi
     }
 
     @Override
+    protected boolean wantsSkeleton() {
+        return false; // the channel header is part of the list
+    }
+
+    @Override
     protected void onListScrollEnd(Video lastVideo) {
         mPresenter.onScrollEnd(lastVideo);
     }
