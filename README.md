@@ -144,7 +144,7 @@ With **Notify me about new builds** turned on (on the same screen), SmartTube al
 
 Download the latest APK from the link above and install it over the app you have. Android shows **Update** instead of Install.
 
-> **On builds 39 to 51?** Those builds can't update themselves yet (their About menu still shows SmartTube's TV updater, which can't see these releases). Install the latest APK manually once; it installs over your current app and keeps your settings.
+> **On builds 39 to 51?** Those builds can't update themselves (older ones only have SmartTube's TV updater, newer ones download the update but never show Android's install prompt). Install the latest APK manually once; it installs over your current app and keeps your settings.
 
 > **Coming from build 38 or older?** Those builds were signed with a temporary key, so Android refuses to install the new version over them ("App not installed" or "package conflicts with an existing package"). Uninstall the old SmartTube once (long press the icon, then **Uninstall**) and install the latest APK. Every update after that installs normally.
 
