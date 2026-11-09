@@ -88,6 +88,11 @@
         <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.SearchLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
         <!-- Translucent dialog: follow the activity underneath -->
         <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivity" android:screenOrientation="behind" tools:replace="android:screenOrientation"/>
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneUpdateActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait" />
         <receiver
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneUpdater$InstallReceiver"
             android:exported="false" />

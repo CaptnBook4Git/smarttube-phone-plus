@@ -73,6 +73,12 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         super.onCreate(savedInstanceState);
         sTaskId = getTaskId();
         setContentView(R.layout.phone_activity_browse);
+        // Quiet check for a new build (at most every few hours, can be turned off on the update screen)
+        getWindow().getDecorView().postDelayed(() -> {
+            if (!isFinishing() && !isDestroyed()) {
+                PhoneUpdater.checkInBackground(this);
+            }
+        }, 5000);
 
         mBottomBar = findViewById(R.id.phone_bottom_bar);
         mChips = findViewById(R.id.phone_chips);
@@ -186,6 +192,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                     y = 0;
                 }
                 topBar.setTranslationY(y);
+                // The loading line sits under the top bar: move it with the bar
+                View progress = findViewById(R.id.phone_progress_bar);
+                if (progress != null) {
+                    progress.setTranslationY(y);
+                }
             }
         });
     }
@@ -694,7 +705,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                     recreate();
                 }, R.drawable.ic_phone_brightness));
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                PhoneUpdater.settingsTitle(this), () -> PhoneUpdater.check(this), R.drawable.ic_phone_update));
+                PhoneUpdater.settingsTitle(this), () -> PhoneUpdater.open(this), R.drawable.ic_phone_update));
         if (group.getItems() != null) {
             items.addAll(group.getItems());
         }

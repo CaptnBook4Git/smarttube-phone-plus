@@ -48,7 +48,27 @@ public class AppUpdatePresenter extends BasePresenter<Void> implements AppUpdate
         sInstance = null;
     }
 
+    /** Lets a build use its own updater (the phone app updates from its GitHub releases) */
+    public interface UpdateHandler {
+        void start(Context context, boolean forceCheck);
+    }
+
+    private static UpdateHandler sUpdateHandler;
+
+    public static void setUpdateHandler(UpdateHandler handler) {
+        sUpdateHandler = handler;
+    }
+
+    public static boolean hasUpdateHandler() {
+        return sUpdateHandler != null;
+    }
+
     public void start(boolean forceCheck) {
+        if (sUpdateHandler != null) {
+            sUpdateHandler.start(getContext(), forceCheck);
+            return;
+        }
+
         mIsForceCheck = forceCheck;
 
         if (forceCheck) {

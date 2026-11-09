@@ -33,9 +33,12 @@ public class AboutSimpleSettingsPresenter extends BasePresenter<Void> {
 
         AppDialogPresenter settingsPresenter = AppDialogPresenter.instance(getContext());
 
-        appendAutoUpdateSwitch(settingsPresenter);
+        // Builds with their own updater (phone) show it as a separate setting instead
+        if (!AppUpdatePresenter.hasUpdateHandler()) {
+            appendAutoUpdateSwitch(settingsPresenter);
 
-        appendUpdateCheckButton(settingsPresenter);
+            appendUpdateCheckButton(settingsPresenter);
+        }
 
         appendInstallBridge(settingsPresenter);
 

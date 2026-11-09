@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Software update screen (Settings > Check for updates) -->
+<resources>
+    <string name="phone_update_check">Check for updates</string>
+    <string name="phone_update_screen_title">Software update</string>
+    <string name="phone_update_current">Build %1$d  ·  version %2$s</string>
+    <string name="phone_update_build">Build %1$d</string>
+
+    <string name="phone_update_checking_title">Checking for updates</string>
+    <string name="phone_update_checking_subtitle">Looking for a newer build on GitHub…</string>
+    <string name="phone_update_checking_button">Checking…</string>
+
+    <string name="phone_update_none_title">You\'re up to date</string>
+    <string name="phone_update_none_subtitle">Build %1$d is the latest version.</string>
+    <string name="phone_update_check_again">Check again</string>
+
+    <string name="phone_update_available_title">Update available</string>
+    <string name="phone_update_install">Download and install</string>
+    <string name="phone_update_install_size">Download and install  ·  %1$s</string>
+    <string name="phone_update_later">Not now</string>
+    <string name="phone_update_whats_new">What\'s new</string>
+
+    <string name="phone_update_downloading_build">Downloading build %1$d</string>
+    <string name="phone_update_downloading_subtitle">You can keep using the app. The installer opens when the download finishes.</string>
+    <string name="phone_update_progress">%1$s of %2$s</string>
+
+    <string name="phone_update_installing_title">Ready to install</string>
+    <string name="phone_update_installing_subtitle">Tap Update in the window that opens. You stay signed in and your settings are kept.</string>
+    <string name="phone_update_install_again">Open the installer again</string>
+
+    <string name="phone_update_permission_title">Allow SmartTube to install updates</string>
+    <string name="phone_update_permission">Android asks for this once. Turn on \"Allow from this source\", then come back here and the update continues.</string>
+    <string name="phone_update_open_settings">Open settings</string>
+
+    <string name="phone_update_error_title">Couldn\'t update</string>
+    <string name="phone_update_error_network">Can\'t reach GitHub right now. Check your internet connection and try again.</string>
+    <string name="phone_update_failed">The download didn\'t finish (%1$s). Try again.</string>
+    <string name="phone_update_cancelled">The update was cancelled. Tap Try again whenever you\'re ready.</string>
+    <string name="phone_update_conflict">This copy of SmartTube was signed with an older key, so it can\'t be updated in place. Uninstall it once and install the latest APK from GitHub.</string>
+    <string name="phone_update_retry">Try again</string>
+
+    <string name="phone_update_notify">Notify me about new builds</string>
+    <string name="phone_update_notify_hint">Shows a small card on Home when an update is out</string>
+    <string name="phone_update_banner">Build %1$d is ready to install</string>
+    <string name="phone_update_banner_button">Update</string>
+</resources>

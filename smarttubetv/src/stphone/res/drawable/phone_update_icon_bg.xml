@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App icon tile on the update screen (rounded square, like the launcher icon) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/phone_surface_2" />
+    <corners android:radius="28dp" />
+</shape>

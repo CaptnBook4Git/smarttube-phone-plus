@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0 # history and tags for the release notes
 
       # Phone changes to the MediaServiceCore submodule (Shorts feed)
       - name: Apply submodule patches
@@ -71,14 +72,27 @@ jobs:
           path: out/SmartTube-Phone-arm64.apk
           if-no-files-found: error
 
+      # "What's new" for the release (shown on the app's update screen): app changes since the previous build
+      - name: Release notes
+        run: |
+          PREV=$(git describe --tags --abbrev=0 --match 'build-*' HEAD 2>/dev/null || true)
+          {
+            echo "SmartTube for phones. arm64 only."
+            echo "Direct download: https://github.com/${{ github.repository }}/releases/latest/download/SmartTube-Phone-arm64.apk"
+            echo ""
+            echo "What's new"
+            if [ -n "$PREV" ]; then
+              git log --no-merges --format='- %s' "$PREV..HEAD" | grep -viE '^- (CI|README|Smoke|Emulator)' | head -n 30 || true
+            fi
+          } > release_notes.md
+          cat release_notes.md
+
       # Public, sign-in free download: releases/latest/download/SmartTube-Phone-arm64.apk
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: SmartTube Phone ${{ steps.get_version.outputs.VERSION_NAME }}
-          body: |
-            SmartTube for phones. arm64 only.
-            Direct download: https://github.com/${{ github.repository }}/releases/latest/download/SmartTube-Phone-arm64.apk
+          body_path: release_notes.md
           files: out/SmartTube-Phone-arm64.apk
           make_latest: true
