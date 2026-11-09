@@ -246,8 +246,15 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        mStopped = false;
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
+        mStopped = true;
         mLeftPip = false;
         if (isPip() || isChangingConfigurations() || mPlayer == null) {
             return;
@@ -379,6 +386,23 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     // endregion
+
+    private boolean mStopped;
+
+    /**
+     * Where a bottom sheet opened over the player may start (the bottom of the video, in screen pixels), so menus and
+     * comments never cover the video in portrait. 0 when the player isn't on screen in portrait.
+     */
+    static int sheetTopLimit() {
+        PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
+        if (activity == null || activity.isFinishing() || activity.mStopped || activity.isPip() || !activity.mPortrait
+                || activity.mShortsMode || activity.mVideoBox == null || activity.mVideoBox.getHeight() == 0) {
+            return 0;
+        }
+        int[] location = new int[2];
+        activity.mVideoBox.getLocationOnScreen(location);
+        return location[1] + activity.mVideoBox.getHeight();
+    }
 
     private boolean isPip() {
         return Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode();

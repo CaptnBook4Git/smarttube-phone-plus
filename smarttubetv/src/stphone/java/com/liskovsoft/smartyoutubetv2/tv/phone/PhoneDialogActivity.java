@@ -85,6 +85,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     private View mBack;
     private RecyclerView mList;
     private com.liskovsoft.smartyoutubetv2.tv.phone.widget.MaxHeightFrameLayout mListFrame;
+    private int mVideoLimit;
     private boolean mIsTransparent;
     private boolean mIsOverlay;
     private boolean mIsPaused;
@@ -124,12 +125,14 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             }
         });
 
-        // Frosted background behind the sheet (Android 12+)
-        if (Build.VERSION.SDK_INT >= 31) {
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
-            WindowManager.LayoutParams attrs = getWindow().getAttributes();
-            attrs.setBlurBehindRadius(48);
-            getWindow().setAttributes(attrs);
+        // Over the player in portrait: the sheet starts below the video, which stays clear and undimmed (like YouTube).
+        // No blur behind sheets: it also redrew the playing video small and off to the side.
+        mVideoLimit = PhonePlaybackActivity.sheetTopLimit();
+        if (mVideoLimit > 0) {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            View root = findViewById(R.id.phone_dialog_root);
+            root.setPadding(root.getPaddingLeft(), mVideoLimit, root.getPaddingRight(), root.getPaddingBottom());
+            mListFrame.setMaxScreenFraction(1f); // limited by the space under the video instead
         }
 
         findViewById(R.id.phone_dialog_root).setOnClickListener(v -> finish());
@@ -400,7 +403,9 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         mBack.setVisibility(mStack.size() > 1 ? View.VISIBLE : View.GONE);
         if (page.comments != null) {
             // Comments keep a steady, tall sheet while they load
-            mListFrame.setMinimumHeight((int) (android.content.res.Resources.getSystem().getDisplayMetrics().heightPixels * 0.72f));
+            // (over the player: all the space under the video)
+            int screen = android.content.res.Resources.getSystem().getDisplayMetrics().heightPixels;
+            mListFrame.setMinimumHeight(mVideoLimit > 0 ? screen : (int) (screen * 0.72f));
             mList.setAdapter(page.comments.adapter);
         } else {
             mListFrame.setMinimumHeight(0);
