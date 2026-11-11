@@ -150,8 +150,8 @@ public class SuggestionsController extends BasePlayerController {
      * position, speed, SponsorBlock...) get the details only after the video loaded, when SmartTube gives them.
      */
     private void applyEarly() {
-        if (mEarlyMetadata == null || getPlayer() == null) {
-            return;
+        if (mEarlyMetadata == null || getPlayer() == null || mBrowseProcessor == null) {
+            return; // the player isn't set up yet (onInit): shown at onEngineInitialized or onVideoLoaded
         }
 
         if (!mEarlyShown) {
@@ -270,7 +270,7 @@ public class SuggestionsController extends BasePlayerController {
 
         MediaGroup mediaGroup = group.getMediaGroup();
 
-        Disposable continueAction = mContentService.continueGroupObserve(mediaGroup)
+        Disposable continueAction = contentService().continueGroupObserve(mediaGroup)
                 .subscribe(
                         continueMediaGroup -> {
                             getPlayer().showProgressBar(false);
@@ -341,7 +341,7 @@ public class SuggestionsController extends BasePlayerController {
 
         // NOTE: Load suggestions from mediaItem isn't robust. Because playlistId may be initialized from RemoteControlManager.
         // Video might be loaded from Channels section (has playlistParams)
-        observable = mMediaItemService.getMetadataObserve(video.videoId, video.getPlaylistId(), video.playlistIndex, video.playlistParams);
+        observable = itemService().getMetadataObserve(video.videoId, video.getPlaylistId(), video.playlistIndex, video.playlistParams);
 
         Disposable metadataAction = observable
                 .subscribe(
@@ -938,6 +938,24 @@ public class SuggestionsController extends BasePlayerController {
         }
     }
 
+    /**
+     * The services are set in onInit, which runs once the player screen exists; a video opened before that (the
+     * recommendations requested with it, on phones) gets them here.
+     */
+    private MediaItemService itemService() {
+        if (mMediaItemService == null) {
+            mMediaItemService = YouTubeServiceManager.instance().getMediaItemService();
+        }
+        return mMediaItemService;
+    }
+
+    private ContentService contentService() {
+        if (mContentService == null) {
+            mContentService = YouTubeServiceManager.instance().getContentService();
+        }
+        return mContentService;
+    }
+
     private void disposeActions() {
         RxHelper.disposeActions(mActions);
         mChapters = null;
@@ -959,7 +977,7 @@ public class SuggestionsController extends BasePlayerController {
             return;
         }
 
-        Observable<DislikeData> dislikeDataObserve = mMediaItemService.getDislikeDataObserve(video.videoId);
+        Observable<DislikeData> dislikeDataObserve = itemService().getDislikeDataObserve(video.videoId);
 
         Disposable dislikeAction = dislikeDataObserve.subscribe(
                 dislikeData -> {
