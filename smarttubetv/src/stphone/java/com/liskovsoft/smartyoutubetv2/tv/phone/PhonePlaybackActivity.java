@@ -933,8 +933,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mPoster.setTranslationY(0);
         mPoster.setVisibility(View.VISIBLE);
         mPosterSince = android.os.SystemClock.uptimeMillis();
-        mPosterUntilFrame = false; // a new video: its thumbnail until it plays
-        PhoneUi.loadThumb(mPoster, video, isShort(video));
+        mPosterUntilFrame = false; // a new video: black with the spinner until it plays
+        com.bumptech.glide.Glide.with(this).clear(mPoster); // no thumbnail, only the loading spinner
+        mPoster.setImageDrawable(null);
         updateLoading();
     }
 
