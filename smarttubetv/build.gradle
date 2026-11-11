@@ -141,6 +141,11 @@ android {
     }
 
     packagingOptions {
+        // Native libraries compressed in the APK (about half the download: the JavaScript engine alone is 32 MB);
+        // Android unpacks them once at install
+        jniLibs {
+            useLegacyPackaging true
+        }
         // openvpn module fix: More than one file was found with OS independent path 'META-INF/com.android.tools/proguard/coroutines.pro'
         //exclude 'META-INF/com.android.tools/proguard/coroutines.pro'
         // Not working!

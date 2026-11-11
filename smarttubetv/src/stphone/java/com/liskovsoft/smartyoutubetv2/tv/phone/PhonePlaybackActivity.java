@@ -1031,7 +1031,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 if (!mCancelled && !isFinishing()) {
                     copyFrame(still -> handOffToCard(still, aspect));
                 } else {
-                    mMinimizing = false;
+                    restoreAfterFailedMinimize();
                 }
             }
         });
@@ -1065,9 +1065,22 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         done.accept(null);
     }
 
+    /** Something went wrong on the way into the card: the full player again */
+    private void restoreAfterFailedMinimize() {
+        mMinimizing = false;
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        resetShrink();
+        setSeeThrough(false);
+        if (mDetails != null) {
+            mDetails.setAlpha(1f);
+        }
+    }
+
     private void handOffToCard(android.graphics.Bitmap still, float aspect) {
         if (isFinishing() || isDestroyed() || exoPlayer() == null) {
-            mMinimizing = false;
+            restoreAfterFailedMinimize();
             return;
         }
         Video video = currentVideo();
