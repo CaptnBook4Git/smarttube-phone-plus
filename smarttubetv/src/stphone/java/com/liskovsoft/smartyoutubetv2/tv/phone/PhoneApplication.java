@@ -53,15 +53,14 @@ public class PhoneApplication extends MainApplication {
             prefs.edit().putBoolean("background_playback_v1", true).apply();
         }
 
-        // YouTube notifications (new uploads from subscriptions, replies...) in the Notifications tab.
-        // SmartTube for TV hides this section by default.
-        if (!prefs.getBoolean("notifications_section_v1", false)) {
+        // No Notifications tab for now: hide the section again on builds that turned it on (SmartTube's default)
+        if (!prefs.getBoolean("notifications_section_off_v2", false)) {
             com.liskovsoft.smartyoutubetv2.common.app.presenters.service.SidebarService sidebar =
                     com.liskovsoft.smartyoutubetv2.common.app.presenters.service.SidebarService.instance(this);
             if (sidebar != null) {
-                sidebar.enableSection(com.liskovsoft.mediaserviceinterfaces.data.MediaGroup.TYPE_NOTIFICATIONS, true);
+                sidebar.enableSection(com.liskovsoft.mediaserviceinterfaces.data.MediaGroup.TYPE_NOTIFICATIONS, false);
             }
-            prefs.edit().putBoolean("notifications_section_v1", true).apply();
+            prefs.edit().putBoolean("notifications_section_off_v2", true).apply();
         }
     }
 
