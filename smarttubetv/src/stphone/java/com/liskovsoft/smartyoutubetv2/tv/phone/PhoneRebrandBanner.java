@@ -21,8 +21,9 @@ import com.liskovsoft.smartyoutubetv2.tv.R;
  */
 final class PhoneRebrandBanner {
     private static final String PREFS = "phone_defaults";
-    private static final String KEY_PENDING = "rebrand_streamtube_pending";
-    private static final String KEY_DONE = "rebrand_streamtube_done";
+    // v2: shown once more, also to those who already tapped Got it on the first one
+    private static final String KEY_PENDING = "rebrand_streamtube_v2_pending";
+    private static final String KEY_DONE = "rebrand_streamtube_v2_done";
     /** Set by builds before the rename on their first start: tells an update from a new install */
     private static final String KEY_EXISTING_INSTALL = "background_playback_v1";
 
