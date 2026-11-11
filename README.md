@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/phone/icon.svg" width="96" alt="StreamTube icon">
+  <img src="images/phone/icon.png" width="96" alt="StreamTube icon">
 </p>
 
 <h1 align="center">StreamTube</h1>
