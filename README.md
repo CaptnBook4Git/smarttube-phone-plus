@@ -208,6 +208,7 @@ The app retries a few times on its own. If it still shows "Can't reach YouTube r
 </p>
 
 - **Tap the video** to show or hide the controls: play and pause, previous and next, playback speed, captions (CC), settings (quality and more) and full screen.
+- **Download** (in the buttons under the video): choose **Video · 360p (MP4)** or **Audio only (M4A)**. The file downloads in the background with a progress notification and is saved to **Download/SmartTube**. Higher video qualities aren't offered yet: YouTube serves them as separate video and audio files. Live streams can't be downloaded.
 - **Seek** by dragging along the red progress bar at the bottom of the video.
 - **Double tap** the left or right side of the video to jump back or forward.
 - **Below the video**: the title, the channel with its Subscribe button, and the buttons Like, Dislike, Comments, Share and Save. Scroll the row sideways for more.

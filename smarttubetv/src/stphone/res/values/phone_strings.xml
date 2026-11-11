@@ -69,4 +69,16 @@
     <string name="phone_filter_videos">Videos</string>
     <string name="phone_filter_shorts">Shorts</string>
     <string name="phone_filter_live">Live</string>
+    <string name="phone_download">Download</string>
+    <string name="phone_download_video">Video · %1$s (MP4)</string>
+    <string name="phone_download_audio">Audio only (M4A)</string>
+    <string name="phone_download_checking">Getting download options…</string>
+    <string name="phone_download_unavailable">This video can\'t be downloaded</string>
+    <string name="phone_download_storage">Allow storage access, then tap Download again</string>
+    <string name="phone_download_started">Download started</string>
+    <string name="phone_download_waiting">Waiting…</string>
+    <string name="phone_download_progress">%1$s of %2$s</string>
+    <string name="phone_download_done">Saved to Download/SmartTube</string>
+    <string name="phone_download_failed">Download failed</string>
+    <string name="phone_download_channel">Downloads</string>
 </resources>

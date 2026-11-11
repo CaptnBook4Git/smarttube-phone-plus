@@ -1802,6 +1802,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         addAction(actions, R.id.action_chat, R.drawable.ic_phone_comments, getString(R.string.phone_comments));
         addAction(actions, R.id.action_share, R.drawable.ic_phone_share, getString(R.string.phone_share));
         addAction(actions, R.id.action_playlist_add, R.drawable.ic_phone_save, getString(R.string.phone_save));
+        addAction(actions, R.id.phone_action_download, R.drawable.ic_phone_download, getString(R.string.phone_download));
         addAction(actions, R.id.lb_control_high_quality, R.drawable.ic_phone_settings, getString(R.string.phone_quality));
         addAction(actions, R.id.action_video_speed, R.drawable.ic_phone_speed, getString(R.string.phone_speed));
 
@@ -1853,6 +1854,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         pill.setOnClickListener(v -> {
             if (buttonId == R.id.action_video_speed) {
                 openSpeedMenu();
+            } else if (buttonId == R.id.phone_action_download) {
+                PhoneDownloads.showOptions(this, currentVideo());
             } else {
                 clickButton(buttonId);
             }
