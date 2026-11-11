@@ -426,18 +426,39 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         renderCommentsHeader(page);
         renderComposer(page);
         if (page.comments != null) {
-            // Comments keep a steady, tall sheet while they load
-            // (over the player: all the space under the video)
-            int screen = android.content.res.Resources.getSystem().getDisplayMetrics().heightPixels;
-            mListFrame.setMinimumHeight(mVideoLimit > 0 ? screen : (int) (screen * 0.72f));
+            // Comments keep a steady, tall sheet (over the player: all the space under the video). The list takes
+            // what the header and the comment bar leave, so the bar stays on screen (and above the keyboard)
+            fillSheet(true);
             mList.setAdapter(page.comments.adapter);
         } else {
-            mListFrame.setMinimumHeight(0);
+            fillSheet(false);
             if (mList.getAdapter() != mAdapter) {
                 mList.setAdapter(mAdapter);
             }
             mAdapter.setRows(page.rows);
         }
+    }
+
+    /** Comments: a tall sheet whose list fills it above the comment bar. Other sheets wrap their rows. */
+    private void fillSheet(boolean fill) {
+        View sheet = findViewById(R.id.phone_sheet);
+        android.widget.FrameLayout.LayoutParams sheetParams = (android.widget.FrameLayout.LayoutParams) sheet.getLayoutParams();
+        int screen = android.content.res.Resources.getSystem().getDisplayMetrics().heightPixels;
+        int height = !fill ? ViewGroup.LayoutParams.WRAP_CONTENT
+                : mVideoLimit > 0 ? ViewGroup.LayoutParams.MATCH_PARENT : (int) (screen * 0.8f);
+        if (sheetParams.height != height) {
+            sheetParams.height = height;
+            sheet.setLayoutParams(sheetParams);
+        }
+        LinearLayout.LayoutParams listParams = (LinearLayout.LayoutParams) mListFrame.getLayoutParams();
+        int listHeight = fill ? 0 : ViewGroup.LayoutParams.WRAP_CONTENT;
+        float weight = fill ? 1f : 0f;
+        if (listParams.height != listHeight || listParams.weight != weight) {
+            listParams.height = listHeight;
+            listParams.weight = weight;
+            mListFrame.setLayoutParams(listParams);
+        }
+        mListFrame.setMinimumHeight(0);
     }
 
     /** Comments: "Comments 24" and the Top / Newest button (replies and other sheets show neither) */
