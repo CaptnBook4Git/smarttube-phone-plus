@@ -26,6 +26,8 @@ public class PhoneApplication extends MainApplication {
         PhoneRebrandBanner.init(this); // before the phone defaults: tells an update from SmartTube from a new install
         // Videos open faster: formats requested on tap, playback after 0.5 s of media, recommendations alongside
         com.liskovsoft.smartyoutubetv2.common.misc.FastStart.enable();
+        // A missing seek preview strip is fetched once the video plays, not with one more request before it starts
+        com.liskovsoft.youtubeapi.videoinfo.V2.VideoInfoService.setDeferStoryboardFix(true);
         setupPhoneViews();
         applyPhoneDefaults();
         // Updates come from this project's GitHub releases: a manual check opens the update screen. The automatic
@@ -54,6 +56,22 @@ public class PhoneApplication extends MainApplication {
                 playerData.setBackgroundMode(com.liskovsoft.smartyoutubetv2.common.app.models.playback.manager.PlayerConstants.BACKGROUND_MODE_SOUND);
             }
             prefs.edit().putBoolean("background_playback_v1", true).apply();
+        }
+
+        // Phones open videos in 1080p at most by default. SmartTube's TV default is 4K 60 fps on any device that can
+        // decode it: every video then starts by downloading 4K pieces for a phone screen (slow, heavy on data).
+        // Once: a quality picked in the player afterwards stays.
+        if (!prefs.getBoolean("phone_quality_v1", false)) {
+            com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData playerData =
+                    com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData.instance(this);
+            com.liskovsoft.smartyoutubetv2.common.exoplayer.selector.FormatItem video =
+                    playerData.getFormat(com.liskovsoft.smartyoutubetv2.common.exoplayer.selector.FormatItem.TYPE_VIDEO);
+            if (video == null || video.getHeight() > 1080) {
+                playerData.setFormat(com.liskovsoft.sharedutils.helpers.DeviceHelpers.isVP9ResolutionSupported(1080)
+                        ? com.liskovsoft.smartyoutubetv2.common.exoplayer.selector.FormatItem.VIDEO_FHD_VP9_60
+                        : com.liskovsoft.smartyoutubetv2.common.exoplayer.selector.FormatItem.VIDEO_FHD_AVC_30);
+            }
+            prefs.edit().putBoolean("phone_quality_v1", true).apply();
         }
 
         // No Notifications tab for now: hide the section again on builds that turned it on (SmartTube's default)
@@ -89,7 +107,20 @@ public class PhoneApplication extends MainApplication {
         // Search, channels and sign in open on top of the screen in front, in the app's own task. Without this they
         // could open inside the picture-in-picture player's window.
         viewManager.setOpenInCallerTask(PhoneSearchActivity.class, PhoneChannelActivity.class,
-                PhoneChannelUploadsActivity.class, PhoneSignInActivity.class);
+                PhoneChannelUploadsActivity.class, PhoneSignInActivity.class, PhoneBrowseActivity.class,
+                PhonePlaybackActivity.class);
+        // One Home and one player in the task (both singleTop). While the mini player plays, Home comes to the front
+        // without closing the player behind it; otherwise Home closes the screens above it, as before.
+        viewManager.setLaunchFlags(activityClass -> {
+            if (activityClass == PhonePlaybackActivity.class) {
+                return android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP;
+            }
+            if (activityClass == PhoneBrowseActivity.class) {
+                return PhoneMiniPlayer.isActive() ? android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        : android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP;
+            }
+            return 0;
+        });
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
             public void onActivityResumed(android.app.Activity activity) {

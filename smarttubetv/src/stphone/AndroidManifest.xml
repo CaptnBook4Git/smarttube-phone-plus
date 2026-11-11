@@ -34,7 +34,7 @@
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneBrowseActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
-            android:launchMode="singleTask"
+            android:launchMode="singleTop"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
         <activity
@@ -54,13 +54,15 @@
             android:theme="@style/PhoneSheetTheme"
             android:windowSoftInputMode="adjustResize|stateHidden" />
 
-        <!-- Player: same task as the rest of the app (one card in recents). Picture-in-picture moves it to its own window.
+        <!-- Home and the player are singleTop (opened with CLEAR_TOP or REORDER_TO_FRONT, see PhoneApplication): the
+             player can wait behind the app while its video plays in the mini player card.
+             Player: same task as the rest of the app (one card in recents). Picture-in-picture moves it to its own window.
              Not shown over the lock screen: locking the phone locks it, the video keeps playing in the background and
              the lock screen shows its media controls. -->
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhonePlaybackActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
-            android:launchMode="singleTask"
+            android:launchMode="singleTop"
             android:resizeableActivity="true"
             android:screenOrientation="fullUser"
             android:showWhenLocked="false"
