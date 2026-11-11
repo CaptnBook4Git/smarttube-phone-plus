@@ -568,8 +568,37 @@ index 0000000..fa503c1
 +        return RxHelper.fromCallable(() -> getDownloadInfo(videoId));
 +    }
 +}
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/data/YouTubeMediaItemFormatInfo.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/data/YouTubeMediaItemFormatInfo.java
+index c470585..493dc71 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/data/YouTubeMediaItemFormatInfo.java
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/data/YouTubeMediaItemFormatInfo.java
+@@ -49,6 +49,7 @@ public class YouTubeMediaItemFormatInfo implements MediaItemFormatInfo {
+     private String mVisitorMonitoringData; // used in tracking
+     private String mOfParam; // used in tracking
+     private String mStoryboardSpec;
++    private boolean mStoryboardFetched;
+     private boolean mIsUnplayable;
+     private String mPlayabilityStatus;
+     private String mStartTimestamp;
+@@ -343,6 +344,16 @@ public class YouTubeMediaItemFormatInfo implements MediaItemFormatInfo {
+ 
+     @Override
+     public MediaItemStoryboard createStoryboard() {
++        if (mStoryboardSpec == null && !mStoryboardFetched && mVideoId != null && !isLive()) {
++            // Phone: not fetched before the video started (VideoInfoService.setDeferStoryboardFix)
++            mStoryboardFetched = true;
++            try {
++                mStoryboardSpec = com.liskovsoft.youtubeapi.videoinfo.V2.VideoInfoService.instance().getStoryboardSpec(mVideoId);
++            } catch (Exception e) {
++                e.printStackTrace();
++            }
++        }
++
+         if (mStoryboardSpec == null) {
+             return null;
+         }
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java
-index 29e7de1..5b57538 100644
+index 29e7de1..6f18421 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java
 +++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java
 @@ -47,6 +47,14 @@ public class VideoInfoService extends VideoInfoServiceBase {
@@ -587,7 +616,39 @@ index 29e7de1..5b57538 100644
      @Nullable
      private AppClient mActualClient = null;
      @Nullable
-@@ -94,6 +102,52 @@ public class VideoInfoService extends VideoInfoServiceBase {
+@@ -59,6 +67,31 @@ public class VideoInfoService extends VideoInfoServiceBase {
+         mVideoInfoApi = RetrofitHelper.create(VideoInfoApi.class);
+     }
+ 
++    /**
++     * Phone: a missing storyboard (seek preview pictures) is fetched when the player asks for it, after the video has
++     * started, instead of with one more request before the video can start.
++     */
++    private static boolean sDeferStoryboardFix;
++
++    public static void setDeferStoryboardFix(boolean defer) {
++        sDeferStoryboardFix = defer;
++    }
++
++    /** The storyboard spec from the iOS client (when the first answer had none); null if there's none either */
++    public String getStoryboardSpec(String videoId) {
++        if (videoId == null) {
++            return null;
++        }
++        boolean oldUseAuth = mUseAuth;
++        mUseAuth = false;
++        try {
++            VideoInfoHls videoInfoHls = getVideoInfoIOSHls(videoId, null);
++            return videoInfoHls != null ? videoInfoHls.getStoryboardSpec() : null;
++        } finally {
++            mUseAuth = oldUseAuth;
++        }
++    }
++
+     public static VideoInfoService instance() {
+         if (sInstance == null) {
+             sInstance = new VideoInfoService();
+@@ -94,6 +127,52 @@ public class VideoInfoService extends VideoInfoServiceBase {
          return result;
      }
  
@@ -640,3 +701,21 @@ index 29e7de1..5b57538 100644
      public VideoInfo getAuthVideoInfo(String videoId, String clickTrackingParams) {
          if (videoId == null) {
              return null;
+@@ -245,14 +324,15 @@ public class VideoInfoService extends VideoInfoServiceBase {
+ 
+         boolean oldUseAuth = mUseAuth;
+ 
+-        if (shouldObtainExtendedFormats(result) || result.isStoryboardBroken()) {
++        boolean fixStoryboard = result.isStoryboardBroken() && !sDeferStoryboardFix;
++        if (shouldObtainExtendedFormats(result) || fixStoryboard) {
+             Log.d(TAG, "Enable high bitrate formats...");
+             mUseAuth = false;
+             VideoInfoHls videoInfoHls = getVideoInfoIOSHls(videoId, clickTrackingParams);
+             if (videoInfoHls != null && shouldObtainExtendedFormats(result)) {
+                 result.setHlsManifestUrl(videoInfoHls.getHlsManifestUrl());
+             }
+-            if (videoInfoHls != null && result.isStoryboardBroken()) {
++            if (videoInfoHls != null && result.isStoryboardBroken()) { // also when deferred: it came for free
+                 result.setStoryboardSpec(videoInfoHls.getStoryboardSpec());
+             }
+         }
