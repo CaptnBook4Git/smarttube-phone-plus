@@ -43,6 +43,7 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
     private SearchPresenter mPresenter;
     private EditText mQuery;
     private View mClear;
+    private LinearLayout mFilterRow;
     private RecyclerView mSuggestionsList;
     private final SuggestionsAdapter mSuggestions = new SuggestionsAdapter();
     private MediaServiceSearchTagProvider mTagsProvider;
@@ -58,12 +59,21 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
 
         mQuery = findViewById(R.id.phone_query);
         mClear = findViewById(R.id.phone_clear);
+        mFilterRow = findViewById(R.id.phone_search_filter_row);
         mSuggestionsList = findViewById(R.id.phone_suggestions);
         mSuggestionsList.setLayoutManager(new LinearLayoutManager(this));
         mSuggestionsList.setAdapter(mSuggestions);
 
         findViewById(R.id.phone_back).setOnClickListener(v -> onBackPressed());
         findViewById(R.id.phone_mic).setOnClickListener(v -> startVoiceRecognition());
+        View filterBtn = findViewById(R.id.phone_filter_btn);
+        if (filterBtn != null) {
+            filterBtn.setOnClickListener(v -> openFilterDialog());
+        }
+        View saveListBtn = findViewById(R.id.phone_save_list_btn);
+        if (saveListBtn != null) {
+            saveListBtn.setOnClickListener(v -> openSaveListDialog());
+        }
         mClear.setOnClickListener(v -> {
             mQuery.setText("");
             showSuggestions(true);
@@ -106,6 +116,7 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
         mPresenter = SearchPresenter.instance(this);
         mPresenter.setView(this);
         mPresenter.onViewInitialized();
+        updateFilterRow();
     }
 
     @Override
@@ -146,7 +157,94 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
         hideKeyboard();
         showSuggestions(false);
         hideMessage();
+        updateFilterRow();
         mPresenter.onSearch(text);
+    }
+
+    private void openFilterDialog() {
+        int current = mPresenter != null ? mPresenter.getSearchOptions() : 0;
+        PhoneSearchFilters.showFilterDialog(this, current, newOptions -> {
+            if (mPresenter != null) {
+                mPresenter.setSearchOptions(newOptions);
+                updateFilterRow();
+                String query = getSearchText();
+                if (!TextUtils.isEmpty(query) && !TextUtils.isEmpty(query.trim())) {
+                    submit(query);
+                }
+            }
+        });
+    }
+
+    private void openSaveListDialog() {
+        String currentQuery = getSearchText() != null ? getSearchText().trim() : "";
+        int currentOptions = mPresenter != null ? mPresenter.getSearchOptions() : 0;
+        PhoneSearchFilters.showSaveOrEditListDialog(this, null, currentQuery, currentOptions, new PhoneSearchFilters.ListDialogCallback() {
+            @Override
+            public void onSavedPermanently(PhoneSearchFilters.SavedSearchList list) {
+                if (mPresenter != null) {
+                    mPresenter.setSearchOptions(list.options);
+                }
+                updateFilterRow();
+                submit(list.query);
+            }
+
+            @Override
+            public void onAppliedTemporarily(String query, int options) {
+                if (mPresenter != null) {
+                    mPresenter.setSearchOptions(options);
+                }
+                updateFilterRow();
+                submit(query);
+            }
+
+            @Override
+            public void onDeleted(PhoneSearchFilters.SavedSearchList list) {
+            }
+        });
+    }
+
+    private void updateFilterRow() {
+        if (mFilterRow == null || mPresenter == null) {
+            return;
+        }
+        mFilterRow.removeAllViews();
+        int options = mPresenter.getSearchOptions();
+        List<PhoneSearchFilters.ActiveChip> active = PhoneSearchFilters.getActiveChips(this, options);
+        int dp6 = (int) (getResources().getDisplayMetrics().density * 6);
+        int dp32 = (int) (getResources().getDisplayMetrics().density * 32);
+
+        String filterLabel = active.isEmpty()
+                ? getString(R.string.phone_search_filter_btn)
+                : getString(R.string.phone_search_filter_btn) + " (" + active.size() + ")";
+        TextView filterChip = PhoneSearchFilters.createPillChip(this, filterLabel, !active.isEmpty(), false);
+        filterChip.setOnClickListener(v -> openFilterDialog());
+        LinearLayout.LayoutParams filterLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp32);
+        filterLp.setMarginEnd(dp6);
+        mFilterRow.addView(filterChip, filterLp);
+
+        for (PhoneSearchFilters.ActiveChip item : active) {
+            TextView chip = PhoneSearchFilters.createPillChip(this, item.label + " ×", true, false);
+            chip.setOnClickListener(v -> {
+                int updated = mPresenter.getSearchOptions() & ~item.flag;
+                mPresenter.setSearchOptions(updated);
+                updateFilterRow();
+                String q = getSearchText();
+                if (!TextUtils.isEmpty(q) && !TextUtils.isEmpty(q.trim())) {
+                    submit(q);
+                }
+            });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, dp32);
+            lp.setMarginEnd(dp6);
+            mFilterRow.addView(chip, lp);
+        }
+
+        TextView saveChip = PhoneSearchFilters.createPillChip(this, "+ " + getString(R.string.phone_list_save_btn), false, true);
+        saveChip.setOnClickListener(v -> openSaveListDialog());
+        LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp32);
+        mFilterRow.addView(saveChip, saveLp);
     }
 
     private void loadSuggestions(String query) {

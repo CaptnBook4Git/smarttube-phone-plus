@@ -295,6 +295,35 @@ public final class PhoneQuickActions {
         }
     }
 
+    public static void removeFromHistory(Context context, Video video, Runnable onRemoveVideo) {
+        if (video == null) {
+            return;
+        }
+        MediaItemService itemService = YouTubeServiceManager.instance().getMediaItemService();
+        if (video.mediaItem != null) {
+            if (video.mediaItem.getFeedbackToken() != null) {
+                RxHelper.execute(itemService.markAsNotInterestedObserve(video.mediaItem.getFeedbackToken()));
+            } else if (video.mediaItem.getFeedbackEndpoint() != null) {
+                itemService.getFeedbackTokensObserve(video.mediaItem.getFeedbackEndpoint())
+                        .subscribe(
+                                tokens -> {
+                                    if (tokens != null && !tokens.isEmpty() && tokens.get(0) != null) {
+                                        RxHelper.execute(itemService.markAsNotInterestedObserve(tokens.get(0)));
+                                    }
+                                },
+                                error -> {}
+                        );
+            }
+        }
+        if (!TextUtils.isEmpty(video.videoId)) {
+            VideoStateService.instance(context).removeByVideoId(video.videoId);
+        }
+        MessageHelpers.showMessage(context, R.string.removed_from_history);
+        if (onRemoveVideo != null) {
+            onRemoveVideo.run();
+        }
+    }
+
     /**
      * Binds the quick action bar inside a video card, shelf card, row or Short tile.
      */
@@ -309,11 +338,13 @@ public final class PhoneQuickActions {
             return;
         }
 
-        boolean showLikeDislike = isLikeDislikeEnabled(context);
-        boolean showNotInterested = isNotInterestedEnabled(context);
+        boolean isHistory = video.belongsToHistory() && !isOverlay;
+        boolean showLikeDislike = isLikeDislikeEnabled(context) && !isHistory;
+        boolean showRemoveHistory = isHistory;
+        boolean showNotInterested = isNotInterestedEnabled(context) && !isHistory;
         boolean showDontRecommend = isDontRecommendChannelEnabled(context) && !isOverlay;
 
-        if (!showLikeDislike && !showNotInterested && !showDontRecommend) {
+        if (!showLikeDislike && !showRemoveHistory && !showNotInterested && !showDontRecommend) {
             bar.setVisibility(View.GONE);
             return;
         }
@@ -322,6 +353,7 @@ public final class PhoneQuickActions {
 
         View likeBtn = bar.findViewById(R.id.phone_quick_like);
         View dislikeBtn = bar.findViewById(R.id.phone_quick_dislike);
+        View removeHistoryBtn = bar.findViewById(R.id.phone_quick_remove_history);
         View notInterestedBtn = bar.findViewById(R.id.phone_quick_not_interested);
         View dontRecommendBtn = bar.findViewById(R.id.phone_quick_dont_recommend_channel);
 
@@ -351,6 +383,10 @@ public final class PhoneQuickActions {
         if (dislikeBtn != null) {
             dislikeBtn.setVisibility(showLikeDislike ? View.VISIBLE : View.GONE);
             dislikeBtn.setOnClickListener(v -> toggleDislike(context, video, updateRatingIcons));
+        }
+        if (removeHistoryBtn != null) {
+            removeHistoryBtn.setVisibility(showRemoveHistory ? View.VISIBLE : View.GONE);
+            removeHistoryBtn.setOnClickListener(v -> removeFromHistory(context, video, onRemoveVideo));
         }
         updateRatingIcons.run();
 

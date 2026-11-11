@@ -222,3 +222,133 @@ index 29e7de1..5b57538 100644
      public VideoInfo getAuthVideoInfo(String videoId, String clickTrackingParams) {
          if (videoId == null) {
              return null;
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java
+index c7b67ef..f89d2a1 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java
+@@ -88,13 +88,108 @@ final class SearchFilterHelper {
+         sParams[UPLOAD_DATE_THIS_WEEK][DURATION_OVER_20][TYPE_ANY][FEATURE_ANY][SORT_BY_RATING] = "CAESBBABGAI%3D";
+     }
+ 
++    private static final int TYPE_SHORTS_OPT = 1 << 19;
++    private static final int FEATURE_HD_OPT = 1 << 20;
++    private static final int FEATURE_SUBTITLES_OPT = 1 << 21;
++    private static final int FEATURE_CREATIVE_COMMONS_OPT = 1 << 22;
++    private static final int FEATURE_360_OPT = 1 << 23;
++    private static final int FEATURE_VR180_OPT = 1 << 24;
++    private static final int FEATURE_3D_OPT = 1 << 25;
++    private static final int FEATURE_LOCATION_OPT = 1 << 26;
++    private static final int FEATURE_PURCHASED_OPT = 1 << 27;
++
++    private static void writeVarint(java.io.ByteArrayOutputStream out, int value) {
++        while ((value & ~0x7F) != 0) {
++            out.write((value & 0x7F) | 0x80);
++            value >>>= 7;
++        }
++        out.write(value & 0x7F);
++    }
++
++    private static void writeVarintField(java.io.ByteArrayOutputStream out, int fieldNumber, int value) {
++        writeVarint(out, (fieldNumber << 3));
++        writeVarint(out, value);
++    }
++
+     public static String toParams(int options) {
+         if (options == -1 || options == 0) {
+             return null;
+         }
+ 
+-        init();
++        int sortProto = 0;
++        if (Helpers.check(options, SearchOptions.SORT_BY_RATING)) {
++            sortProto = 1;
++        } else if (Helpers.check(options, SearchOptions.SORT_BY_UPLOAD_DATE)) {
++            sortProto = 2;
++        } else if (Helpers.check(options, SearchOptions.SORT_BY_VIEW_COUNT)) {
++            sortProto = 3;
++        }
++
++        int uploadProto = getUploadDateIndex(options);
++
++        int durationProto = 0;
++        if (Helpers.check(options, SearchOptions.DURATION_UNDER_4) || Helpers.check(options, TYPE_SHORTS_OPT)) {
++            durationProto = 1;
++        } else if (Helpers.check(options, SearchOptions.DURATION_BETWEEN_4_20)) {
++            durationProto = 3;
++        } else if (Helpers.check(options, SearchOptions.DURATION_OVER_20)) {
++            durationProto = 2;
++        }
++
++        int typeProto = getTypeIndex(options);
++        if (Helpers.check(options, TYPE_SHORTS_OPT)) {
++            typeProto = TYPE_VIDEO;
++        }
++        if (typeProto == TYPE_ANY && (uploadProto != UPLOAD_DATE_ALL || durationProto != 0 || sortProto == 1 || sortProto == 3)) {
++            typeProto = TYPE_VIDEO;
++        }
++
++        java.io.ByteArrayOutputStream filterOut = new java.io.ByteArrayOutputStream();
++        if (uploadProto != UPLOAD_DATE_ALL) {
++            writeVarintField(filterOut, 1, uploadProto);
++        }
++        if (typeProto != TYPE_ANY) {
++            writeVarintField(filterOut, 2, typeProto);
++        }
++        if (durationProto != 0) {
++            writeVarintField(filterOut, 3, durationProto);
++        }
++        if (Helpers.check(options, FEATURE_HD_OPT)) {
++            writeVarintField(filterOut, 4, 1);
++        }
++        if (Helpers.check(options, FEATURE_SUBTITLES_OPT)) {
++            writeVarintField(filterOut, 5, 1);
++        }
++        if (Helpers.check(options, FEATURE_CREATIVE_COMMONS_OPT)) {
++            writeVarintField(filterOut, 6, 1);
++        }
++        if (Helpers.check(options, FEATURE_3D_OPT)) {
++            writeVarintField(filterOut, 7, 1);
++        }
++        if (Helpers.check(options, SearchOptions.FEATURE_LIVE)) {
++            writeVarintField(filterOut, 8, 1);
++        }
++        if (Helpers.check(options, FEATURE_PURCHASED_OPT)) {
++            writeVarintField(filterOut, 9, 1);
++        }
++        if (Helpers.check(options, SearchOptions.FEATURE_4K)) {
++            writeVarintField(filterOut, 14, 1);
++        }
++        if (Helpers.check(options, FEATURE_360_OPT)) {
++            writeVarintField(filterOut, 15, 1);
++        }
++        if (Helpers.check(options, FEATURE_LOCATION_OPT)) {
++            writeVarintField(filterOut, 23, 1);
++        }
++        if (Helpers.check(options, SearchOptions.FEATURE_HDR)) {
++            writeVarintField(filterOut, 25, 1);
++        }
++        if (Helpers.check(options, FEATURE_VR180_OPT)) {
++            writeVarintField(filterOut, 26, 1);
++        }
++
++        byte[] filterBytes = filterOut.toByteArray();
++        java.io.ByteArrayOutputStream topOut = new java.io.ByteArrayOutputStream();
++        if (sortProto != 0) {
++            writeVarintField(topOut, 1, sortProto);
++        }
++        if (filterBytes.length > 0) {
++            writeVarint(topOut, (2 << 3) | 2);
++            writeVarint(topOut, filterBytes.length);
++            topOut.write(filterBytes, 0, filterBytes.length);
++        }
++
++        byte[] topBytes = topOut.toByteArray();
++        if (topBytes.length == 0) {
++            return null;
++        }
+ 
+-        return sParams[getUploadDateIndex(options)][getDurationIndex(options)][getTypeIndex(options)][getFeaturesIndex(options)][getSortByIndex(options)];
++        return android.util.Base64.encodeToString(topBytes, android.util.Base64.NO_WRAP).replace("=", "%3D");
+     }
+ 
+     private static int getUploadDateIndex(int options) {

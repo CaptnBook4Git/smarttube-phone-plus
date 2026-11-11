@@ -68,15 +68,56 @@
 
         <ImageView
             android:id="@+id/phone_mic"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
             android:layout_marginStart="4dp"
             android:padding="10dp"
             android:background="@drawable/phone_circle_bg"
             android:contentDescription="@string/phone_voice"
             android:src="@drawable/ic_phone_mic"
             android:tint="@color/phone_text" />
+
+        <ImageView
+            android:id="@+id/phone_filter_btn"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="4dp"
+            android:padding="10dp"
+            android:background="@drawable/phone_circle_bg"
+            android:contentDescription="@string/phone_search_filters_title"
+            android:src="@drawable/ic_phone_filter"
+            android:tint="@color/phone_text" />
+
+        <ImageView
+            android:id="@+id/phone_save_list_btn"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="4dp"
+            android:padding="10dp"
+            android:background="@drawable/phone_circle_bg"
+            android:contentDescription="@string/phone_list_save_btn"
+            android:src="@drawable/ic_phone_save"
+            android:tint="@color/phone_text" />
     </LinearLayout>
+
+    <HorizontalScrollView
+        android:id="@+id/phone_search_filter_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/phone_bg"
+        android:overScrollMode="never"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/phone_search_filter_row"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="8dp" />
+    </HorizontalScrollView>
 
     <FrameLayout
         android:id="@+id/phone_content"

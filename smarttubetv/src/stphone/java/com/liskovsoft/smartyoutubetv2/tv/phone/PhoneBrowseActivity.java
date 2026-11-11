@@ -69,6 +69,15 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private VideoGroup mSubsChannelGroup; // the selected channel's videos, shown instead of the feed of all channels
     private Object mSubsAllContent; // the feed of all channels, put back when the channel is unselected
     private io.reactivex.disposables.Disposable mSubsChannelAction;
+    private View mListFilterScroll;
+    private LinearLayout mListFilterRow;
+    private PhoneSearchFilters.SavedSearchList mActiveSavedList;
+    private String mActiveSavedListQuery;
+    private int mActiveSavedListOptions;
+    private Object mHomeAllContent;
+    private io.reactivex.disposables.Disposable mSavedListAction;
+    private io.reactivex.disposables.Disposable mSavedListContinueAction;
+    private int mLastListsVersion = -1;
     private ImageView mTopAvatar;
     private SettingsGroup mSettingsGroup; // last Settings content, rebuilt when the notification setting changes
 
@@ -84,6 +93,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mBottomBar = findViewById(R.id.phone_bottom_bar);
         mChips = findViewById(R.id.phone_chips);
         mChipsScroll = findViewById(R.id.phone_chips_scroll);
+        mListFilterScroll = findViewById(R.id.phone_list_filter_scroll);
+        mListFilterRow = findViewById(R.id.phone_list_filter_row);
         mAccountHeader = findViewById(R.id.phone_account_header);
 
         applyInsets(findViewById(R.id.phone_root), findViewById(R.id.phone_top_bar), mBottomBar);
@@ -122,6 +133,10 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         if (mAdapter != null) {
             mAdapter.refreshQuickActions();
         }
+        if (mLastListsVersion != PhoneSearchFilters.listsVersion()) {
+            mLastListsVersion = PhoneSearchFilters.listsVersion();
+            updateChips();
+        }
     }
 
     @Override
@@ -152,12 +167,16 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         if (mSubsHeader != null) {
             mSubsHeader.release();
         }
-        com.liskovsoft.sharedutils.rx.RxHelper.disposeActions(mSubsChannelAction);
+        com.liskovsoft.sharedutils.rx.RxHelper.disposeActions(mSubsChannelAction, mSavedListAction, mSavedListContinueAction);
         mPresenter.onViewDestroyed();
     }
 
     @Override
     public void onBackPressed() {
+        if (mActiveSavedList != null && mCurrentTab == TAB_HOME) {
+            showSavedSearchList(null);
+            return;
+        }
         if (isSection(MediaGroup.TYPE_CHANNEL_UPLOADS) && sectionById(MediaGroup.TYPE_SUBSCRIPTIONS) != null) {
             // All channels was opened from the Subscriptions feed: go back to it
             focusSection(sectionById(MediaGroup.TYPE_SUBSCRIPTIONS));
@@ -249,6 +268,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 mRefresh.setRefreshing(false);
                 return;
             }
+            if (mCurrentTab == TAB_HOME && mActiveSavedList != null) {
+                mRefresh.setRefreshing(false);
+                loadActiveSavedSearchList();
+                return;
+            }
             mUserRefreshing = true;
             if (isSubscriptionsFeed()) {
                 mSubsHeader.onShown(true);
@@ -300,6 +324,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     private void setupTopBar() {
         findViewById(R.id.phone_search).setOnClickListener(v -> SearchPresenter.instance(this).startSearch(null));
+        View settingsBtn = findViewById(R.id.phone_settings_btn);
+        if (settingsBtn != null) {
+            settingsBtn.setOnClickListener(v -> openAppSettings());
+        }
+        View accountSettingsBtn = findViewById(R.id.phone_account_settings);
+        if (accountSettingsBtn != null) {
+            accountSettingsBtn.setOnClickListener(v -> openAppSettings());
+        }
         mTopAvatar = findViewById(R.id.phone_top_avatar);
         mTopAvatar.setOnClickListener(v -> selectTab(TAB_YOU));
         mSignInCard = getLayoutInflater().inflate(R.layout.phone_signin_card, mList, false);
@@ -323,6 +355,25 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             }
         });
         findViewById(R.id.phone_logo).setOnClickListener(v -> scrollToTopOrRefresh());
+    }
+
+    private void openAppSettings() {
+        BrowseSection settings = sectionById(MediaGroup.TYPE_SETTINGS);
+        if (settings == null) {
+            com.liskovsoft.smartyoutubetv2.common.app.presenters.service.SidebarService.instance(this)
+                    .enableSection(MediaGroup.TYPE_SETTINGS, true);
+            mPresenter.updateSections();
+            settings = sectionById(MediaGroup.TYPE_SETTINGS);
+        }
+        if (settings != null) {
+            focusSection(settings);
+        } else {
+            PhoneQuickActions.openSettings(this, () -> {
+                if (mAdapter != null) {
+                    mAdapter.refreshQuickActions();
+                }
+            });
+        }
     }
 
     private void setupTabs() {
@@ -407,9 +458,20 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mChips.removeAllViews();
         List<BrowseSection> sections = sectionsOfTab(mCurrentTab);
 
-        // The Subscriptions feed has its own channels row and filter chips (All opens the Channels section)
-        if (sections.size() <= 1 || isSubscriptionsFeed()) {
+        if (isSubscriptionsFeed()) {
             mChipsScroll.setVisibility(View.GONE);
+            updateSavedListFilterBar();
+            return;
+        }
+
+        if (mCurrentTab != TAB_HOME && mCurrentTab != TAB_YOU && sections.size() <= 1) {
+            mChipsScroll.setVisibility(View.GONE);
+            updateSavedListFilterBar();
+            return;
+        }
+        if (mCurrentTab == TAB_YOU && sections.isEmpty()) {
+            mChipsScroll.setVisibility(View.GONE);
+            updateSavedListFilterBar();
             return;
         }
 
@@ -422,12 +484,19 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             chip.setGravity(Gravity.CENTER);
             chip.setPadding(dp(14), 0, dp(14), 0);
             chip.setBackgroundResource(R.drawable.phone_chip_bg);
-            boolean selected = mCurrentSection != null && mCurrentSection.getId() == section.getId();
+            boolean selected = mActiveSavedList == null
+                    && mCurrentSection != null
+                    && mCurrentSection.getId() == section.getId();
             chip.setSelected(selected);
             chip.setTextColor(getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
             chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             chip.setOnClickListener(v -> {
-                if (mCurrentSection == null || mCurrentSection.getId() != section.getId()) {
+                if (mActiveSavedList != null) {
+                    showSavedSearchList(null);
+                    if (mCurrentSection == null || mCurrentSection.getId() != section.getId()) {
+                        focusSection(section);
+                    }
+                } else if (mCurrentSection == null || mCurrentSection.getId() != section.getId()) {
                     focusSection(section);
                 } else {
                     scrollToTopOrRefresh();
@@ -447,6 +516,58 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 chip.post(() -> mChipsScroll.smoothScrollTo(Math.max(0, chip.getLeft() - dp(16)), 0));
             }
         }
+
+        if (mCurrentTab == TAB_HOME) {
+            List<PhoneSearchFilters.SavedSearchList> savedLists = PhoneSearchFilters.getSavedLists(this);
+            for (PhoneSearchFilters.SavedSearchList saved : savedLists) {
+                TextView chip = new TextView(this);
+                chip.setText(saved.displayTitle());
+                chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+                chip.setGravity(Gravity.CENTER);
+                chip.setPadding(dp(14), 0, dp(14), 0);
+                chip.setBackgroundResource(R.drawable.phone_chip_bg);
+                boolean selected = mActiveSavedList != null && saved.id.equals(mActiveSavedList.id);
+                chip.setSelected(selected);
+                chip.setTextColor(getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
+                chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                chip.setOnClickListener(v -> {
+                    if (!selected) {
+                        showSavedSearchList(saved);
+                    } else {
+                        openEditSavedListDialog(saved);
+                    }
+                });
+                chip.setOnLongClickListener(v -> {
+                    openEditSavedListDialog(saved);
+                    return true;
+                });
+
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
+                params.setMarginStart(dp(4));
+                params.setMarginEnd(dp(4));
+                mChips.addView(chip, params);
+
+                if (selected) {
+                    chip.post(() -> mChipsScroll.smoothScrollTo(Math.max(0, chip.getLeft() - dp(16)), 0));
+                }
+            }
+
+            TextView addChip = new TextView(this);
+            addChip.setText(R.string.phone_list_add_btn);
+            addChip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+            addChip.setGravity(Gravity.CENTER);
+            addChip.setPadding(dp(14), 0, dp(14), 0);
+            addChip.setBackgroundResource(R.drawable.phone_pill_bg);
+            addChip.setTextColor(getResources().getColor(R.color.phone_text_2));
+            addChip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            addChip.setOnClickListener(v -> openEditSavedListDialog(null));
+            LinearLayout.LayoutParams addParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
+            addParams.setMarginStart(dp(4));
+            addParams.setMarginEnd(dp(4));
+            mChips.addView(addChip, addParams);
+        }
+
+        updateSavedListFilterBar();
     }
 
     /**
@@ -632,6 +753,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     private void focusSection(BrowseSection section) {
         clearSubscriptionsChannel();
+        clearSavedSearchList();
         mCurrentSection = section;
         mCurrentTab = tabOf(section);
         mTabSectionIds[mCurrentTab] = section.getId();
@@ -727,6 +849,218 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         com.liskovsoft.sharedutils.rx.RxHelper.disposeActions(mSubsChannelAction);
         mSubsChannelGroup = null;
         mSubsAllContent = null;
+    }
+
+    private void clearSavedSearchList() {
+        com.liskovsoft.sharedutils.rx.RxHelper.disposeActions(mSavedListAction, mSavedListContinueAction);
+        mActiveSavedList = null;
+        mActiveSavedListQuery = null;
+        mActiveSavedListOptions = 0;
+        mHomeAllContent = null;
+    }
+
+    private void showSavedSearchList(PhoneSearchFilters.SavedSearchList list) {
+        com.liskovsoft.sharedutils.rx.RxHelper.disposeActions(mSavedListAction, mSavedListContinueAction);
+        View progress = findViewById(R.id.phone_progress_bar);
+
+        if (list == null) {
+            if (progress != null) {
+                progress.setVisibility(View.GONE);
+            }
+            mActiveSavedList = null;
+            mActiveSavedListQuery = null;
+            mActiveSavedListOptions = 0;
+            updateChips();
+            if (mHomeAllContent != null) {
+                mAdapter.restoreContent(mHomeAllContent);
+                mHomeAllContent = null;
+                mList.scrollToPosition(0);
+            } else if (mCurrentSection != null) {
+                focusSection(mCurrentSection);
+            }
+            return;
+        }
+
+        if (mHomeAllContent == null && mActiveSavedList == null) {
+            mHomeAllContent = mAdapter.saveContent();
+        }
+        mActiveSavedList = list;
+        mActiveSavedListQuery = list.query;
+        mActiveSavedListOptions = list.options;
+        updateChips();
+        loadActiveSavedSearchList();
+    }
+
+    private void loadActiveSavedSearchList() {
+        if (mActiveSavedList == null || TextUtils.isEmpty(mActiveSavedListQuery)) {
+            return;
+        }
+        com.liskovsoft.sharedutils.rx.RxHelper.disposeActions(mSavedListAction, mSavedListContinueAction);
+        View progress = findViewById(R.id.phone_progress_bar);
+        if (progress != null) {
+            progress.setVisibility(View.VISIBLE);
+        }
+        hideMessage();
+        mAdapter.restoreContent(null);
+        mAdapter.setMode(FeedAdapter.MODE_FEED);
+
+        final String expectedId = mActiveSavedList.id;
+        final BrowseSection section = mCurrentSection;
+        com.liskovsoft.mediaserviceinterfaces.ContentService service =
+                com.liskovsoft.youtubeapi.service.YouTubeServiceManager.instance().getContentService();
+
+        mSavedListAction = service.getSearchObserve(mActiveSavedListQuery, mActiveSavedListOptions)
+                .subscribeOn(io.reactivex.schedulers.Schedulers.io())
+                .observeOn(io.reactivex.android.schedulers.AndroidSchedulers.mainThread())
+                .subscribe(
+                        mediaGroups -> {
+                            if (mActiveSavedList == null || !expectedId.equals(mActiveSavedList.id)) {
+                                return;
+                            }
+                            if (mediaGroups != null) {
+                                for (com.liskovsoft.mediaserviceinterfaces.data.MediaGroup mg : mediaGroups) {
+                                    VideoGroup vg = VideoGroup.from(mg, section);
+                                    mAdapter.update(vg);
+                                }
+                            }
+                            checkScrollEndLater();
+                        },
+                        error -> {
+                            if (progress != null) {
+                                progress.setVisibility(View.GONE);
+                            }
+                        },
+                        () -> {
+                            if (progress != null) {
+                                progress.setVisibility(View.GONE);
+                            }
+                        }
+                );
+    }
+
+    private void updateSavedListFilterBar() {
+        if (mListFilterScroll == null || mListFilterRow == null) {
+            return;
+        }
+        if (mCurrentTab != TAB_HOME || mActiveSavedList == null) {
+            mListFilterScroll.setVisibility(View.GONE);
+            return;
+        }
+        mListFilterScroll.setVisibility(View.VISIBLE);
+        mListFilterRow.removeAllViews();
+
+        List<PhoneSearchFilters.ActiveChip> active = PhoneSearchFilters.getActiveChips(this, mActiveSavedListOptions);
+        int dp6 = dp(6);
+        int dp32 = dp(32);
+
+        String filterLabel = active.isEmpty()
+                ? getString(R.string.phone_search_filter_btn)
+                : getString(R.string.phone_search_filter_btn) + " (" + active.size() + ")";
+        TextView filterChip = PhoneSearchFilters.createPillChip(this, filterLabel, !active.isEmpty(), false);
+        filterChip.setOnClickListener(v -> PhoneSearchFilters.showFilterDialog(this, mActiveSavedListOptions, newOpts -> {
+            mActiveSavedListOptions = newOpts;
+            updateSavedListFilterBar();
+            loadActiveSavedSearchList();
+        }));
+        LinearLayout.LayoutParams filterLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp32);
+        filterLp.setMarginEnd(dp6);
+        mListFilterRow.addView(filterChip, filterLp);
+
+        for (PhoneSearchFilters.ActiveChip item : active) {
+            TextView chip = PhoneSearchFilters.createPillChip(this, item.label + " ×", true, false);
+            chip.setOnClickListener(v -> {
+                mActiveSavedListOptions &= ~item.flag;
+                updateSavedListFilterBar();
+                loadActiveSavedSearchList();
+            });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, dp32);
+            lp.setMarginEnd(dp6);
+            mListFilterRow.addView(chip, lp);
+        }
+
+        boolean isModifiedTemp = mActiveSavedListOptions != mActiveSavedList.options
+                || !TextUtils.equals(mActiveSavedListQuery, mActiveSavedList.query);
+        if (isModifiedTemp) {
+            TextView savePermChip = PhoneSearchFilters.createPillChip(
+                    this, getString(R.string.phone_list_save_perm_btn), false, true);
+            savePermChip.setOnClickListener(v -> {
+                mActiveSavedList = PhoneSearchFilters.saveOrUpdateList(
+                        this, mActiveSavedList.id, mActiveSavedList.name, mActiveSavedListQuery, mActiveSavedListOptions);
+                mLastListsVersion = PhoneSearchFilters.listsVersion();
+                com.liskovsoft.sharedutils.helpers.MessageHelpers.showMessage(this, R.string.phone_list_updated_toast);
+                updateChips();
+            });
+            LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, dp32);
+            saveLp.setMarginEnd(dp6);
+            mListFilterRow.addView(savePermChip, saveLp);
+
+            TextView resetChip = PhoneSearchFilters.createPillChip(
+                    this, getString(R.string.phone_list_reset_temp_btn), false, false);
+            resetChip.setOnClickListener(v -> {
+                mActiveSavedListQuery = mActiveSavedList.query;
+                mActiveSavedListOptions = mActiveSavedList.options;
+                updateSavedListFilterBar();
+                loadActiveSavedSearchList();
+            });
+            LinearLayout.LayoutParams resetLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, dp32);
+            resetLp.setMarginEnd(dp6);
+            mListFilterRow.addView(resetChip, resetLp);
+        }
+
+        TextView editChip = PhoneSearchFilters.createPillChip(
+                this, getString(R.string.phone_list_edit_btn), false, false);
+        editChip.setOnClickListener(v -> openEditSavedListDialog(mActiveSavedList));
+        LinearLayout.LayoutParams editLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp32);
+        mListFilterRow.addView(editChip, editLp);
+    }
+
+    private void openEditSavedListDialog(PhoneSearchFilters.SavedSearchList target) {
+        String initialQuery = target != null
+                ? (mActiveSavedList != null && target.id.equals(mActiveSavedList.id) ? mActiveSavedListQuery : target.query)
+                : "";
+        int initialOpts = target != null
+                ? (mActiveSavedList != null && target.id.equals(mActiveSavedList.id) ? mActiveSavedListOptions : target.options)
+                : 0;
+        PhoneSearchFilters.showSaveOrEditListDialog(this, target, initialQuery, initialOpts, new PhoneSearchFilters.ListDialogCallback() {
+            @Override
+            public void onSavedPermanently(PhoneSearchFilters.SavedSearchList saved) {
+                mLastListsVersion = PhoneSearchFilters.listsVersion();
+                showSavedSearchList(saved);
+            }
+
+            @Override
+            public void onAppliedTemporarily(String query, int options) {
+                if (target != null) {
+                    if (mActiveSavedList == null || !target.id.equals(mActiveSavedList.id)) {
+                        if (mHomeAllContent == null && mActiveSavedList == null) {
+                            mHomeAllContent = mAdapter.saveContent();
+                        }
+                        mActiveSavedList = target;
+                    }
+                    mActiveSavedListQuery = query;
+                    mActiveSavedListOptions = options;
+                    updateChips();
+                    loadActiveSavedSearchList();
+                } else {
+                    SearchPresenter.instance(PhoneBrowseActivity.this).startSearch(query, options);
+                }
+            }
+
+            @Override
+            public void onDeleted(PhoneSearchFilters.SavedSearchList deleted) {
+                mLastListsVersion = PhoneSearchFilters.listsVersion();
+                if (mActiveSavedList != null && deleted != null && deleted.id.equals(mActiveSavedList.id)) {
+                    showSavedSearchList(null);
+                } else {
+                    updateChips();
+                }
+            }
+        });
     }
 
     // endregion
@@ -854,6 +1188,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         if (mSubsChannelGroup != null && group.getId() != mSubsChannelGroup.getId()) {
             return; // the feed of all channels, while one channel is shown (it comes back when the channel is unselected)
+        }
+        if (mActiveSavedList != null && mCurrentTab == TAB_HOME) {
+            return; // a saved search list is shown on Home instead of the default Home feed
         }
         hideMessage();
 
@@ -1010,12 +1347,62 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     @Override
     protected boolean hasPendingActions() {
+        if (mActiveSavedList != null && mCurrentTab == TAB_HOME) {
+            return com.liskovsoft.sharedutils.rx.RxHelper.isAnyActionRunning(mSavedListAction, mSavedListContinueAction);
+        }
         return mPresenter.hasPendingActions();
     }
 
     @Override
     protected void onListScrollEnd(Video lastVideo) {
+        if (mActiveSavedList != null && mCurrentTab == TAB_HOME) {
+            continueSavedList(lastVideo);
+            return;
+        }
         mPresenter.onScrollEnd(lastVideo);
+    }
+
+    private void continueSavedList(Video lastVideo) {
+        if (lastVideo == null || lastVideo.getGroup() == null || lastVideo.getGroup().getMediaGroup() == null) {
+            return;
+        }
+        if (com.liskovsoft.sharedutils.rx.RxHelper.isAnyActionRunning(mSavedListAction, mSavedListContinueAction)) {
+            return;
+        }
+        final String expectedId = mActiveSavedList != null ? mActiveSavedList.id : null;
+        if (expectedId == null) {
+            return;
+        }
+        final VideoGroup prevGroup = lastVideo.getGroup();
+        View progress = findViewById(R.id.phone_progress_bar);
+        if (progress != null) {
+            progress.setVisibility(View.VISIBLE);
+        }
+        com.liskovsoft.mediaserviceinterfaces.ContentService service =
+                com.liskovsoft.youtubeapi.service.YouTubeServiceManager.instance().getContentService();
+        mSavedListContinueAction = service.continueGroupObserve(prevGroup.getMediaGroup())
+                .subscribeOn(io.reactivex.schedulers.Schedulers.io())
+                .observeOn(io.reactivex.android.schedulers.AndroidSchedulers.mainThread())
+                .subscribe(
+                        nextMediaGroup -> {
+                            if (mActiveSavedList == null || !expectedId.equals(mActiveSavedList.id)) {
+                                return;
+                            }
+                            VideoGroup nextGroup = VideoGroup.from(prevGroup, nextMediaGroup);
+                            mAdapter.update(nextGroup);
+                            checkScrollEndLater();
+                        },
+                        error -> {
+                            if (progress != null) {
+                                progress.setVisibility(View.GONE);
+                            }
+                        },
+                        () -> {
+                            if (progress != null) {
+                                progress.setVisibility(View.GONE);
+                            }
+                        }
+                );
     }
 
     // endregion

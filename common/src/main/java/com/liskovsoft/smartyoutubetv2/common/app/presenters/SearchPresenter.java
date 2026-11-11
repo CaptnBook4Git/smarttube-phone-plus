@@ -43,6 +43,7 @@ public class SearchPresenter extends BasePresenter<SearchView> implements VideoG
     private int mTypeOptions;
     private int mFeatureOptions;
     private int mSortingOptions;
+    private int mCustomOptions;
     private Video mCurrentVideo;
 
     private SearchPresenter(Context context) {
@@ -90,7 +91,25 @@ public class SearchPresenter extends BasePresenter<SearchView> implements VideoG
         mTypeOptions = 0;
         mFeatureOptions = 0;
         mSortingOptions = 0;
+        mCustomOptions = 0;
         mIsVoice = false;
+    }
+
+    public int getSearchOptions() {
+        return mUploadDateOptions | mDurationOptions | mTypeOptions | mFeatureOptions | mSortingOptions | mCustomOptions;
+    }
+
+    public void setSearchOptions(int options) {
+        mUploadDateOptions = 0;
+        mDurationOptions = 0;
+        mTypeOptions = 0;
+        mFeatureOptions = 0;
+        mSortingOptions = 0;
+        mCustomOptions = options;
+    }
+
+    public void reloadSearch() {
+        loadSearchResult();
     }
 
     @Override
@@ -178,8 +197,7 @@ public class SearchPresenter extends BasePresenter<SearchView> implements VideoG
 
         getView().clearSearch();
 
-        mLoadAction = contentService.getSearchObserve(searchText,
-                mUploadDateOptions | mDurationOptions | mTypeOptions | mFeatureOptions | mSortingOptions)
+        mLoadAction = contentService.getSearchObserve(searchText, getSearchOptions())
                 .subscribe(
                         mediaGroups -> {
                             Log.d(TAG, "Receiving results for '%s'", searchText);
@@ -266,6 +284,12 @@ public class SearchPresenter extends BasePresenter<SearchView> implements VideoG
     }
 
     public void startSearch(String searchText) {
+        setSearchOptions(0);
+        startSearch(searchText, false, false);
+    }
+
+    public void startSearch(String searchText, int options) {
+        setSearchOptions(options);
         startSearch(searchText, false, false);
     }
 
