@@ -1,6 +1,8 @@
 package com.liskovsoft.smartyoutubetv2.tv.phone;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -324,6 +326,16 @@ public final class PhoneQuickActions {
         }
     }
 
+    private static Activity getActivity(Context context) {
+        while (context instanceof ContextWrapper) {
+            if (context instanceof Activity) {
+                return (Activity) context;
+            }
+            context = ((ContextWrapper) context).getBaseContext();
+        }
+        return null;
+    }
+
     /**
      * Binds the quick action bar inside a video card, shelf card, row or Short tile.
      */
@@ -338,7 +350,13 @@ public final class PhoneQuickActions {
             return;
         }
 
-        boolean isHistory = video.belongsToHistory() && !isOverlay;
+        Activity activity = getActivity(context);
+        boolean isPlayback = activity instanceof PhonePlaybackActivity;
+        boolean isHistory = !isPlayback
+                && video.belongsToHistory()
+                && !isOverlay
+                && !video.belongsToSuggestions()
+                && !video.belongsToPlaybackQueue();
         boolean showLikeDislike = isLikeDislikeEnabled(context) && !isHistory;
         boolean showRemoveHistory = isHistory;
         boolean showNotInterested = isNotInterestedEnabled(context) && !isHistory;

@@ -229,6 +229,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     protected void onResume() {
         super.onResume();
+        if (!isPip()) {
+            resetShrink();
+        }
         moveBackToHomeTaskIfNeeded();
         allowLockScreen();
         PhoneTheme.apply(this);
@@ -370,6 +373,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             setSeeThrough(false);
         } else {
             mLeftPip = true; // expanded (onResume follows) or closed (onStop follows)
+            resetShrink();
+            setSeeThrough(false);
         }
         applyLayoutMode();
     }
@@ -640,7 +645,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                         getWindow().superDispatchTouchEvent(cancel);
                     }
                     cancel.recycle();
-                    mRouteTouchToPlayer = null;
+                    mRouteTouchToPlayer = false;
                     showPhoneControls(false);
                     setSeeThrough(true); // the screen underneath shows while the video shrinks
                 } else {
@@ -682,6 +687,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             mDetails.setAlpha(Math.max(0f, 1f - progress * 2.2f));
             mDetails.setTranslationY(offset * 0.85f);
         }
+        if (offset <= 0.001f && !mShrinkDragging) {
+            setSeeThrough(false);
+        }
     }
 
     private void animateShrink(float target) {
@@ -697,7 +705,16 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 @Override
                 public void onAnimationEnd(android.animation.Animator animation) {
                     if (!mShrinkDragging) {
+                        setShrinkProgress(0);
                         setSeeThrough(false); // back to the normal opaque player
+                    }
+                }
+
+                @Override
+                public void onAnimationCancel(android.animation.Animator animation) {
+                    if (!mShrinkDragging) {
+                        setShrinkProgress(0);
+                        setSeeThrough(false);
                     }
                 }
             });
@@ -741,6 +758,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
         mShrinkDragging = false;
         setShrinkProgress(0);
+        setSeeThrough(false);
     }
 
     /** Where the video is on screen right now (after the drag transform), for a seamless picture-in-picture start */
@@ -778,7 +796,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     private boolean routeTouch(MotionEvent event) {
 
-        if (event.getActionMasked() == MotionEvent.ACTION_DOWN || mRouteTouchToPlayer == null) {
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
             Rect box = new Rect();
             mVideoBox.getGlobalVisibleRect(box);
             boolean onVideo = box.contains((int) event.getRawX(), (int) event.getRawY());
@@ -787,12 +805,12 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
 
         // Swipe the video down to shrink the player (portrait, regular videos): the video follows the finger
-        if (mTouchStartedOnVideo && mPortrait && !mShortsMode && handleShrinkDrag(event)) {
+        if ((mShrinkDragging || mTouchStartedOnVideo) && mPortrait && !mShortsMode && handleShrinkDrag(event)) {
             return true;
         }
 
         boolean result;
-        if (mRouteTouchToPlayer) {
+        if (Boolean.TRUE.equals(mRouteTouchToPlayer)) {
             result = super.dispatchTouchEvent(event);
         } else {
             if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
@@ -804,6 +822,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
             mRouteTouchToPlayer = null;
+            mTouchStartedOnVideo = false;
+            if (mShrinkDragging) {
+                mShrinkDragging = false;
+                animateShrink(0);
+            }
         }
 
         return result;
@@ -858,9 +881,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             android.app.PictureInPictureParams params = builder.build();
             showPhoneControls(false);
             if (!enterPictureInPictureMode(params)) {
+                resetShrink();
                 finish();
             }
         } catch (IllegalStateException | IllegalArgumentException e) {
+            resetShrink();
             finish();
         }
     }
