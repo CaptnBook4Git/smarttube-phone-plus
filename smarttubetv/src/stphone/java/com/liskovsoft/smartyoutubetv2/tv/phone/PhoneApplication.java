@@ -82,6 +82,9 @@ public class PhoneApplication extends MainApplication {
         viewManager.register(SignInView.class, PhoneSignInActivity.class, PhoneBrowseActivity.class);
         viewManager.register(AddDeviceView.class, AddDeviceActivity.class, PhoneBrowseActivity.class);
         viewManager.register(WebBrowserView.class, WebBrowserActivity.class, PhoneBrowseActivity.class);
+        // Phone only screens: Back returns to the screen they were opened from (without a parent, opening one
+        // cleared the back history and Back closed the app)
+        viewManager.register(PhoneUpdateActivity.class, PhoneUpdateActivity.class, PhoneBrowseActivity.class);
 
         // Search, channels and sign in open on top of the screen in front, in the app's own task. Without this they
         // could open inside the picture-in-picture player's window.
