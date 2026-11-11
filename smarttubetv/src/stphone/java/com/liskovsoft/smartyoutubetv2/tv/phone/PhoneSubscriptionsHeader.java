@@ -30,10 +30,14 @@ import io.reactivex.disposables.Disposable;
 /**
  * Top of the Subscriptions tab, like the YouTube app: a row of your channels (newest uploads first, a blue dot on
  * channels with new videos) with an All link, then filter chips (All, Today, Videos, Shorts, Live) for the feed below.
+ * Tapping a channel selects it (the feed shows only its videos and Shorts); tapping it again shows every channel.
  */
 final class PhoneSubscriptionsHeader {
     interface Callback {
-        void onChannelClicked(Video channel);
+        /** A channel was selected, or null: the selection was cleared */
+        void onChannelSelected(Video channel);
+
+        void onOpenChannel(Video channel);
 
         void onChannelLongClicked(Video channel);
 
@@ -59,6 +63,8 @@ final class PhoneSubscriptionsHeader {
     private final LinearLayout mFilters;
     private final List<Video> mChannels = new ArrayList<>();
     private final ShelfAdapter mChannelsAdapter;
+    private final TextView mAllLink;
+    private Video mSelected;
     private int mFilter = FILTER_ALL;
     private long mLoadedAt;
     private Disposable mLoadAction;
@@ -74,7 +80,7 @@ final class PhoneSubscriptionsHeader {
         mChannelsAdapter = new ShelfAdapter(mChannels, ShelfAdapter.STYLE_AVATAR, new FeedAdapter.Listener() {
             @Override
             public void onVideoClicked(Video video) {
-                mCallback.onChannelClicked(video);
+                toggle(video);
             }
 
             @Override
@@ -84,17 +90,24 @@ final class PhoneSubscriptionsHeader {
 
             @Override
             public void onStripClicked(Video channel) {
-                mCallback.onChannelClicked(channel);
+                toggle(channel);
             }
 
             @Override
             public void onShelfScrollEnd(Video lastVideo) {
             }
-        }, () -> null);
+        }, () -> mSelected);
         mChannelsList.setAdapter(mChannelsAdapter);
         mChannelsList.setVisibility(View.GONE);
 
-        mView.findViewById(R.id.phone_subs_all).setOnClickListener(v -> mCallback.onAllChannelsClicked());
+        mAllLink = mView.findViewById(R.id.phone_subs_all);
+        mAllLink.setOnClickListener(v -> {
+            if (mSelected != null) {
+                mCallback.onOpenChannel(mSelected);
+            } else {
+                mCallback.onAllChannelsClicked();
+            }
+        });
 
         buildFilters();
     }
@@ -103,12 +116,30 @@ final class PhoneSubscriptionsHeader {
         return mView;
     }
 
-    /** The Subscriptions feed was opened: start from All, and refresh the channels when they are a few minutes old */
+    /**
+     * The Subscriptions feed was opened (or refreshed): every channel, the All filter, and the channels reloaded when
+     * they are a few minutes old.
+     */
     void onShown(boolean forceReload) {
+        select(null);
         setFilter(FILTER_ALL);
         if (forceReload || mChannels.isEmpty() || SystemClock.elapsedRealtime() - mLoadedAt > RELOAD_AFTER_MS) {
             loadChannels();
         }
+    }
+
+    private void toggle(Video channel) {
+        select(channel != null && channel.equals(mSelected) ? null : channel);
+    }
+
+    private void select(Video channel) {
+        if (channel == mSelected) {
+            return;
+        }
+        mSelected = channel;
+        mChannelsAdapter.notifyDataSetChanged();
+        mAllLink.setText(channel != null ? R.string.phone_subs_view_channel : R.string.phone_subs_all);
+        mCallback.onChannelSelected(channel);
     }
 
     void release() {
@@ -128,10 +159,26 @@ final class PhoneSubscriptionsHeader {
             return;
         }
         mChannels.clear();
+        // YouTube's TV channel list repeats channels and has entries without a picture (sorting, A-Z): one avatar
+        // per channel
+        java.util.Set<String> seen = new java.util.HashSet<>();
         for (MediaItem item : group.getMediaItems()) {
-            if (item != null) {
-                mChannels.add(Video.from(item));
+            if (item == null || android.text.TextUtils.isEmpty(item.getCardImageUrl()) || android.text.TextUtils.isEmpty(item.getTitle())) {
+                continue;
             }
+            String title = item.getTitle().trim().toLowerCase();
+            String channelId = item.getChannelId();
+            if (seen.contains(title) || (channelId != null && seen.contains(channelId))) {
+                continue;
+            }
+            seen.add(title);
+            if (channelId != null) {
+                seen.add(channelId);
+            }
+            mChannels.add(Video.from(item));
+        }
+        if (mSelected != null && !mChannels.contains(mSelected)) {
+            select(null);
         }
         mLoadedAt = SystemClock.elapsedRealtime();
         mChannelsAdapter.notifyDataSetChanged();

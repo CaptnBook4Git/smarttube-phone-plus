@@ -66,6 +66,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private BrowseSection mLoadedSection; // what the presenter actually loads (Home falls back when signed out)
     private View mSignInCard;
     private PhoneSubscriptionsHeader mSubsHeader; // channels row and filter chips above the Subscriptions feed
+    private VideoGroup mSubsChannelGroup; // the selected channel's videos, shown instead of the feed of all channels
+    private Object mSubsAllContent; // the feed of all channels, put back when the channel is unselected
+    private io.reactivex.disposables.Disposable mSubsChannelAction;
     private ImageView mTopAvatar;
     private SettingsGroup mSettingsGroup; // last Settings content, rebuilt when the notification setting changes
 
@@ -146,6 +149,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         if (mSubsHeader != null) {
             mSubsHeader.release();
         }
+        com.liskovsoft.sharedutils.rx.RxHelper.disposeActions(mSubsChannelAction);
         mPresenter.onViewDestroyed();
     }
 
@@ -299,7 +303,12 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mSignInCard.findViewById(R.id.phone_signin_card_button).setOnClickListener(v -> YTSignInPresenter.instance(this).start());
         mSubsHeader = new PhoneSubscriptionsHeader(this, mList, new PhoneSubscriptionsHeader.Callback() {
             @Override
-            public void onChannelClicked(Video channel) {
+            public void onChannelSelected(Video channel) {
+                showSubscriptionsChannel(channel);
+            }
+
+            @Override
+            public void onOpenChannel(Video channel) {
                 com.liskovsoft.smartyoutubetv2.common.app.presenters.ChannelPresenter.instance(PhoneBrowseActivity.this).openChannel(channel);
             }
 
@@ -632,6 +641,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     }
 
     private void focusSection(BrowseSection section) {
+        clearSubscriptionsChannel();
         mCurrentSection = section;
         mCurrentTab = tabOf(section);
         mTabSectionIds[mCurrentTab] = section.getId();
@@ -665,6 +675,71 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
         mPresenter.onSectionFocused(load.getId());
     }
+
+    // region Subscriptions: one channel
+
+    /**
+     * Subscriptions: a channel tapped in the channels row. The feed shows only its videos and Shorts (more load while
+     * scrolling, like any feed); null puts the feed of all channels back as it was.
+     */
+    private void showSubscriptionsChannel(Video channel) {
+        com.liskovsoft.sharedutils.rx.RxHelper.disposeActions(mSubsChannelAction);
+        View progress = findViewById(R.id.phone_progress_bar);
+
+        if (channel == null) {
+            progress.setVisibility(View.GONE);
+            mSubsChannelGroup = null;
+            if (mSubsAllContent != null) {
+                mAdapter.restoreContent(mSubsAllContent);
+                mSubsAllContent = null;
+                mList.scrollToPosition(0);
+            }
+            return;
+        }
+
+        if (mSubsAllContent == null) {
+            mSubsAllContent = mAdapter.saveContent();
+        }
+        BrowseSection section = mCurrentSection;
+        VideoGroup placeholder = VideoGroup.from(section);
+        mSubsChannelGroup = placeholder; // until the videos arrive, late results of the full feed stay out
+        mAdapter.restoreContent(null);
+        progress.setVisibility(View.VISIBLE);
+
+        com.liskovsoft.mediaserviceinterfaces.ContentService service =
+                com.liskovsoft.youtubeapi.service.YouTubeServiceManager.instance().getContentService();
+        io.reactivex.Observable<com.liskovsoft.mediaserviceinterfaces.data.MediaGroup> uploads = channel.hasReloadPageKey()
+                ? service.getGroupObserve(channel.getReloadPageKey())
+                : service.getGroupObserve(channel.mediaItem != null ? channel.mediaItem
+                        : com.liskovsoft.smartyoutubetv2.common.app.models.data.SimpleMediaItem.from(channel));
+
+        mSubsChannelAction = com.liskovsoft.sharedutils.rx.RxHelper.execute(uploads, mediaGroup -> {
+            progress.setVisibility(View.GONE);
+            if (mSubsChannelGroup != placeholder || !isSubscriptionsFeed()) {
+                return; // another channel was picked meanwhile, or the user left
+            }
+            VideoGroup group = VideoGroup.from(mediaGroup, section);
+            group.setAction(VideoGroup.ACTION_REPLACE);
+            mSubsChannelGroup = group; // scrolling continues this group through the presenter, like the feed
+            mAdapter.update(group);
+            mList.scrollToPosition(0);
+            checkScrollEndLater();
+        }, error -> {
+            progress.setVisibility(View.GONE);
+            if (mSubsChannelGroup == placeholder) {
+                android.widget.Toast.makeText(this, R.string.phone_subs_channel_error, android.widget.Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    /** Leaving or reloading the Subscriptions feed: forget the shown channel (the feed is loaded anew) */
+    private void clearSubscriptionsChannel() {
+        com.liskovsoft.sharedutils.rx.RxHelper.disposeActions(mSubsChannelAction);
+        mSubsChannelGroup = null;
+        mSubsAllContent = null;
+    }
+
+    // endregion
 
     private boolean isSection(int id) {
         return mCurrentSection != null && mCurrentSection.getId() == id;
@@ -786,6 +861,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         BrowseSection expected = mLoadedSection != null ? mLoadedSection : mCurrentSection;
         if (section != null && expected != null && section.getId() != expected.getId()) {
             return; // late result of a section the user already left
+        }
+        if (mSubsChannelGroup != null && group.getId() != mSubsChannelGroup.getId()) {
+            return; // the feed of all channels, while one channel is shown (it comes back when the channel is unselected)
         }
         hideMessage();
 

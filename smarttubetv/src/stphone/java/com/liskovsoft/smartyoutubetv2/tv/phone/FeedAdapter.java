@@ -206,6 +206,20 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private VideoFilter mFilter;
 
+    /** What the feed holds now, to put back later with {@link #restoreContent} (Subscriptions: one channel shown) */
+    public Object saveContent() {
+        return new ArrayList<>(mGroups);
+    }
+
+    @SuppressWarnings("unchecked")
+    public void restoreContent(Object content) {
+        mGroups.clear();
+        if (content instanceof List) {
+            mGroups.addAll((List<Group>) content);
+        }
+        rebuild();
+    }
+
     /** Shows only the videos the filter accepts; null shows them all. The loaded videos are kept. */
     public void setFilter(VideoFilter filter) {
         if (filter == mFilter) {
