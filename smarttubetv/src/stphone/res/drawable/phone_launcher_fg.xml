@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- StreamTube mark scaled into the adaptive icon safe zone -->
+<!-- StreamTube mark on white, a slightly taller badge than the Home logo (like the reference icon) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:scaleX="1.2"
-        android:scaleY="1.2"
-        android:translateX="25.2"
-        android:translateY="25.2">
+        android:scaleX="1.02"
+        android:scaleY="1.02"
+        android:translateX="29.52"
+        android:translateY="29.52">
         <path
             android:fillColor="#FFFF0033"
-            android:pathData="M9,10h30a8,8 0,0 1,8 8v12a8,8 0,0 1,-8 8h-30a8,8 0,0 1,-8 -8v-12a8,8 0,0 1,8 -8z" />
+            android:pathData="M11,9h26a9,9 0,0 1,9 9v12a9,9 0,0 1,-9 9h-26a9,9 0,0 1,-9 -9v-12a9,9 0,0 1,9 -9z" />
         <group
             android:pivotX="23.9"
             android:pivotY="20.25"
-            android:scaleX="1.0"
-            android:scaleY="1.0"
-            android:translateX="0.1"
+            android:scaleX="1.12"
+            android:scaleY="1.12"
+            android:translateX="0.2"
             android:translateY="3.75">
             <path
                 android:fillColor="#00000000"
