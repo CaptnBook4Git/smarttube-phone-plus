@@ -1030,7 +1030,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         findViewById(R.id.phone_ctl_collapse).setOnClickListener(v -> onBackPressed());
         findViewById(R.id.phone_ctl_settings).setOnClickListener(v -> clickButton(R.id.lb_control_high_quality));
         findViewById(R.id.phone_ctl_cc).setOnClickListener(v -> clickButton(R.id.lb_control_closed_captioning));
-        findViewById(R.id.phone_ctl_speed).setOnClickListener(v -> clickButton(R.id.action_video_speed));
+        findViewById(R.id.phone_ctl_speed).setOnClickListener(v -> openSpeedMenu());
         findViewById(R.id.phone_ctl_autoplay).setOnClickListener(v -> toggleAutoplay());
         // Same list as SmartTube's playback mode button: play next, pause, repeat, shuffle, play the list, close
         findViewById(R.id.phone_ctl_mode).setOnClickListener(v ->
@@ -1777,6 +1777,14 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         presenter().onButtonClicked(buttonId, getButtonState(buttonId));
     }
 
+    /**
+     * Always the speed list. SmartTube's speed button (a TV remote shortcut) opens the list only at 1x; at any other
+     * speed a press just switches between 1x and that speed, which on a phone looks like the button stopped working.
+     */
+    private void openSpeedMenu() {
+        presenter().onButtonLongClicked(R.id.action_video_speed, getButtonState(R.id.action_video_speed));
+    }
+
     private void setupDetails() {
         // The layout manager must exist before anything is inflated against the RecyclerView
         mDetails.setLayoutManager(new LinearLayoutManager(this));
@@ -1842,7 +1850,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             pill.addView(text, textParams);
         }
 
-        pill.setOnClickListener(v -> clickButton(buttonId));
+        pill.setOnClickListener(v -> {
+            if (buttonId == R.id.action_video_speed) {
+                openSpeedMenu();
+            } else {
+                clickButton(buttonId);
+            }
+        });
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38));
         params.setMarginStart(dp(4));
