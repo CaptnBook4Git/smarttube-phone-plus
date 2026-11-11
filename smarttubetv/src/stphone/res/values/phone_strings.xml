@@ -106,4 +106,8 @@
     <string name="phone_comment_posted">Comment posted</string>
     <string name="phone_comment_reply_posted">Reply posted</string>
     <string name="phone_comment_failed">Couldn\'t post: %1$s</string>
+    <!-- Mini player card -->
+    <string name="phone_mini_open">Open the player</string>
+    <string name="phone_mini_close">Close the mini player</string>
+    <string name="phone_mini_play_pause">Play or pause</string>
 </resources>

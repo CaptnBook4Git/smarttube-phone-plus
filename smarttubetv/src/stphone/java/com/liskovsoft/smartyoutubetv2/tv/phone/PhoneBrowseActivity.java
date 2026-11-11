@@ -144,6 +144,13 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     }
 
     @Override
+    protected int miniPlayerBottomOffset() {
+        // Above the tabs (they include the navigation bar)
+        return mBottomBar != null && mBottomBar.getVisibility() == View.VISIBLE && mBottomBar.getHeight() > 0
+                ? mBottomBar.getHeight() : super.miniPlayerBottomOffset();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         MediaServiceManager.instance().removeAccountListener(this);

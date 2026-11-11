@@ -89,7 +89,20 @@ public class PhoneApplication extends MainApplication {
         // Search, channels and sign in open on top of the screen in front, in the app's own task. Without this they
         // could open inside the picture-in-picture player's window.
         viewManager.setOpenInCallerTask(PhoneSearchActivity.class, PhoneChannelActivity.class,
-                PhoneChannelUploadsActivity.class, PhoneSignInActivity.class);
+                PhoneChannelUploadsActivity.class, PhoneSignInActivity.class, PhoneBrowseActivity.class,
+                PhonePlaybackActivity.class);
+        // One Home and one player in the task (both singleTop). While the mini player plays, Home comes to the front
+        // without closing the player behind it; otherwise Home closes the screens above it, as before.
+        viewManager.setLaunchFlags(activityClass -> {
+            if (activityClass == PhonePlaybackActivity.class) {
+                return android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP;
+            }
+            if (activityClass == PhoneBrowseActivity.class) {
+                return PhoneMiniPlayer.isActive() ? android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        : android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP;
+            }
+            return 0;
+        });
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
             public void onActivityResumed(android.app.Activity activity) {

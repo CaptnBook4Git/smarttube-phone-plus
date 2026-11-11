@@ -145,6 +145,32 @@ public class PhonePlaybackFragment extends PlaybackFragment {
     }
 
     /**
+     * The player's own surface goes away when the player screen goes behind the mini player card. The card's surface
+     * shows the video by then: don't take the video off it.
+     */
+    @Override
+    public void setSurfaceHolderCallback(android.view.SurfaceHolder.Callback callback) {
+        super.setSurfaceHolderCallback(callback == null ? null : new android.view.SurfaceHolder.Callback() {
+            @Override
+            public void surfaceCreated(android.view.SurfaceHolder holder) {
+                callback.surfaceCreated(holder); // back on screen: the video comes back here
+            }
+
+            @Override
+            public void surfaceChanged(android.view.SurfaceHolder holder, int format, int width, int height) {
+                callback.surfaceChanged(holder, format, width, height);
+            }
+
+            @Override
+            public void surfaceDestroyed(android.view.SurfaceHolder holder) {
+                if (!PhoneMiniPlayer.ownsSurface()) {
+                    callback.surfaceDestroyed(holder);
+                }
+            }
+        });
+    }
+
+    /**
      * Hide the TV overlay right away (used when switching back to the portrait player).
      */
     public void hideTvOverlay() {

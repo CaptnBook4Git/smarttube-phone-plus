@@ -27,6 +27,11 @@ import java.util.Locale;
  * bar and hands the APK to Android's installer.
  */
 public class PhoneUpdateActivity extends PhoneActivity implements PhoneUpdater.InstallListener {
+    @Override
+    protected boolean hostsMiniPlayer() {
+        return false;
+    }
+
     private static final int STATE_CHECKING = 0;
     private static final int STATE_UP_TO_DATE = 1;
     private static final int STATE_AVAILABLE = 2;

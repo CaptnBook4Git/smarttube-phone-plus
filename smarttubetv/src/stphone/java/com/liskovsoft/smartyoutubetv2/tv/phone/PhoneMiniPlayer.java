@@ -1,0 +1,565 @@
+package com.liskovsoft.smartyoutubetv2.tv.phone;
+
+import android.animation.ValueAnimator;
+import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.Outline;
+import android.graphics.Rect;
+import android.graphics.SurfaceTexture;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.TextureView;
+import android.view.View;
+import android.view.ViewConfiguration;
+import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
+import android.view.animation.DecelerateInterpolator;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+
+import com.google.android.exoplayer2.Format;
+import com.google.android.exoplayer2.SimpleExoPlayer;
+import com.liskovsoft.smartyoutubetv2.tv.R;
+
+import java.lang.ref.WeakReference;
+
+/**
+ * In-app mini player, like the YouTube app: dragging the player down (or Back while a video plays) shrinks the video
+ * into a small card at the bottom right of the screen underneath (Home, Search, a channel). The video never stops:
+ * the player screen stays alive behind and its player draws into the card's own surface (codecs switch surfaces
+ * without a new start, Android 6+). Tap the card to open the player again, X to close it, drag it anywhere.
+ *
+ * Android's picture in picture is only used when leaving the app.
+ */
+final class PhoneMiniPlayer {
+    private static WeakReference<PhonePlaybackActivity> sPlayer = new WeakReference<>(null);
+    private static WeakReference<PhoneActivity> sHost = new WeakReference<>(null);
+    private static WeakReference<Card> sCard = new WeakReference<>(null);
+    private static boolean sActive;
+    /** The last frame, shown by the next card until its own frames arrive */
+    private static Bitmap sStill;
+    /** The card surface the player draws into */
+    private static Surface sSurface;
+    /** Card shape (width / height): the player's video box, so the video lands on it exactly */
+    private static float sAspect = 16f / 9f;
+    /** Where the user moved the card in this session (screen pixels), NaN: bottom right */
+    private static float sCardX = Float.NaN;
+    private static float sCardY = Float.NaN;
+
+    private PhoneMiniPlayer() {
+    }
+
+    // region Session
+
+    /** A screen that can show the card came to the front */
+    static void onHostResumed(PhoneActivity host) {
+        if (!host.hostsMiniPlayer()) {
+            return;
+        }
+        sHost = new WeakReference<>(host);
+        if (isActive()) {
+            showCard(host);
+        }
+    }
+
+    static void onHostPaused(PhoneActivity host) {
+        Card card = sCard.get();
+        if (card != null && card.mHost == host) {
+            card.keepStill(); // the next screen (or the player) starts from this frame
+        }
+    }
+
+    static void onHostStopped(PhoneActivity host) {
+        Card card = sCard.get();
+        if (card != null && card.mHost == host) {
+            card.remove();
+        }
+    }
+
+    /** The screen the player was opened from: the card shows there */
+    static Class<? extends Activity> hostClass() {
+        PhoneActivity host = sHost.get();
+        return host != null && !host.isFinishing() && !host.isDestroyed() ? host.getClass() : null;
+    }
+
+    static boolean isActive() {
+        if (!sActive) {
+            return false;
+        }
+        PhonePlaybackActivity player = sPlayer.get();
+        if (player == null || player.isFinishing() || player.isDestroyed() || player.exoPlayer() == null) {
+            end(); // the player was closed behind our back
+            return false;
+        }
+        return true;
+    }
+
+    /** The player shrank into the card: from now on the card shows its video */
+    static void begin(PhonePlaybackActivity player, Bitmap still, float aspect) {
+        sPlayer = new WeakReference<>(player);
+        sAspect = aspect > 0 ? aspect : 16f / 9f;
+        sActive = true;
+        sStill = still;
+        sCardX = Float.NaN; // always lands at the bottom right
+        sCardY = Float.NaN;
+    }
+
+    /**
+     * The player takes its video back (opened again or closed). The card stays until its screen is covered (it shows
+     * the last frame meanwhile), so it doesn't vanish while the player opens over it.
+     */
+    static void end() {
+        sActive = false;
+        sPlayer = new WeakReference<>(null);
+    }
+
+    /** True while a card's surface shows the video (the player's own surface may go away meanwhile) */
+    static boolean ownsSurface() {
+        return sActive && sSurface != null;
+    }
+
+    static Bitmap takeStill() {
+        Bitmap still = sStill;
+        sStill = null;
+        return still;
+    }
+
+    private static void expand() {
+        PhonePlaybackActivity player = sPlayer.get();
+        Card card = sCard.get();
+        if (player == null || card == null) {
+            end();
+            return;
+        }
+        card.keepStill();
+        PhoneActivity host = card.mHost;
+        host.startActivity(new android.content.Intent(host, PhonePlaybackActivity.class)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP));
+    }
+
+    private static void close() {
+        PhonePlaybackActivity player = sPlayer.get();
+        Card card = sCard.get();
+        sStill = null;
+        if (card != null) {
+            card.animateAway();
+        }
+        sActive = false;
+        sPlayer = new WeakReference<>(null);
+        if (player != null && !player.isFinishing()) {
+            player.closeFromMiniPlayer();
+        }
+    }
+
+    // endregion
+
+    // region Geometry
+
+    /** Card size for a shape (width / height), screen pixels */
+    private static int[] cardSize(Activity activity, float aspect) {
+        View root = activity.getWindow().getDecorView();
+        int screen = Math.min(root.getWidth(), root.getHeight());
+        if (screen <= 0) {
+            screen = activity.getResources().getDisplayMetrics().widthPixels;
+        }
+        int width = Math.round(screen * (aspect >= 1f ? 0.5f : 0.3f));
+        return new int[] {width, Math.round(width / aspect)};
+    }
+
+    /** The bottom right spot the card lands on (window = screen pixels: the phone screens are edge to edge) */
+    static Rect dockRect(Activity activity, float aspect) {
+        View root = activity.getWindow().getDecorView();
+        int[] size = cardSize(activity, aspect);
+        float density = activity.getResources().getDisplayMetrics().density;
+        int margin = Math.round(12 * density);
+        PhoneActivity host = sHost.get();
+        int bottom = host != null ? host.miniPlayerBottomOffset() : navigationInset(root) + Math.round(56 * density);
+        int right = root.getWidth() - margin;
+        int bottomEdge = root.getHeight() - bottom - margin;
+        return new Rect(right - size[0], bottomEdge - size[1], right, bottomEdge);
+    }
+
+    @SuppressWarnings("deprecation")
+    static int navigationInset(View view) {
+        android.view.WindowInsets insets = view.getRootWindowInsets();
+        return insets != null ? insets.getSystemWindowInsetBottom() : 0;
+    }
+
+    @SuppressWarnings("deprecation")
+    private static int statusInset(View view) {
+        android.view.WindowInsets insets = view.getRootWindowInsets();
+        return insets != null ? insets.getSystemWindowInsetTop() : 0;
+    }
+
+    /** The video's own shape (width / height), 16:9 when not known yet */
+    private static float videoAspect(SimpleExoPlayer exo) {
+        Format format = exo != null ? exo.getVideoFormat() : null;
+        if (format == null || format.width <= 0 || format.height <= 0) {
+            return 16f / 9f;
+        }
+        float ratio = format.pixelWidthHeightRatio > 0 ? format.pixelWidthHeightRatio : 1f;
+        boolean rotated = format.rotationDegrees == 90 || format.rotationDegrees == 270;
+        return rotated ? format.height / (format.width * ratio) : format.width * ratio / format.height;
+    }
+
+    // endregion
+
+    // region Card
+
+    private static void showCard(PhoneActivity host) {
+        Card card = sCard.get();
+        if (card != null && card.mHost == host && card.getParent() != null) {
+            card.refresh();
+            return;
+        }
+        if (card != null) {
+            card.remove();
+        }
+        ViewGroup content = host.findViewById(android.R.id.content);
+        if (content == null) {
+            return;
+        }
+        card = new Card(host);
+        content.addView(card, new FrameLayout.LayoutParams(1, 1, Gravity.TOP | Gravity.START));
+        sCard = new WeakReference<>(card);
+        card.place();
+    }
+
+    private static final class Card extends FrameLayout implements TextureView.SurfaceTextureListener {
+        private final PhoneActivity mHost;
+        private final TextureView mVideo;
+        private final ImageView mStill;
+        private final ImageView mPlay;
+        private final Handler mHandler = new Handler(Looper.getMainLooper());
+        private final float mDensity;
+        private Surface mSurface;
+        /** The player drawing into mSurface (kept: the session may end before this card goes away) */
+        private SimpleExoPlayer mAttachedTo;
+        private boolean mGotFrame;
+        private float mDownX;
+        private float mDownY;
+        private float mStartX;
+        private float mStartY;
+        private boolean mDragging;
+        private ValueAnimator mMove;
+
+        private final Runnable mTick = new Runnable() {
+            @Override
+            public void run() {
+                if (!isActive()) {
+                    if (mHost.hasWindowFocus()) {
+                        remove(); // the player closed while this screen is in front
+                        return;
+                    }
+                } else {
+                    refresh();
+                }
+                mHandler.postDelayed(this, 500);
+            }
+        };
+
+        Card(PhoneActivity host) {
+            super(host);
+            mHost = host;
+            mDensity = host.getResources().getDisplayMetrics().density;
+            setBackgroundColor(Color.BLACK);
+            setElevation(10 * mDensity);
+            setOutlineProvider(new ViewOutlineProvider() {
+                @Override
+                public void getOutline(View view, Outline outline) {
+                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), 12 * mDensity);
+                }
+            });
+            setClipToOutline(true);
+
+            mVideo = new TextureView(host);
+            mVideo.setSurfaceTextureListener(this);
+            addView(mVideo, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER));
+
+            mStill = new ImageView(host);
+            mStill.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            mStill.setBackgroundColor(Color.BLACK);
+            Bitmap still = sStill;
+            if (still != null) {
+                mStill.setImageBitmap(still);
+            }
+            addView(mStill, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+            int button = Math.round(30 * mDensity);
+            int inset = Math.round(6 * mDensity);
+            ImageView close = roundButton(host, R.drawable.ic_phone_close, R.string.phone_mini_close);
+            LayoutParams closeParams = new LayoutParams(button, button, Gravity.TOP | Gravity.END);
+            closeParams.setMargins(inset, inset, inset, inset);
+            addView(close, closeParams);
+            close.setOnClickListener(v -> close());
+
+            mPlay = roundButton(host, R.drawable.ic_phone_pause, R.string.phone_mini_play_pause);
+            LayoutParams playParams = new LayoutParams(button, button, Gravity.BOTTOM | Gravity.START);
+            playParams.setMargins(inset, inset, inset, inset);
+            addView(mPlay, playParams);
+            mPlay.setOnClickListener(v -> {
+                PhonePlaybackActivity player = sPlayer.get();
+                SimpleExoPlayer exo = player != null ? player.exoPlayer() : null;
+                if (exo != null) {
+                    exo.setPlayWhenReady(!exo.getPlayWhenReady());
+                    refresh();
+                }
+            });
+
+            setContentDescription(host.getString(R.string.phone_mini_open));
+            mHandler.post(mTick);
+        }
+
+        private ImageView roundButton(Activity activity, int icon, int label) {
+            ImageView view = new ImageView(activity);
+            view.setImageResource(icon);
+            view.setColorFilter(Color.WHITE);
+            int pad = Math.round(6 * mDensity);
+            view.setPadding(pad, pad, pad, pad);
+            android.graphics.drawable.GradientDrawable circle = new android.graphics.drawable.GradientDrawable();
+            circle.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            circle.setColor(0x99000000);
+            view.setBackground(circle);
+            view.setContentDescription(activity.getString(label));
+            return view;
+        }
+
+        /** Size and spot: bottom right, or where the user moved it */
+        void place() {
+            View root = mHost.getWindow().getDecorView();
+            if (root.getWidth() == 0) {
+                root.post(this::place);
+                return;
+            }
+            Rect dock = dockRect(mHost, sAspect);
+            ViewGroup.LayoutParams params = getLayoutParams();
+            params.width = dock.width();
+            params.height = dock.height();
+            setLayoutParams(params);
+            float x = Float.isNaN(sCardX) ? dock.left : sCardX;
+            float y = Float.isNaN(sCardY) ? dock.top : sCardY;
+            float[] clamped = clamp(x, y, dock.width(), dock.height());
+            setTranslationX(clamped[0]);
+            setTranslationY(clamped[1]);
+            fitVideo(dock.width(), dock.height());
+        }
+
+        /** The video keeps its shape inside the card (black bars instead of a stretched picture) */
+        private void fitVideo(int width, int height) {
+            PhonePlaybackActivity player = sPlayer.get();
+            float aspect = videoAspect(player != null ? player.exoPlayer() : null);
+            int videoWidth = width;
+            int videoHeight = Math.round(width / aspect);
+            if (videoHeight > height) {
+                videoHeight = height;
+                videoWidth = Math.round(height * aspect);
+            }
+            LayoutParams params = (LayoutParams) mVideo.getLayoutParams();
+            if (params.width != videoWidth || params.height != videoHeight) {
+                params.width = videoWidth;
+                params.height = videoHeight;
+                mVideo.setLayoutParams(params);
+            }
+        }
+
+        private float[] clamp(float x, float y, int width, int height) {
+            View root = mHost.getWindow().getDecorView();
+            float margin = 8 * mDensity;
+            float minY = statusInset(root) + margin;
+            float maxY = root.getHeight() - mHost.miniPlayerBottomOffset() - height - margin;
+            float maxX = root.getWidth() - width - margin;
+            return new float[] {Math.max(margin, Math.min(maxX, x)), Math.max(minY, Math.min(Math.max(minY, maxY), y))};
+        }
+
+        void refresh() {
+            PhonePlaybackActivity player = sPlayer.get();
+            SimpleExoPlayer exo = player != null ? player.exoPlayer() : null;
+            if (exo == null) {
+                return;
+            }
+            mPlay.setImageResource(exo.getPlayWhenReady() ? R.drawable.ic_phone_pause : R.drawable.ic_phone_play);
+            if (getWidth() > 0) {
+                fitVideo(getWidth(), getHeight()); // the next video may have another shape
+            }
+            if (mSurface != null && sSurface != mSurface && mHost.hasWindowFocus()) {
+                attach(); // e.g. the player let go of its surface when it closed a dialog
+            }
+        }
+
+        private void attach() {
+            PhonePlaybackActivity player = sPlayer.get();
+            SimpleExoPlayer exo = player != null ? player.exoPlayer() : null;
+            if (exo == null || mSurface == null) {
+                return;
+            }
+            sSurface = mSurface;
+            mAttachedTo = exo;
+            exo.setVideoSurface(mSurface);
+        }
+
+        /** Remember the frame on screen for whatever shows the video next */
+        void keepStill() {
+            if (mGotFrame && mVideo.isAvailable()) {
+                try {
+                    Bitmap frame = mVideo.getBitmap();
+                    if (frame != null) {
+                        sStill = frame;
+                    }
+                } catch (RuntimeException ignored) {
+                    // no frame: the next screen shows black until the video draws
+                }
+            }
+        }
+
+        void remove() {
+            mHandler.removeCallbacksAndMessages(null);
+            if (mMove != null) {
+                mMove.cancel();
+            }
+            ViewGroup parent = (ViewGroup) getParent();
+            if (parent != null) {
+                parent.removeView(this); // releases the surface (onSurfaceTextureDestroyed)
+            }
+            if (sCard.get() == this) {
+                sCard = new WeakReference<>(null);
+            }
+        }
+
+        void animateAway() {
+            mHandler.removeCallbacksAndMessages(null);
+            animate().alpha(0f).scaleX(0.85f).scaleY(0.85f).setDuration(180).withEndAction(this::remove).start();
+        }
+
+        // region Surface
+
+        @Override
+        public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
+            mSurface = new Surface(texture);
+            mGotFrame = false;
+            attach();
+        }
+
+        @Override
+        public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
+        }
+
+        @Override
+        public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
+            Surface surface = mSurface;
+            mSurface = null;
+            if (surface != null) {
+                if (mAttachedTo != null) {
+                    mAttachedTo.clearVideoSurface(surface); // only if the player still draws here
+                    mAttachedTo = null;
+                }
+                if (sSurface == surface) {
+                    sSurface = null;
+                }
+                surface.release();
+            }
+            return true;
+        }
+
+        @Override
+        public void onSurfaceTextureUpdated(SurfaceTexture texture) {
+            if (!mGotFrame) {
+                mGotFrame = true;
+                mStill.animate().alpha(0f).setDuration(120).withEndAction(() -> mStill.setVisibility(View.GONE)).start();
+            }
+        }
+
+        // endregion
+
+        // region Touch: tap opens, drag moves
+
+        @Override
+        public boolean onInterceptTouchEvent(MotionEvent event) {
+            // Drags that start on a button still move the card
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                startTouch(event);
+                return false;
+            }
+            return event.getActionMasked() == MotionEvent.ACTION_MOVE && passedSlop(event);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    startTouch(event);
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    if (!mDragging && passedSlop(event)) {
+                        mDragging = true;
+                    }
+                    if (mDragging) {
+                        setTranslationX(mStartX + event.getRawX() - mDownX);
+                        setTranslationY(mStartY + event.getRawY() - mDownY);
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    if (mDragging) {
+                        settle();
+                    } else {
+                        expand();
+                    }
+                    mDragging = false;
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    if (mDragging) {
+                        settle();
+                    }
+                    mDragging = false;
+                    return true;
+                default:
+                    return true;
+            }
+        }
+
+        private void startTouch(MotionEvent event) {
+            if (mMove != null) {
+                mMove.cancel();
+            }
+            mDownX = event.getRawX();
+            mDownY = event.getRawY();
+            mStartX = getTranslationX();
+            mStartY = getTranslationY();
+            mDragging = false;
+        }
+
+        private boolean passedSlop(MotionEvent event) {
+            int slop = ViewConfiguration.get(getContext()).getScaledTouchSlop();
+            return Math.abs(event.getRawX() - mDownX) > slop || Math.abs(event.getRawY() - mDownY) > slop;
+        }
+
+        /** Let go: glide to the nearest side, kept clear of the bars */
+        private void settle() {
+            View root = mHost.getWindow().getDecorView();
+            float margin = 12 * mDensity;
+            float centerX = getTranslationX() + getWidth() / 2f;
+            float targetX = centerX < root.getWidth() / 2f ? margin : root.getWidth() - getWidth() - margin;
+            float[] target = clamp(targetX, getTranslationY(), getWidth(), getHeight());
+            float fromX = getTranslationX();
+            float fromY = getTranslationY();
+            sCardX = target[0];
+            sCardY = target[1];
+            mMove = ValueAnimator.ofFloat(0f, 1f);
+            mMove.setDuration(220);
+            mMove.setInterpolator(new DecelerateInterpolator(1.5f));
+            mMove.addUpdateListener(a -> {
+                float f = (float) a.getAnimatedValue();
+                setTranslationX(fromX + (target[0] - fromX) * f);
+                setTranslationY(fromY + (target[1] - fromY) * f);
+            });
+            mMove.start();
+        }
+
+        // endregion
+    }
+
+    // endregion
+}

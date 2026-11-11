@@ -20,6 +20,11 @@ import com.liskovsoft.smartyoutubetv2.tv.R;
  * already filled in, and the app picks up the new account by itself when the user comes back.
  */
 public class PhoneSignInActivity extends PhoneActivity implements SignInView {
+    @Override
+    protected boolean hostsMiniPlayer() {
+        return false;
+    }
+
     private SignInPresenter mPresenter;
     private TextView mCode;
     private TextView mCodeHint;
