@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:background="@drawable/phone_ripple"
     android:orientation="vertical"
-    android:paddingBottom="22dp">
+    android:paddingBottom="18dp">
 
     <include
         layout="@layout/phone_thumb"
@@ -66,4 +66,12 @@
             android:src="@drawable/ic_phone_more"
             android:tint="@color/phone_text" />
     </LinearLayout>
+
+    <include
+        layout="@layout/phone_quick_action_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp" />
 </LinearLayout>

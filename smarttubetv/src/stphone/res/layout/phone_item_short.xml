@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.liskovsoft.smartyoutubetv2.tv.phone.widget.RatioFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/phone_thumb_frame"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="4dp"
-    android:background="@drawable/phone_short_rounded"
-    android:clipToOutline="true"
-    android:foreground="?android:attr/selectableItemBackground">
+    android:background="@drawable/phone_round_thumb"
+    android:foreground="@drawable/phone_ripple">
 
     <ImageView
         android:id="@+id/phone_thumb"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="centerCrop"
-        android:importantForAccessibility="no"/>
+        android:importantForAccessibility="no" />
 
     <!-- Top-right quick actions overlay on Short tiles -->
     <LinearLayout
@@ -81,35 +81,33 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
+        android:background="@drawable/phone_scrim_bottom"
         android:orientation="vertical"
         android:paddingStart="10dp"
         android:paddingEnd="10dp"
-        android:paddingTop="32dp"
-        android:paddingBottom="10dp"
-        android:background="@drawable/phone_short_gradient">
+        android:paddingTop="36dp"
+        android:paddingBottom="10dp">
 
         <TextView
             android:id="@+id/phone_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:maxLines="2"
             android:ellipsize="end"
-            android:textColor="@android:color/white"
-            android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
+            android:maxLines="2"
             android:shadowColor="#99000000"
-            android:shadowRadius="3"/>
+            android:shadowRadius="4"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp" />
 
         <TextView
             android:id="@+id/phone_meta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:maxLines="1"
             android:ellipsize="end"
-            android:textColor="#DDFFFFFF"
-            android:textSize="11sp"
-            android:shadowColor="#99000000"
-            android:shadowRadius="3"/>
+            android:maxLines="1"
+            android:textColor="#D9FFFFFF"
+            android:textSize="12sp" />
     </LinearLayout>
 </com.liskovsoft.smartyoutubetv2.tv.phone.widget.RatioFrameLayout>
