@@ -877,6 +877,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
         mAdapter.update(group);
         checkScrollEndLater();
+        if (group.getVideos() != null && !group.getVideos().isEmpty()) {
+            PhoneWarmup.startOnce(); // the first feed is on screen: get YouTube's session ready for the first video
+        }
     }
 
     @Override
