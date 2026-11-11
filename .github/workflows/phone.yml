@@ -62,19 +62,21 @@ jobs:
       - name: Collect APK
         run: |
           mkdir -p out
-          cp ./smarttubetv/build/outputs/apk/stphone/release/*_arm64-v8a.apk out/SmartTube-Phone-arm64.apk
+          cp ./smarttubetv/build/outputs/apk/stphone/release/*_arm64-v8a.apk out/StreamTube-arm64.apk
+          # Same APK under the old name: builds from before the rename look for it when they update
+          cp out/StreamTube-arm64.apk out/SmartTube-Phone-arm64.apk
 
       - name: Show signer and version
         run: |
           BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
-          $BT/apksigner verify --print-certs out/SmartTube-Phone-arm64.apk | grep -E "SHA-256|DN"
-          $BT/aapt dump badging out/SmartTube-Phone-arm64.apk | head -n 1
+          $BT/apksigner verify --print-certs out/StreamTube-arm64.apk | grep -E "SHA-256|DN"
+          $BT/aapt dump badging out/StreamTube-arm64.apk | head -n 1
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SmartTube_${{ steps.get_version.outputs.VERSION_NAME }}_arm64
-          path: out/SmartTube-Phone-arm64.apk
+          name: StreamTube_${{ steps.get_version.outputs.VERSION_NAME }}_arm64
+          path: out/StreamTube-arm64.apk
           if-no-files-found: error
 
       # "What's new" for the release (shown on the app's update screen): app changes since the previous build
@@ -82,8 +84,8 @@ jobs:
         run: |
           PREV=$(git describe --tags --abbrev=0 --match 'build-*' HEAD 2>/dev/null || true)
           {
-            echo "SmartTube for phones. arm64 only."
-            echo "Direct download: https://github.com/${{ github.repository }}/releases/latest/download/SmartTube-Phone-arm64.apk"
+            echo "StreamTube: a YouTube client for Android phones, built on SmartTube. arm64 only."
+            echo "Direct download: https://github.com/${{ github.repository }}/releases/latest/download/StreamTube-arm64.apk"
             echo ""
             echo "What's new"
             if [ -n "$PREV" ]; then
@@ -92,12 +94,14 @@ jobs:
           } > release_notes.md
           cat release_notes.md
 
-      # Public, sign-in free download: releases/latest/download/SmartTube-Phone-arm64.apk
+      # Public, sign-in free download: releases/latest/download/StreamTube-arm64.apk (and the old name, for old builds)
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: SmartTube Phone ${{ steps.get_version.outputs.VERSION_NAME }}
+          name: StreamTube ${{ steps.get_version.outputs.VERSION_NAME }}
           body_path: release_notes.md
-          files: out/SmartTube-Phone-arm64.apk
+          files: |
+            out/StreamTube-arm64.apk
+            out/SmartTube-Phone-arm64.apk
           make_latest: true

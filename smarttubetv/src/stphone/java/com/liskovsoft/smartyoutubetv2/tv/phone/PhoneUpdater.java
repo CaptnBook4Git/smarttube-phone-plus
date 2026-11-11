@@ -45,7 +45,8 @@ final class PhoneUpdater {
     static final String REPO = "shreyas-bangera/smarttube-phone";
     private static final String TAG = "PhoneUpdater";
     private static final String LATEST_URL = "https://api.github.com/repos/" + REPO + "/releases/latest";
-    private static final String APK_NAME = "SmartTube-Phone-arm64.apk";
+    // Releases also carry the old name (SmartTube-Phone-arm64.apk) for builds from before the rename
+    private static final String APK_NAME = "StreamTube-arm64.apk";
     private static final int BASE_VERSION_CODE = 2462;
     private static final String ACTION_INSTALL_STATUS = "org.smarttube.phone.INSTALL_STATUS";
 
@@ -391,7 +392,7 @@ final class PhoneUpdater {
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(30000);
         connection.setInstanceFollowRedirects(false);
-        connection.setRequestProperty("User-Agent", "SmartTube-Phone-Updater");
+        connection.setRequestProperty("User-Agent", "StreamTube-Updater");
         try {
             connection.getResponseCode();
             String location = connection.getHeaderField("Location");
@@ -483,7 +484,7 @@ final class PhoneUpdater {
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(30000);
         connection.setInstanceFollowRedirects(true);
-        connection.setRequestProperty("User-Agent", "SmartTube-Phone-Updater");
+        connection.setRequestProperty("User-Agent", "StreamTube-Updater");
         connection.setRequestProperty("Accept", "application/vnd.github+json");
         int code = connection.getResponseCode();
         // GitHub serves release files from another host: follow that redirect by hand if needed
@@ -493,7 +494,7 @@ final class PhoneUpdater {
             connection = (HttpURLConnection) new URL(new URL(url), next).openConnection();
             connection.setConnectTimeout(15000);
             connection.setReadTimeout(30000);
-            connection.setRequestProperty("User-Agent", "SmartTube-Phone-Updater");
+            connection.setRequestProperty("User-Agent", "StreamTube-Updater");
             code = connection.getResponseCode();
         }
         if (code != 200) {

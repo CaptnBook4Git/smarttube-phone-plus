@@ -23,6 +23,7 @@ public class PhoneApplication extends MainApplication {
     public void onCreate() {
         super.onCreate();
         CrashReport.install(this);
+        PhoneRebrandBanner.init(this); // before the phone defaults: tells an update from SmartTube from a new install
         // Videos open faster: formats requested on tap, playback after 0.5 s of media, recommendations alongside
         com.liskovsoft.smartyoutubetv2.common.misc.FastStart.enable();
         setupPhoneViews();

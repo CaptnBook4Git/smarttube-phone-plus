@@ -58,7 +58,7 @@ import okhttp3.ResponseBody;
 
 /**
  * Download button under the video: a sheet with the files that can be saved as they are, then a background download
- * with a progress notification into Download/SmartTube.
+ * with a progress notification into Download/StreamTube.
  * <ul>
  *     <li>Video 360p: the MP4 with sound that YouTube still serves as one file</li>
  *     <li>Video 480p to 1080p: YouTube serves the picture (H.264) and the sound (AAC) as separate files; both are
@@ -73,7 +73,7 @@ import okhttp3.ResponseBody;
 final class PhoneDownloads {
     private static final String TAG = "PhoneDownloads";
     private static final String CHANNEL = "phone_downloads";
-    private static final String FOLDER = "SmartTube";
+    private static final String FOLDER = "StreamTube";
     private static final long CHUNK = 4L * 1024 * 1024;
     private static final int RETRIES = 3;
     private static final int REQUEST_STORAGE = 4721;
@@ -620,7 +620,7 @@ final class PhoneDownloads {
         }
     }
 
-    /** Into Download/SmartTube, where the Files app and players find it */
+    /** Into Download/StreamTube, where the Files app and players find it */
     private static Uri save(Context app, File file, String name, String mime) throws IOException {
         if (Build.VERSION.SDK_INT >= 29) {
             ContentResolver resolver = app.getContentResolver();

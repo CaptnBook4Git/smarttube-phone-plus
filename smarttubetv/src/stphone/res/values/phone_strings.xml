@@ -41,7 +41,7 @@
     <string name="phone_save">Save</string>
     <string name="phone_speed">Speed</string>
     <string name="phone_dislike">Dislike</string>
-    <string name="phone_brand_name">SmartTube</string>
+    <string name="phone_brand_name">StreamTube</string>
     <string name="phone_signin_error_network">Can\'t reach YouTube right now. Check your internet connection. If you use Private DNS or an ad blocker, make sure it doesn\'t block youtube.com.</string>
     <string name="phone_signin_error_generic">Couldn\'t get a sign-in code. Please try again.</string>
     <string name="phone_comments">Comments</string>
@@ -82,7 +82,16 @@
     <string name="phone_download_no_hd">Higher qualities can\'t be saved</string>
     <string name="phone_download_no_hd_reason">YouTube streams them for this video without a file to download</string>
     <string name="phone_download_joining">Joining video and sound…</string>
-    <string name="phone_download_done">Saved to Download/SmartTube</string>
+    <string name="phone_download_done">Saved to Download/StreamTube</string>
     <string name="phone_download_failed">Download failed</string>
     <string name="phone_download_channel">Downloads</string>
+    <string name="phone_rebrand_title">Meet StreamTube</string>
+    <string name="phone_rebrand_message">SmartTube for phones has a new name, to make clear it\'s its own app, separate from SmartTube for TV.</string>
+    <string name="phone_rebrand_details">Same app, same features, nothing to set up. Your account, history, settings and downloads are right where you left them.</string>
+    <string name="phone_rebrand_button">Got it</string>
+    <string name="phone_about_title">About StreamTube</string>
+    <string name="phone_about_build">Build %1$d</string>
+    <string name="phone_about_built_on">Built on SmartTube by Yuriy Liskov</string>
+    <string name="phone_about_license">MIT License</string>
+    <string name="phone_about_source">Source code on GitHub</string>
 </resources>
