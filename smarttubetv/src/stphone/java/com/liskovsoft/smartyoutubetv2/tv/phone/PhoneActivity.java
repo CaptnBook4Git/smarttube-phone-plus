@@ -61,6 +61,9 @@ public abstract class PhoneActivity extends MotherActivity {
         // MotherActivity may switch to immersive mode (TV fullscreen setting). Phones keep their bars.
         setupSystemBars();
         getViewManager().addTop(this);
+        if (mAdapter != null) {
+            mAdapter.refreshQuickActions();
+        }
     }
 
     @Override

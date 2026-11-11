@@ -85,4 +85,17 @@
     <string name="phone_download_done">Saved to Download/SmartTube</string>
     <string name="phone_download_failed">Download failed</string>
     <string name="phone_download_channel">Downloads</string>
+    <string name="phone_quick_actions_title">Quick actions on videos</string>
+    <string name="phone_quick_not_interested">Not interested</string>
+    <string name="phone_quick_not_interested_setting">Show \"Not interested\" button on videos</string>
+    <string name="phone_quick_not_interested_desc">Directly mark videos as not interested everywhere (long-press to block channel)</string>
+    <string name="phone_quick_dont_recommend_channel">Don\'t recommend channel</string>
+    <string name="phone_quick_dont_recommend_short">Hide channel</string>
+    <string name="phone_quick_dont_recommend_setting">Show \"Don\'t recommend channel\" button on videos</string>
+    <string name="phone_quick_dont_recommend_desc">Separate button to hide all recommendations from a channel</string>
+    <string name="phone_quick_like_dislike_setting">Show Like &amp; Dislike buttons on videos</string>
+    <string name="phone_quick_like_dislike_desc">Thumbs up and thumbs down directly on all video cards</string>
+    <string name="phone_quick_liked_toast">Liked</string>
+    <string name="phone_quick_disliked_toast">Disliked</string>
+    <string name="phone_quick_rating_removed_toast">Rating removed</string>
 </resources>

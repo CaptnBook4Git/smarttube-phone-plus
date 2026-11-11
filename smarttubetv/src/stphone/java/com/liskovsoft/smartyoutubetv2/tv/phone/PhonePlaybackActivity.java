@@ -239,6 +239,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mHandler.removeCallbacks(mTicker);
         mHandler.post(mTicker);
         refreshDetails();
+        if (mAdapter != null) {
+            mAdapter.refreshQuickActions();
+        }
     }
 
     @Override
@@ -1150,6 +1153,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         LinearLayout actions = findViewById(R.id.phone_shorts_actions);
         addShortsAction(actions, R.id.action_thumbs_up, R.drawable.ic_phone_like, getString(R.string.phone_like));
         addShortsAction(actions, R.id.action_thumbs_down, R.drawable.ic_phone_dislike, getString(R.string.phone_dislike));
+        addShortsAction(actions, R.id.phone_action_not_interested, R.drawable.ic_phone_not_interested, getString(R.string.phone_quick_not_interested));
         addShortsAction(actions, R.id.action_chat, R.drawable.ic_phone_comments, getString(R.string.phone_comments));
         addShortsAction(actions, R.id.action_share, R.drawable.ic_phone_share, getString(R.string.phone_share));
         addShortsAction(actions, R.id.action_playlist_add, R.drawable.ic_phone_save, getString(R.string.phone_save));
@@ -1674,7 +1678,19 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         textParams.topMargin = dp(4);
         item.addView(text, textParams);
 
-        item.setOnClickListener(v -> clickButton(buttonId));
+        item.setOnClickListener(v -> {
+            if (buttonId == R.id.phone_action_not_interested) {
+                PhoneQuickActions.markNotInterested(this, currentVideo(), () -> swipeTo(true));
+            } else {
+                clickButton(buttonId);
+            }
+        });
+        if (buttonId == R.id.phone_action_not_interested) {
+            item.setOnLongClickListener(v -> {
+                PhoneQuickActions.dontRecommendChannel(this, currentVideo(), () -> swipeTo(true));
+                return true;
+            });
+        }
         container.addView(item, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
@@ -1696,6 +1712,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         for (int i = 0; i < actions.getChildCount(); i++) {
             LinearLayout item = (LinearLayout) actions.getChildAt(i);
             int buttonId = (Integer) item.getTag();
+            if (buttonId == R.id.phone_action_not_interested) {
+                item.setVisibility(PhoneQuickActions.isNotInterestedEnabled(this) ? View.VISIBLE : View.GONE);
+                continue;
+            }
             boolean on = getButtonState(buttonId) == PlayerUI.BUTTON_ON;
             boolean isRating = buttonId == R.id.action_thumbs_up || buttonId == R.id.action_thumbs_down;
             ((ImageView) item.getChildAt(0)).setImageTintList(ColorStateList.valueOf(
@@ -1799,6 +1819,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         LinearLayout actions = mHeader.findViewById(R.id.phone_player_actions);
         addAction(actions, R.id.action_thumbs_up, R.drawable.ic_phone_like, getString(R.string.phone_like));
         addAction(actions, R.id.action_thumbs_down, R.drawable.ic_phone_dislike, null);
+        addAction(actions, R.id.phone_action_not_interested, R.drawable.ic_phone_not_interested, getString(R.string.phone_quick_not_interested));
+        addAction(actions, R.id.phone_action_dont_recommend_channel, R.drawable.ic_phone_block_channel, getString(R.string.phone_quick_dont_recommend_short));
         addAction(actions, R.id.action_chat, R.drawable.ic_phone_comments, getString(R.string.phone_comments));
         addAction(actions, R.id.action_share, R.drawable.ic_phone_share, getString(R.string.phone_share));
         addAction(actions, R.id.action_playlist_add, R.drawable.ic_phone_save, getString(R.string.phone_save));
@@ -1856,10 +1878,20 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 openSpeedMenu();
             } else if (buttonId == R.id.phone_action_download) {
                 PhoneDownloads.showOptions(this, currentVideo());
+            } else if (buttonId == R.id.phone_action_not_interested) {
+                PhoneQuickActions.markNotInterested(this, currentVideo(), () -> presenter().onNextClicked());
+            } else if (buttonId == R.id.phone_action_dont_recommend_channel) {
+                PhoneQuickActions.dontRecommendChannel(this, currentVideo(), () -> presenter().onNextClicked());
             } else {
                 clickButton(buttonId);
             }
         });
+        if (buttonId == R.id.phone_action_not_interested) {
+            pill.setOnLongClickListener(v -> {
+                PhoneQuickActions.dontRecommendChannel(this, currentVideo(), () -> presenter().onNextClicked());
+                return true;
+            });
+        }
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38));
         params.setMarginStart(dp(4));
@@ -1929,9 +1961,23 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         subscribe.setTextColor(getResources().getColor(subscribed ? R.color.phone_text : R.color.phone_bg));
 
         LinearLayout actions = mHeader.findViewById(R.id.phone_player_actions);
+        boolean liked = getButtonState(R.id.action_thumbs_up) == PlayerUI.BUTTON_ON;
+        boolean disliked = getButtonState(R.id.action_thumbs_down) == PlayerUI.BUTTON_ON;
+        if (liked) {
+            PhoneQuickActions.setRating(video, PhoneQuickActions.RATING_LIKE);
+        } else if (disliked) {
+            PhoneQuickActions.setRating(video, PhoneQuickActions.RATING_DISLIKE);
+        }
         for (int i = 0; i < actions.getChildCount(); i++) {
             LinearLayout pill = (LinearLayout) actions.getChildAt(i);
             int buttonId = (Integer) pill.getTag();
+            if (buttonId == R.id.phone_action_not_interested) {
+                pill.setVisibility(PhoneQuickActions.isNotInterestedEnabled(this) ? View.VISIBLE : View.GONE);
+                continue;
+            } else if (buttonId == R.id.phone_action_dont_recommend_channel) {
+                pill.setVisibility(PhoneQuickActions.isDontRecommendChannelEnabled(this) ? View.VISIBLE : View.GONE);
+                continue;
+            }
             boolean on = getButtonState(buttonId) == PlayerUI.BUTTON_ON;
             boolean isRating = buttonId == R.id.action_thumbs_up || buttonId == R.id.action_thumbs_down;
             ((ImageView) pill.getChildAt(0)).setImageTintList(ColorStateList.valueOf(
@@ -2036,6 +2082,22 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     @Override
     public void onPlayerButtonState(int buttonId, int buttonState) {
+        Video video = currentVideo();
+        if (video != null) {
+            if (buttonId == R.id.action_thumbs_up) {
+                if (buttonState == PlayerUI.BUTTON_ON) {
+                    PhoneQuickActions.setRating(video, PhoneQuickActions.RATING_LIKE);
+                } else if (PhoneQuickActions.getRating(video) == PhoneQuickActions.RATING_LIKE) {
+                    PhoneQuickActions.setRating(video, PhoneQuickActions.RATING_NONE);
+                }
+            } else if (buttonId == R.id.action_thumbs_down) {
+                if (buttonState == PlayerUI.BUTTON_ON) {
+                    PhoneQuickActions.setRating(video, PhoneQuickActions.RATING_DISLIKE);
+                } else if (PhoneQuickActions.getRating(video) == PhoneQuickActions.RATING_DISLIKE) {
+                    PhoneQuickActions.setRating(video, PhoneQuickActions.RATING_NONE);
+                }
+            }
+        }
         refreshDetails();
     }
 

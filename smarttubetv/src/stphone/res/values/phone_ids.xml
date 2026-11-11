@@ -2,4 +2,7 @@
 <resources>
     <!-- Download button under the video (phone only, not a SmartTube player button) -->
     <item name="phone_action_download" type="id" />
+    <!-- Quick actions under the video and in Shorts player -->
+    <item name="phone_action_not_interested" type="id" />
+    <item name="phone_action_dont_recommend_channel" type="id" />
 </resources>

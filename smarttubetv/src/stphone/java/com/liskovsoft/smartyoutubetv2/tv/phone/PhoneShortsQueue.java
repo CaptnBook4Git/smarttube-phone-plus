@@ -73,6 +73,25 @@ final class PhoneShortsQueue {
         return list.isEmpty() ? null : list.get(list.size() - 1);
     }
 
+    static synchronized void remove(Video video) {
+        int index = indexOf(sVideos, video);
+        if (index >= 0) {
+            sVideos.remove(index);
+        }
+    }
+
+    static synchronized void removeAuthor(String author) {
+        if (author == null) {
+            return;
+        }
+        for (int i = sVideos.size() - 1; i >= 0; i--) {
+            Video v = sVideos.get(i);
+            if (v != null && author.equals(v.getAuthor())) {
+                sVideos.remove(i);
+            }
+        }
+    }
+
     private static int indexOf(List<Video> list, Video video) {
         if (video == null || video.videoId == null) {
             return -1;

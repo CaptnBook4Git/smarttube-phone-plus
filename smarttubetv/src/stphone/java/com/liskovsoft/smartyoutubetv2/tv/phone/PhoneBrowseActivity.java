@@ -119,6 +119,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mIsFirstResume = false;
         updateAccountViews();
         refreshSettingsRows(); // back from Android's notification settings
+        if (mAdapter != null) {
+            mAdapter.refreshQuickActions();
+        }
     }
 
     @Override
@@ -892,6 +895,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         // Phone only setting on top of SmartTube's settings
         java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items = new ArrayList<>();
         int appearance = PhoneTheme.get(this);
+        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
+                getString(R.string.phone_quick_actions_title),
+                () -> PhoneQuickActions.openSettings(this, () -> {
+                    if (mAdapter != null) {
+                        mAdapter.refreshQuickActions();
+                    }
+                }),
+                R.drawable.ic_phone_not_interested));
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
                 getString(PhoneTheme.titleRes(appearance)), () -> {
                     PhoneTheme.set(this, PhoneTheme.next(appearance));

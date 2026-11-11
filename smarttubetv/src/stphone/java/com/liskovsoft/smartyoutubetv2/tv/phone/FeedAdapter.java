@@ -196,6 +196,15 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    public void refreshQuickActions() {
+        for (Group group : mGroups) {
+            if (group.innerAdapter != null) {
+                group.innerAdapter.notifyDataSetChanged();
+            }
+        }
+        notifyDataSetChanged();
+    }
+
     private String mExcludedVideoId;
     private String mHiddenAuthor;
 
@@ -439,12 +448,30 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return position >= 0 && position < mItems.size() && getItemViewType(position) == VT_SHORT;
     }
 
+    public void removeVideo(Video video) {
+        if (video != null) {
+            removeVideos(Collections.singletonList(video), null);
+        }
+    }
+
+    public void removeAuthorOrVideo(Video video) {
+        if (video == null) {
+            return;
+        }
+        if (!TextUtils.isEmpty(video.getAuthor())) {
+            removeVideos(Collections.singletonList(video), video.getAuthor());
+        } else {
+            removeVideos(Collections.singletonList(video), null);
+        }
+    }
+
     private void removeVideos(List<Video> videos, String author) {
         for (Group group : mGroups) {
             boolean changed = false;
             for (int i = group.videos.size() - 1; i >= 0; i--) {
                 Video video = group.videos.get(i);
-                boolean match = videos != null ? videos.contains(video) : author != null && Helpers.equals(author, video.getAuthor());
+                boolean match = (videos != null && videos.contains(video))
+                        || (author != null && Helpers.equals(author, video.getAuthor()));
                 if (match) {
                     group.videos.remove(i);
                     if (video.getGroup() != null) {
@@ -697,6 +724,10 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 }
             }
             bindClicks(holder.itemView, video);
+            PhoneQuickActions.bind(holder.itemView, video,
+                    () -> removeVideo(video),
+                    () -> removeAuthorOrVideo(video),
+                    false);
         }
     }
 
@@ -731,6 +762,10 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         meta.setVisibility(TextUtils.isEmpty(metaText) ? View.GONE : View.VISIBLE);
         PhoneUi.loadThumb(view.findViewById(R.id.phone_thumb), video, true);
         bindClicks(view, video);
+        PhoneQuickActions.bind(view, video,
+                () -> removeVideo(video),
+                () -> removeAuthorOrVideo(video),
+                true);
     }
 
     private void bindChannel(View view, Video video) {
@@ -791,7 +826,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
             int style = isStrip ? ShelfAdapter.STYLE_AVATAR : group.ref.isShorts() ? ShelfAdapter.STYLE_SHORT : ShelfAdapter.STYLE_CARD;
             if (group.innerAdapter == null || group.innerAdapter.getStyle() != style) {
-                group.innerAdapter = new ShelfAdapter(group.videos, style, mListener, () -> mSelectedStripItem);
+                group.innerAdapter = new ShelfAdapter(FeedAdapter.this, group.videos, style, mListener, () -> mSelectedStripItem);
             }
 
             if (mInner.getAdapter() != group.innerAdapter) {

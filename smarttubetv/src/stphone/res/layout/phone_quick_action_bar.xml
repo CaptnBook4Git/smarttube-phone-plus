@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HorizontalScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/phone_quick_actions"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:scrollbars="none"
+    android:overScrollMode="never"
+    android:clipToPadding="false">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:id="@+id/phone_quick_like"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:layout_marginEnd="6dp"
+            android:paddingStart="11dp"
+            android:paddingEnd="11dp"
+            android:gravity="center"
+            android:background="@drawable/phone_pill_bg"
+            android:contentDescription="@string/phone_like">
+
+            <ImageView
+                android:id="@+id/phone_quick_like_icon"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_phone_like"
+                android:tint="@color/phone_text_2"
+                android:importantForAccessibility="no"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/phone_quick_dislike"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:layout_marginEnd="6dp"
+            android:paddingStart="11dp"
+            android:paddingEnd="11dp"
+            android:gravity="center"
+            android:background="@drawable/phone_pill_bg"
+            android:contentDescription="@string/phone_dislike">
+
+            <ImageView
+                android:id="@+id/phone_quick_dislike_icon"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_phone_dislike"
+                android:tint="@color/phone_text_2"
+                android:importantForAccessibility="no"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/phone_quick_not_interested"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:layout_marginEnd="6dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp"
+            android:gravity="center_vertical"
+            android:background="@drawable/phone_pill_bg"
+            android:contentDescription="@string/phone_quick_not_interested">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_phone_not_interested"
+                android:tint="@color/phone_text_2"
+                android:importantForAccessibility="no"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:text="@string/phone_quick_not_interested"
+                android:textColor="@color/phone_text_2"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:singleLine="true"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/phone_quick_dont_recommend_channel"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp"
+            android:gravity="center_vertical"
+            android:background="@drawable/phone_pill_bg"
+            android:contentDescription="@string/phone_quick_dont_recommend_channel">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_phone_block_channel"
+                android:tint="@color/phone_text_2"
+                android:importantForAccessibility="no"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:text="@string/phone_quick_dont_recommend_short"
+                android:textColor="@color/phone_text_2"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:singleLine="true"/>
+        </LinearLayout>
+    </LinearLayout>
+</HorizontalScrollView>

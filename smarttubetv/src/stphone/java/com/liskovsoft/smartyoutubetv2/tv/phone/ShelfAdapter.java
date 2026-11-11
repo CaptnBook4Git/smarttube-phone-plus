@@ -28,12 +28,14 @@ class ShelfAdapter extends RecyclerView.Adapter<ShelfAdapter.Holder> {
         Video getSelected();
     }
 
+    private final FeedAdapter mParentAdapter;
     private final List<Video> mVideos;
     private final int mStyle;
     private final FeedAdapter.Listener mListener;
     private final SelectionProvider mSelection;
 
-    ShelfAdapter(List<Video> videos, int style, FeedAdapter.Listener listener, SelectionProvider selection) {
+    ShelfAdapter(FeedAdapter parentAdapter, List<Video> videos, int style, FeedAdapter.Listener listener, SelectionProvider selection) {
+        mParentAdapter = parentAdapter;
         mVideos = videos;
         mStyle = style;
         mListener = listener;
@@ -122,12 +124,20 @@ class ShelfAdapter extends RecyclerView.Adapter<ShelfAdapter.Holder> {
             meta.setText(metaText);
             meta.setVisibility(TextUtils.isEmpty(metaText) ? View.GONE : View.VISIBLE);
             PhoneUi.loadThumb(view.findViewById(R.id.phone_thumb), video, true);
+            PhoneQuickActions.bind(view, video,
+                    () -> mParentAdapter.removeVideo(video),
+                    () -> mParentAdapter.removeAuthorOrVideo(video),
+                    true);
         } else {
             PhoneUi.bindCard(view, video);
             View more = view.findViewById(R.id.phone_more);
             if (more != null) {
                 more.setOnClickListener(v -> mListener.onVideoLongClicked(video));
             }
+            PhoneQuickActions.bind(view, video,
+                    () -> mParentAdapter.removeVideo(video),
+                    () -> mParentAdapter.removeAuthorOrVideo(video),
+                    false);
         }
 
         view.setOnClickListener(v -> {
