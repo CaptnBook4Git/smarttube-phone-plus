@@ -302,7 +302,7 @@ Open the **You** tab and tap the **Settings** chip.
 You probably have one of the early builds signed with a temporary key. Uninstall it once, then install the latest APK. See [Update to a new build](#update-to-a-new-build).
 
 **Google Play Protect says "Harmful app blocked"**
-Play Protect checks apps installed from outside the Play Store and sometimes flags open-source apps by mistake. StreamTube's source code is public in this repository, and it is built and signed by GitHub Actions from that code. Tap **Install anyway** (on some phones under **More details**). The app has been submitted to Google for review so the warning goes away.
+Play Protect checks apps installed from outside the Play Store and sometimes flags open-source apps by mistake. StreamTube's source code is public in this repository, and it is built and signed by GitHub Actions from that code. Tap **Install anyway** (on some phones under **More details**).
 
 **Install is blocked**
 Allow your browser or file manager to install unknown apps (Settings, Apps, Special app access, Install unknown apps), and choose **Install anyway** if Play Protect warns.
