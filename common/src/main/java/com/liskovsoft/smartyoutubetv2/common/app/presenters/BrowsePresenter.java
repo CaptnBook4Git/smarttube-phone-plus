@@ -227,8 +227,20 @@ public class BrowsePresenter extends BasePresenter<BrowseView> implements Sectio
         mGridMapping.put(MediaGroup.TYPE_SUBSCRIPTIONS, getContentService().getSubscriptionsObserve());
         mGridMapping.put(MediaGroup.TYPE_HISTORY, getContentService().getHistoryObserve());
         mGridMapping.put(MediaGroup.TYPE_CHANNEL_UPLOADS, getContentService().getSubscribedChannelsByNewContentObserve());
-        mGridMapping.put(MediaGroup.TYPE_NOTIFICATIONS, getNotificationsService().getNotificationItemsObserve());
+        mGridMapping.put(MediaGroup.TYPE_NOTIFICATIONS, getNotificationsWithFallback());
         mGridMapping.put(MediaGroup.TYPE_MY_VIDEOS, getContentService().getMyVideosObserve());
+    }
+
+    /**
+     * YouTube no longer gives the TV client its notification inbox. SmartTube then falls back to new uploads from
+     * channels whose bell was set to "All" in SmartTube, and with none set the section only shows an error.
+     * When that happens, show the latest uploads from your subscriptions instead (what most YouTube notifications are).
+     */
+    private Observable<MediaGroup> getNotificationsWithFallback() {
+        Observable<MediaGroup> subscriptions = getContentService().getSubscriptionsObserve();
+        return getNotificationsService().getNotificationItemsObserve()
+                .flatMap(group -> group == null || group.isEmpty() ? subscriptions : Observable.just(group))
+                .onErrorResumeNext(subscriptions);
     }
 
     private void initPinnedSections() {
