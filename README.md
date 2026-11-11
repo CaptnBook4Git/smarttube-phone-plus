@@ -1,17 +1,18 @@
 <p align="center">
-  <img src="images/phone/icon.svg" width="96" alt="SmartTube icon">
+  <img src="images/phone/icon.svg" width="96" alt="StreamTube icon">
 </p>
 
-<h1 align="center">SmartTube for phones</h1>
+<h1 align="center">StreamTube</h1>
 
 <p align="center">
-  <b>An unofficial Android phone port of <a href="https://github.com/yuliskov/SmartTube">SmartTube</a>, the open-source YouTube client for Android TV.</b><br>
+  <b>A YouTube client for Android phones, built on <a href="https://github.com/yuliskov/SmartTube">SmartTube</a>, the open-source YouTube client for Android TV.</b><br>
+  Formerly <i>SmartTube for phones</i>.<br>
   Ad-free YouTube with a touch interface that looks and feels like the official app: portrait player,<br>
   swipeable Shorts, picture in picture, background play, and Dark or Light appearance.
 </p>
 
 <p align="center">
-  <a href="https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/SmartTube-Phone-arm64.apk"><b>Download the latest APK</b></a>
+  <a href="https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/StreamTube-arm64.apk"><b>Download the latest APK</b></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/shreyas-bangera/smarttube-phone/releases">All releases</a>
   &nbsp;·&nbsp;
@@ -119,11 +120,11 @@ It installs as its own app (`org.smarttube.phone`), so it can sit next to the of
 
 ## Install
 
-1. On your phone, open this link: **[SmartTube-Phone-arm64.apk](https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/SmartTube-Phone-arm64.apk)**
+1. On your phone, open this link: **[StreamTube-arm64.apk](https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/StreamTube-arm64.apk)**
 2. When the download finishes, tap the notification (or open the file from your Downloads folder).
 3. Android asks for permission to install apps from your browser the first time. Tap **Settings**, turn on **Allow from this source**, then go back.
 4. Tap **Install**. If Google Play Protect warns about an unknown app, tap **More details** and then **Install anyway**. This warning appears for every app that is not from the Play Store.
-5. Open **SmartTube** from your app drawer. Home shows popular videos straight away; you can sign in whenever you like.
+5. Open **StreamTube** from your app drawer. Home shows popular videos straight away; you can sign in whenever you like.
 
 When Android asks to allow notifications, tap **Allow**. The app uses the notification only for the background playback controls (also shown on the lock screen). If you tapped **Don't allow**, turn them on later in **You**, **Settings**, **Notifications**.
 
@@ -135,10 +136,10 @@ Each build is listed on the [releases page](https://github.com/shreyas-bangera/s
 
 1. Open the **You** tab, tap the **Settings** chip, then **Check for updates**. The **Software update** screen opens and checks right away. It shows the build you have.
 2. If a newer build exists, it shows **Update available** with the build number, when it was released, the download size and a **What's new** list. Tap **Download and install**; a progress bar shows the download.
-3. The first time, Android asks you to allow SmartTube to install apps: tap **Open settings**, turn on **Allow from this source** and come back. The update carries on by itself.
+3. The first time, Android asks you to allow StreamTube to install apps: tap **Open settings**, turn on **Allow from this source** and come back. The update carries on by itself.
 4. Android shows its usual confirmation. Tap **Update**. You stay signed in and all your settings are kept.
 
-With **Notify me about new builds** turned on (on the same screen), SmartTube also checks every few hours and shows a small **Update** card on Home when a new build is out.
+With **Notify me about new builds** turned on (on the same screen), StreamTube also checks every few hours and shows a small **Update** card on Home when a new build is out.
 
 **Manually**
 
@@ -146,13 +147,13 @@ Download the latest APK from the link above and install it over the app you have
 
 > **On builds 39 to 51?** Those builds can't update themselves (older ones only have SmartTube's TV updater, newer ones download the update but never show Android's install prompt). Install the latest APK manually once; it installs over your current app and keeps your settings.
 
-> **Coming from build 38 or older?** Those builds were signed with a temporary key, so Android refuses to install the new version over them ("App not installed" or "package conflicts with an existing package"). Uninstall the old SmartTube once (long press the icon, then **Uninstall**) and install the latest APK. Every update after that installs normally.
+> **Coming from build 38 or older?** Those builds were signed with a temporary key, so Android refuses to install the new version over them ("App not installed" or "package conflicts with an existing package"). Uninstall the old app once (long press the icon, then **Uninstall**) and install the latest APK. Every update after that installs normally.
 
 ## Connect your YouTube account
 
 You don't need an account to watch. Signing in adds your own recommendations on Home, your subscriptions, history, playlists and Watch later, and lets you like, subscribe and save.
 
-SmartTube signs in the same way a smart TV does: the app shows a short code, and you approve it on Google's own website. **Your password is never typed into SmartTube** and never passes through it.
+StreamTube signs in the same way a smart TV does: the app shows a short code, and you approve it on Google's own website. **Your password is never typed into StreamTube** and never passes through it.
 
 <p align="center">
   <img src="images/phone/08_you.jpg" width="220" alt="The You tab before signing in">
@@ -162,16 +163,16 @@ SmartTube signs in the same way a smart TV does: the app shows a short code, and
 **On the same phone**
 
 1. Open the **You** tab (bottom right) and tap **Sign in**. You can also tap **Sign in** on the card at the top of Home.
-2. SmartTube shows your sign-in code. Wait a moment until the code appears.
-3. Tap **Continue in browser**. Your browser opens Google's device activation page (yt.be/activate) with the code already filled in. If it isn't, tap the code in SmartTube to copy it and paste it on the page.
+2. StreamTube shows your sign-in code. Wait a moment until the code appears.
+3. Tap **Continue in browser**. Your browser opens Google's device activation page (yt.be/activate) with the code already filled in. If it isn't, tap the code in StreamTube to copy it and paste it on the page.
 4. Choose your Google account (sign in to Google if the browser asks) and tap **Allow** to give access to YouTube.
-5. Switch back to SmartTube. It signs you in by itself within a few seconds. Your picture appears on the You tab and your own feed loads on Home.
+5. Switch back to StreamTube. It signs you in by itself within a few seconds. Your picture appears on the You tab and your own feed loads on Home.
 
 **Using another device (a computer or a second phone)**
 
-1. In SmartTube, open the **You** tab and tap **Sign in**.
-2. On the other device, go to **yt.be/activate** (or youtube.com/activate) and enter the code shown in SmartTube.
-3. Pick your account and tap **Allow**. SmartTube signs in on its own.
+1. In StreamTube, open the **You** tab and tap **Sign in**.
+2. On the other device, go to **yt.be/activate** (or youtube.com/activate) and enter the code shown in StreamTube.
+3. Pick your account and tap **Allow**. StreamTube signs in on its own.
 
 **More than one account**
 
@@ -181,7 +182,7 @@ SmartTube signs in the same way a smart TV does: the app shows a short code, and
 
 **Remove the app's access from your Google account**
 
-Go to [myaccount.google.com/permissions](https://myaccount.google.com/permissions), find the YouTube on TV entry and remove its access. SmartTube is signed out the next time it starts.
+Go to [myaccount.google.com/permissions](https://myaccount.google.com/permissions), find the YouTube on TV entry and remove its access. StreamTube is signed out the next time it starts.
 
 **If the code doesn't appear**
 
@@ -208,7 +209,7 @@ The app retries a few times on its own. If it still shows "Can't reach YouTube r
 </p>
 
 - **Tap the video** to show or hide the controls: play and pause, previous and next, playback speed, captions (CC), settings (quality and more) and full screen.
-- **Download** (in the buttons under the video): choose a video quality from **1080p** down to **360p** (MP4), or **Audio only (M4A)**. The file downloads in the background with a progress notification and is saved to **Download/SmartTube**. For 480p and up, YouTube serves the picture and the sound separately: both are downloaded and joined on the phone (without re-encoding), so these take a little longer to finish. The download options come from a separate request as YouTube's visionOS app (then its Android VR app), whose answers include direct links to every quality up to 1080p; the player is not affected. When neither gives links, the sheet says so and offers 360p and Audio only (taken from the 360p file). Live streams can't be downloaded.
+- **Download** (in the buttons under the video): choose a video quality from **1080p** down to **360p** (MP4), or **Audio only (M4A)**. The file downloads in the background with a progress notification and is saved to **Download/StreamTube**. For 480p and up, YouTube serves the picture and the sound separately: both are downloaded and joined on the phone (without re-encoding), so these take a little longer to finish. The download options come from a separate request as YouTube's visionOS app (then its Android VR app), whose answers include direct links to every quality up to 1080p; the player is not affected. When neither gives links, the sheet says so and offers 360p and Audio only (taken from the 360p file). Live streams can't be downloaded.
 - **Seek** by dragging along the red progress bar at the bottom of the video.
 - **Double tap** the left or right side of the video to jump back or forward.
 - **Below the video**: the title, the channel with its Subscribe button, and the buttons Like, Dislike, Comments, Share and Save. Scroll the row sideways for more.
@@ -313,7 +314,7 @@ YouTube sometimes asks this on shared or busy networks, and with VPNs. Signing i
 Open the player settings and pick a lower quality, or turn off high frame rate. A different video format (codec) in the player settings can also help on older phones.
 
 **No sound in the background, or no controls on the lock screen**
-Turn on notifications (**You**, **Settings**, **Notifications**), and check your phone's battery settings. On OnePlus, Xiaomi, Samsung and similar phones, set SmartTube's battery usage to **Unrestricted** so Android doesn't stop it.
+Turn on notifications (**You**, **Settings**, **Notifications**), and check your phone's battery settings. On OnePlus, Xiaomi, Samsung and similar phones, set StreamTube's battery usage to **Unrestricted** so Android doesn't stop it.
 
 **The app crashed**
 When it opens again it offers a crash report. Please [open an issue](https://github.com/shreyas-bangera/smarttube-phone/issues) with the report and the steps that led to it.
@@ -356,7 +357,7 @@ Thanks also to:
 - [ExoPlayer](https://github.com/google/ExoPlayer) for playback
 - Everyone who contributed code and translations to SmartTube
 
-SmartTube for phones is an unofficial project. It is not made by, or affiliated with, SmartTube's developer, YouTube or Google. Please report problems with this phone app [here](https://github.com/shreyas-bangera/smarttube-phone/issues), not to the SmartTube project.
+StreamTube (formerly SmartTube for phones) is an unofficial project. It is not made by, or affiliated with, SmartTube's developer, YouTube or Google. Please report problems with this phone app [here](https://github.com/shreyas-bangera/smarttube-phone/issues), not to the SmartTube project.
 
 ## License
 

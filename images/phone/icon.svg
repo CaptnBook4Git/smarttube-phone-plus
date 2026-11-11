@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="18 18 72 72">
-  <rect x="18" y="18" width="72" height="72" rx="16" fill="#ffffff" stroke="#dddddd" stroke-width="0.8"/>
-  <g transform="translate(30 31)">
-    <path fill="#ff0033" d="M7,5h34a5,5 0,0 1,5 5v20a5,5 0,0 1,-5 5h-34a5,5 0,0 1,-5 -5v-20a5,5 0,0 1,5 -5z"/>
-    <path fill="#ff0033" d="M11,39h26a2,2 0,0 1,0 4h-26a2,2 0,0 1,0 -4z"/>
-    <path fill="none" stroke="#ffffff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" d="M29.5,15.6C29.5,13.3 27,12 24,12C21,12 18.5,13.5 18.5,15.9C18.5,18.5 21.2,19.2 24,19.9C26.8,20.6 29.5,21.5 29.5,24.3C29.5,27 27,28.5 24,28.5C20.8,28.5 18.5,27.1 18.3,24.8"/>
+  <rect x="18" y="18" width="72" height="72" rx="16" fill="#0F0F0F"/>
+  <g transform="translate(25.2 25.2) scale(1.2)">
+    <path fill="#ff0033" d="M9,10h30a8,8 0,0 1,8 8v12a8,8 0,0 1,-8 8h-30a8,8 0,0 1,-8 -8v-12a8,8 0,0 1,8 -8z"/>
+    <g transform="translate(24 24) translate(-23.9 -20.25)">
+      <path fill="none" stroke="#ffffff" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" d="M29.5,15.6C29.5,13.3 27,12 24,12C21,12 18.5,13.5 18.5,15.9C18.5,18.5 21.2,19.2 24,19.9C26.8,20.6 29.5,21.5 29.5,24.3C29.5,27 27,28.5 24,28.5C20.8,28.5 18.5,27.1 18.3,24.8"/>
+    </g>
   </g>
 </svg>

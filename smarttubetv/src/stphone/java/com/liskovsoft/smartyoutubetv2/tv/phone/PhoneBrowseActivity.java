@@ -100,6 +100,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mPresenter.onViewInitialized();
 
         CrashReport.showIfAny(this);
+        mList.postDelayed(() -> PhoneRebrandBanner.showIfPending(this), 900); // once, after the rename to StreamTube
         mList.postDelayed(this::askNotificationPermission, 1500);
     }
 
@@ -109,7 +110,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         sTaskId = getTaskId();
         // New build waiting? A small Update card (can be turned off on the update screen)
         getWindow().getDecorView().postDelayed(() -> {
-            if (!isFinishing() && !isDestroyed()) {
+            if (!isFinishing() && !isDestroyed() && !PhoneRebrandBanner.isShowing()) {
                 PhoneUpdater.checkInBackground(this);
             }
         }, 2500);
@@ -901,6 +902,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 PhoneNotifications.settingsTitle(this), () -> PhoneNotifications.open(this), R.drawable.ic_phone_bell));
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
                 PhoneUpdater.settingsTitle(this), () -> PhoneUpdater.open(this), R.drawable.ic_phone_update));
+        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
+                getString(R.string.phone_about_title), () -> PhoneAbout.show(this), R.drawable.ic_phone_info));
         if (group.getItems() != null) {
             items.addAll(group.getItems());
         }
