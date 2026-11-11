@@ -26,6 +26,11 @@
   <img src="images/phone/05_shorts.jpg" width="200" alt="Shorts">
 </p>
 
+> [!NOTE]
+> **StreamTube is a port of [SmartTube](https://github.com/yuliskov/SmartTube) to Android phones.**
+> SmartTube, by [Yuriy Liskov](https://github.com/yuliskov), is the popular open-source YouTube client for Android TV, made for the big screen and a TV remote. StreamTube keeps SmartTube's engine (the YouTube client, playback, sign in, SponsorBlock and settings) and replaces the TV interface with a touch interface built for phones.
+> It is an independent project, not affiliated with SmartTube's developer, YouTube or Google. For the TV app, visit the [SmartTube repository](https://github.com/yuliskov/SmartTube).
+
 ---
 
 ## Contents
@@ -326,7 +331,7 @@ cd smarttube-phone && git -C MediaServiceCore apply --ignore-whitespace ../.gith
 
 ## Credits
 
-StreamTube is built on the open-source engine of [SmartTube](https://github.com/yuliskov/SmartTube) by Yuriy Liskov and its contributors (the YouTube client, sign in, playback, SponsorBlock and settings), with a phone interface on top. Thanks also to [SponsorBlock](https://sponsor.ajay.app/) and [ExoPlayer](https://github.com/google/ExoPlayer).
+StreamTube is a port of [SmartTube](https://github.com/yuliskov/SmartTube) by Yuriy Liskov and its contributors. Their engine (the YouTube client, sign in, playback, SponsorBlock and settings) runs underneath, with a phone interface on top. If you enjoy StreamTube, please star [SmartTube](https://github.com/yuliskov/SmartTube) too. Thanks also to [SponsorBlock](https://sponsor.ajay.app/) and [ExoPlayer](https://github.com/google/ExoPlayer).
 
 StreamTube is an independent project, not affiliated with YouTube or Google. Please report problems [here](https://github.com/shreyas-bangera/smarttube-phone/issues).
 
