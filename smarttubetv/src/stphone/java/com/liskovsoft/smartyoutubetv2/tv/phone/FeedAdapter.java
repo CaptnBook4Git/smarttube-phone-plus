@@ -269,15 +269,54 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
-    private List<Video> withoutExcluded(List<Video> videos) {
-        if (mExcludedVideoId == null || videos == null) {
-            return videos;
+    private static String videoKey(Video video) {
+        if (video == null) {
+            return null;
+        }
+        if (!TextUtils.isEmpty(video.videoId)) {
+            return "v:" + video.videoId;
+        }
+        if (!TextUtils.isEmpty(video.playlistId)) {
+            return "p:" + video.playlistId;
+        }
+        if (!TextUtils.isEmpty(video.channelId)) {
+            return "c:" + video.channelId;
+        }
+        return null;
+    }
+
+    private List<Video> withoutExcluded(List<Video> videos, Group targetGroup) {
+        if (videos == null) {
+            return null;
+        }
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        if (mMode != MODE_SHELVES) {
+            boolean targetIsStrip = targetGroup != null && isStripGroup(targetGroup);
+            for (Group g : mGroups) {
+                if (g == targetGroup || isStripGroup(g) != targetIsStrip) {
+                    continue;
+                }
+                for (Video existing : g.videos) {
+                    String key = videoKey(existing);
+                    if (key != null) {
+                        seen.add(key);
+                    }
+                }
+            }
         }
         List<Video> result = new ArrayList<>(videos.size());
         for (Video video : videos) {
-            if (video == null || !mExcludedVideoId.equals(video.videoId)) {
-                result.add(video);
+            if (video == null) {
+                continue;
             }
+            if (mExcludedVideoId != null && mExcludedVideoId.equals(video.videoId)) {
+                continue;
+            }
+            String key = videoKey(video);
+            if (key != null && !seen.add(key)) {
+                continue;
+            }
+            result.add(video);
         }
         return result;
     }
@@ -324,13 +363,13 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             existing.ref = group;
             int oldCount = existing.videos.size();
             existing.videos.clear();
-            existing.videos.addAll(withoutExcluded(group.getVideos()));
+            existing.videos.addAll(withoutExcluded(group.getVideos(), existing));
             if (existing.innerAdapter != null) {
                 existing.innerAdapter.onDataChanged(oldCount);
             }
         } else {
             Group newGroup = new Group(group);
-            newGroup.videos.addAll(withoutExcluded(group.getVideos()));
+            newGroup.videos.addAll(withoutExcluded(group.getVideos(), newGroup));
             int position = group.getPosition();
             if ((mMode == MODE_SHELVES || mMode == MODE_FEED) && position >= 0 && position < mGroups.size()) {
                 mGroups.add(position, newGroup);
@@ -466,12 +505,21 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     private void removeVideos(List<Video> videos, String author) {
+        java.util.Set<String> targetVideoIds = new java.util.HashSet<>();
+        if (videos != null) {
+            for (Video v : videos) {
+                if (v != null && !TextUtils.isEmpty(v.videoId)) {
+                    targetVideoIds.add(v.videoId);
+                }
+            }
+        }
         for (Group group : mGroups) {
             boolean changed = false;
             for (int i = group.videos.size() - 1; i >= 0; i--) {
                 Video video = group.videos.get(i);
-                boolean match = (videos != null && videos.contains(video))
-                        || (author != null && Helpers.equals(author, video.getAuthor()));
+                boolean match = (videos != null && (videos.contains(video)
+                        || (video != null && !TextUtils.isEmpty(video.videoId) && targetVideoIds.contains(video.videoId))))
+                        || (author != null && video != null && Helpers.equals(author, video.getAuthor()));
                 if (match) {
                     group.videos.remove(i);
                     if (video.getGroup() != null) {
@@ -528,6 +576,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (mMode == MODE_SETTINGS) {
             items.addAll(mSettings);
         } else {
+            java.util.Set<String> seenKeys = new java.util.HashSet<>();
             for (Group group : mGroups) {
                 if (group.videos.isEmpty()) {
                     continue;
@@ -537,23 +586,47 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 } else if (isStripGroup(group)) {
                     items.add(group.strip);
                 } else if (isShortsBlock(group)) {
-                    items.add(group.shortsHeader);
-                    int count = Math.min(SHORTS_BLOCK_SIZE, group.videos.size());
+                    List<ShortTile> blockTiles = new ArrayList<>();
+                    for (int i = 0; i < group.videos.size() && blockTiles.size() < SHORTS_BLOCK_SIZE; i++) {
+                        Video v = group.videos.get(i);
+                        String key = videoKey(v);
+                        if (key != null && !seenKeys.add(key)) {
+                            continue;
+                        }
+                        blockTiles.add(group.tile(i));
+                    }
+                    int count = blockTiles.size();
                     count -= count % 2; // keep the 2 column block even
-                    if (count == 0) {
+                    if (count == 0 && !blockTiles.isEmpty()) {
                         count = 1;
                     }
-                    for (int i = 0; i < count; i++) {
-                        items.add(group.tile(i));
+                    if (count > 0) {
+                        items.add(group.shortsHeader);
+                        for (int i = 0; i < count; i++) {
+                            items.add(blockTiles.get(i));
+                        }
                     }
                 } else if (mFilter != null) {
                     for (Video video : group.videos) {
                         if (video != null && mFilter.accept(video)) {
+                            String key = videoKey(video);
+                            if (key != null && !seenKeys.add(key)) {
+                                continue;
+                            }
                             items.add(video);
                         }
                     }
                 } else {
-                    items.addAll(group.videos);
+                    for (Video video : group.videos) {
+                        if (video == null) {
+                            continue;
+                        }
+                        String key = videoKey(video);
+                        if (key != null && !seenKeys.add(key)) {
+                            continue;
+                        }
+                        items.add(video);
+                    }
                 }
             }
         }

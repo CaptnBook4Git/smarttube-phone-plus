@@ -10,6 +10,7 @@ import android.widget.ImageView;
 
 import com.liskovsoft.mediaserviceinterfaces.MediaItemService;
 import com.liskovsoft.mediaserviceinterfaces.SignInService;
+import com.liskovsoft.mediaserviceinterfaces.data.FeedbackReasons.FeedbackItem;
 import com.liskovsoft.mediaserviceinterfaces.data.MediaItem;
 import com.liskovsoft.sharedutils.helpers.MessageHelpers;
 import com.liskovsoft.sharedutils.rx.RxHelper;
@@ -178,19 +179,71 @@ public final class PhoneQuickActions {
         MediaItemService itemService = YouTubeServiceManager.instance().getMediaItemService();
         if (video.mediaItem != null) {
             if (video.mediaItem.getFeedbackToken() != null) {
-                RxHelper.execute(itemService.markAsNotInterestedObserve(video.mediaItem.getFeedbackToken()));
+                showNotInterestedReasons(context, itemService, video, video.mediaItem.getFeedbackToken(), onRemoveVideo);
+                return;
             } else if (video.mediaItem.getFeedbackEndpoint() != null) {
                 itemService.getFeedbackTokensObserve(video.mediaItem.getFeedbackEndpoint())
                         .subscribe(
                                 tokens -> {
                                     if (tokens != null && !tokens.isEmpty() && tokens.get(0) != null) {
-                                        RxHelper.execute(itemService.markAsNotInterestedObserve(tokens.get(0)));
+                                        showNotInterestedReasons(context, itemService, video, tokens.get(0), onRemoveVideo);
+                                    } else {
+                                        finishNotInterested(context, video, onRemoveVideo);
                                     }
                                 },
-                                error -> {}
+                                error -> finishNotInterested(context, video, onRemoveVideo)
                         );
+                return;
             }
         }
+        finishNotInterested(context, video, onRemoveVideo);
+    }
+
+    private static void showNotInterestedReasons(
+            Context context,
+            MediaItemService itemService,
+            Video video,
+            String feedbackToken,
+            Runnable onRemoveVideo) {
+        itemService.getFeedbackReasonsObserve(feedbackToken)
+                .subscribe(
+                        reasons -> {
+                            if (reasons != null && reasons.getItems() != null && !reasons.getItems().isEmpty()) {
+                                AppDialogPresenter dialog = AppDialogPresenter.instance(context);
+                                final boolean[] removed = {false};
+                                Runnable removeOnce = () -> {
+                                    if (!removed[0]) {
+                                        removed[0] = true;
+                                        finishNotInterested(context, video, onRemoveVideo);
+                                    }
+                                };
+                                for (FeedbackItem item : reasons.getItems()) {
+                                    if (item == null || TextUtils.isEmpty(item.getTitle())) {
+                                        continue;
+                                    }
+                                    dialog.appendSingleButton(
+                                            UiOptionItem.from(item.getTitle(), option -> {
+                                                if (item.getToken() != null) {
+                                                    RxHelper.execute(itemService.markAsNotInterestedObserve(item.getToken()));
+                                                }
+                                                removeOnce.run();
+                                                dialog.closeDialog();
+                                            })
+                                    );
+                                }
+                                String title = !TextUtils.isEmpty(reasons.getTitle())
+                                        ? reasons.getTitle()
+                                        : context.getString(R.string.not_interested);
+                                dialog.showDialog(title, removeOnce);
+                            } else {
+                                finishNotInterested(context, video, onRemoveVideo);
+                            }
+                        },
+                        error -> finishNotInterested(context, video, onRemoveVideo)
+                );
+    }
+
+    private static void finishNotInterested(Context context, Video video, Runnable onRemoveVideo) {
         if (video.belongsToHistory() && !TextUtils.isEmpty(video.videoId)) {
             VideoStateService.instance(context).removeByVideoId(video.videoId);
         }
