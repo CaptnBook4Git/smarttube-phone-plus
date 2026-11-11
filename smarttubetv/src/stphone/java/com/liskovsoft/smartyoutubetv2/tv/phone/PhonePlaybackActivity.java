@@ -1030,6 +1030,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         findViewById(R.id.phone_ctl_collapse).setOnClickListener(v -> onBackPressed());
         findViewById(R.id.phone_ctl_settings).setOnClickListener(v -> clickButton(R.id.lb_control_high_quality));
         findViewById(R.id.phone_ctl_cc).setOnClickListener(v -> clickButton(R.id.lb_control_closed_captioning));
+        findViewById(R.id.phone_ctl_speed).setOnClickListener(v -> clickButton(R.id.action_video_speed));
         findViewById(R.id.phone_ctl_autoplay).setOnClickListener(v -> toggleAutoplay());
         // Same list as SmartTube's playback mode button: play next, pause, repeat, shuffle, play the list, close
         findViewById(R.id.phone_ctl_mode).setOnClickListener(v ->

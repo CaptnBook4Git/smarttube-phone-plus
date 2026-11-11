@@ -53,7 +53,7 @@ public class PhoneApplication extends MainApplication {
             prefs.edit().putBoolean("background_playback_v1", true).apply();
         }
 
-        // YouTube notifications (new uploads from subscriptions, replies...) behind the bell in Home's top bar.
+        // YouTube notifications (new uploads from subscriptions, replies...) in the Notifications tab.
         // SmartTube for TV hides this section by default.
         if (!prefs.getBoolean("notifications_section_v1", false)) {
             com.liskovsoft.smartyoutubetv2.common.app.presenters.service.SidebarService sidebar =

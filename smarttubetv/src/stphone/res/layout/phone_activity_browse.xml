@@ -73,17 +73,6 @@
                 android:layout_weight="1" />
 
             <ImageView
-                android:id="@+id/phone_notifications"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:padding="12dp"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/phone_tab_notifications"
-                android:src="@drawable/ic_phone_bell"
-                android:tint="@color/phone_text"
-                android:visibility="gone" />
-
-            <ImageView
                 android:id="@+id/phone_search"
                 android:layout_width="52dp"
                 android:layout_height="52dp"
