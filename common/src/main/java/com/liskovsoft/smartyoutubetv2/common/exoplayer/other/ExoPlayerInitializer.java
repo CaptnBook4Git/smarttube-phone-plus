@@ -139,6 +139,13 @@ public class ExoPlayerInitializer {
                 break;
         }
 
+        if (com.liskovsoft.smartyoutubetv2.common.misc.FastStart.isEnabled()) {
+            // Phones: start after half a second of media (a phone connection fills the rest while it plays), and
+            // resume after a stall once 1.5 s are back. The forward buffer sizes above stay as they are.
+            bufferForPlaybackMs = 500;
+            bufferForPlaybackAfterRebufferMs = 1_500;
+        }
+
         baseBuilder
                 .setBufferDurationsMs(minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForPlaybackAfterRebufferMs);
 

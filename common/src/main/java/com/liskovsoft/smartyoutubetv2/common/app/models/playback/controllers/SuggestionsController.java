@@ -27,6 +27,7 @@ import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem
 import com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter;
 import com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter;
 import com.liskovsoft.smartyoutubetv2.common.misc.BrowseProcessorManager;
+import com.liskovsoft.smartyoutubetv2.common.misc.FastStart;
 import com.liskovsoft.smartyoutubetv2.common.misc.MediaServiceManager;
 import com.liskovsoft.smartyoutubetv2.common.prefs.GeneralData;
 import com.liskovsoft.smartyoutubetv2.common.utils.Utils;
@@ -40,6 +41,13 @@ import java.util.List;
 public class SuggestionsController extends BasePlayerController {
     private static final String TAG = SuggestionsController.class.getSimpleName();
     private final List<Disposable> mActions = new ArrayList<>();
+    // Phones (FastStart): recommendations requested together with the video, shown once the player exists
+    private String mEarlyVideoId;
+    private Video mEarlyVideo;
+    private MediaItemMetadata mEarlyMetadata;
+    private boolean mEarlyShown; // recommendations and details on screen
+    private boolean mEarlyVideoLoaded; // the first load of this video happened
+    private boolean mEarlyNotified; // the other controllers got the details (after the video loaded, as on TV)
     private MediaItemService mMediaItemService;
     private ContentService mContentService;
     private BrowseProcessorManager mBrowseProcessor;
@@ -71,6 +79,7 @@ public class SuggestionsController extends BasePlayerController {
         // Remote control fix. Slow network fix. Suggestions may still be loading.
         // This could lead to changing current video info (title, id etc) to wrong one.
         disposeActions();
+        loadEarly(video);
         //mCurrentGroup = video.getGroup(); // disable garbage collected
         //appendNextSectionVideoIfNeeded(video); // ConcurrentModificationException error
     }
@@ -80,7 +89,82 @@ public class SuggestionsController extends BasePlayerController {
      */
     @Override
     public void onVideoLoaded(Video item) {
+        if (FastStart.isEnabled() && item != null && Helpers.equals(item.videoId, mEarlyVideoId) && !mEarlyVideoLoaded) {
+            mEarlyVideoLoaded = true;
+            if (mEarlyMetadata != null) {
+                applyEarly(); // shown already: now the other controllers get the details
+                return;
+            }
+            if (RxHelper.isAnyActionRunning(mActions)) {
+                return; // the request made with the video is still on its way: it does the rest when it arrives
+            }
+        }
+
+        // Later loads of the same video (engine restart, quality change...): SmartTube's own behavior
+        mEarlyVideoId = null;
+        mEarlyMetadata = null;
         loadSuggestions(item);
+    }
+
+    @Override
+    public void onEngineInitialized() {
+        applyEarly(); // arrived before the player existed
+    }
+
+    /**
+     * Phones: the recommendations (and the video's details) are requested the moment the video opens, next to its
+     * formats, instead of after playback starts. SmartTube waits on TV to keep the network free for the video.
+     */
+    private void loadEarly(Video video) {
+        mEarlyVideoId = null;
+        mEarlyVideo = null;
+        mEarlyMetadata = null;
+        mEarlyShown = false;
+        mEarlyVideoLoaded = false;
+        mEarlyNotified = false;
+
+        if (!FastStart.isEnabled() || video == null || video.videoId == null || isEmbedPlayer()) {
+            return;
+        }
+
+        String videoId = video.videoId;
+        mEarlyVideoId = videoId;
+        mEarlyVideo = video;
+        loadMetadata(video, metadata -> {
+            if (!Helpers.equals(videoId, mEarlyVideoId)) {
+                return; // another video opened meanwhile
+            }
+            mEarlyMetadata = metadata;
+            applyEarly();
+        }, () -> {
+            if (Helpers.equals(videoId, mEarlyVideoId) && mEarlyVideoLoaded) {
+                // Failed after the video loaded (which skipped its own request): the usual one now
+                mEarlyVideoId = null;
+                loadSuggestions(video);
+            }
+        });
+    }
+
+    /**
+     * Recommendations and the video's details on screen as soon as the player exists; the other controllers (watch
+     * position, speed, SponsorBlock...) get the details only after the video loaded, when SmartTube gives them.
+     */
+    private void applyEarly() {
+        if (mEarlyMetadata == null || getPlayer() == null) {
+            return;
+        }
+
+        if (!mEarlyShown) {
+            mEarlyShown = true;
+            clearSuggestionsIfNeeded(mEarlyVideo);
+            syncCurrentVideo(mEarlyMetadata, mEarlyVideo);
+            appendSuggestions(mEarlyVideo, mEarlyMetadata);
+        }
+
+        if (mEarlyVideoLoaded && !mEarlyNotified) {
+            mEarlyNotified = true;
+            callListener(mEarlyMetadata);
+        }
     }
 
     // Could make negative impact on the video load time.
@@ -242,6 +326,10 @@ public class SuggestionsController extends BasePlayerController {
     }
 
     private void loadMetadata(Video video, OnMetadata callback) {
+        loadMetadata(video, callback, null);
+    }
+
+    private void loadMetadata(Video video, OnMetadata callback, Runnable onFailed) {
         disposeActions();
 
         if (video == null) {
@@ -266,6 +354,9 @@ public class SuggestionsController extends BasePlayerController {
                                 MessageHelpers.showLongMessage(getContext(), "loadSuggestions error: %s", message);
                             }
                             error.printStackTrace();
+                            if (onFailed != null) {
+                                onFailed.run();
+                            }
                         }
                 );
 

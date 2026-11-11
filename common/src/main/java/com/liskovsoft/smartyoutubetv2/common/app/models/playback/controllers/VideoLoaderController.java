@@ -90,7 +90,22 @@ public class VideoLoaderController extends BasePlayerController {
             loadVideo(item); // force play immediately even the same video
         } else {
             mPendingVideo = item;
+            prefetchFormatInfo(item);
         }
+    }
+
+    /**
+     * Phones: ask for the formats while the player screen and engine are still being created. The service keeps the
+     * answer for this video, so the engine's own request (same video id) gets it at once, or waits for this one.
+     */
+    private void prefetchFormatInfo(Video item) {
+        if (!com.liskovsoft.smartyoutubetv2.common.misc.FastStart.isEnabled() || item.videoId == null) {
+            return;
+        }
+
+        RxHelper.execute(YouTubeServiceManager.instance().getMediaItemService().getFormatInfoObserve(item.videoId),
+                formatInfo -> { /* kept by the service for the engine */ },
+                error -> Log.e(TAG, "Format prefetch: %s", error.getMessage()));
     }
 
     @Override
