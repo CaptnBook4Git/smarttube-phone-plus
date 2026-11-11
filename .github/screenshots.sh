@@ -58,6 +58,8 @@ shot() { dismiss_anr; adb exec-out screencap -p > "$OUT/$1.png"; }
 
 adb shell am start -n "$PKG/$SPLASH"
 sleep 40
+tap_text "Don't show again" # the one-time "Meet StreamTube" card
+sleep 2
 shot 01_home
 
 # Player with details, then comments
@@ -66,17 +68,17 @@ sleep 25
 adb shell input tap 540 400
 sleep 1
 shot 02_player
-adb shell input tap 612 1124
+tap_text "Comments"
 sleep 8
 shot 03_comments
 adb shell input keyevent KEYCODE_BACK
 sleep 4
-# Mini player (drag the video down)
-adb shell input swipe 540 300 540 1600 150
+# Mini player (drag the video down): the card at the bottom right of Home
+adb shell input swipe 540 300 540 1400 400
 sleep 6
 shot 04_mini_player
-adb shell input keyevent KEYCODE_BACK
-sleep 2
+tap_text "Close the mini player"
+sleep 3
 
 # Shorts
 adb shell am start -n "$PKG/$SPLASH"
@@ -152,6 +154,14 @@ sleep 15
 shot 11_home_light
 
 adb shell am broadcast -a com.android.systemui.demo -e command exit
+
+# The pictures into the log too (base64 JPEG between ==IMG name== and ==END==)
+for f in "$OUT"/*.png; do
+  echo "==IMG $(basename "$f" .png)=="
+  convert "$f" -resize 540x -quality 85 jpg:- | base64 -w0
+  echo
+  echo "==END=="
+done
 adb logcat -d -b crash > smoke/crash.txt
 adb logcat -d > smoke/logcat_full.txt
 exit 0
