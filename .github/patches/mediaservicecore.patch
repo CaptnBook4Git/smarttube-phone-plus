@@ -1,3 +1,29 @@
+diff --git a/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/data/MediaItemMetadata.java b/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/data/MediaItemMetadata.java
+index a633990..c5e160c 100644
+--- a/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/data/MediaItemMetadata.java
++++ b/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/data/MediaItemMetadata.java
+@@ -23,6 +23,21 @@ public interface MediaItemMetadata {
+     boolean isLive();
+     String getLiveChatKey();
+     String getCommentsKey();
++
++    /**
++     * Phone: the comments total as YouTube shows it next to the title ("24", "2.4K"), or null.
++     */
++    default String getCommentsCount() {
++        return null;
++    }
++
++    /**
++     * Phone: the key that loads the first page of comments sorted Newest first ({@link #getCommentsKey()} is Top
++     * comments). Null when YouTube offers no sort.
++     */
++    default String getNewestCommentsKey() {
++        return null;
++    }
+     boolean isUpcoming();
+     String getChannelId();
+     String getParams();
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
 index ad4bafa..fe4cd9f 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
@@ -67,6 +93,51 @@ index ad4bafa..fe4cd9f 100644
          }
      }
  
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/common/models/gen/CommonItems.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/common/models/gen/CommonItems.kt
+index c256267..8719908 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/common/models/gen/CommonItems.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/common/models/gen/CommonItems.kt
+@@ -701,5 +701,6 @@ internal data class OverlayPanelHeaderRenderer(
+ 
+ internal data class EngagementPanelTitleHeaderRenderer(
+     val menu: Menu?,
+-    val title: TextItem?
++    val title: TextItem?,
++    val contextualInfo: TextItem? // Phone: the comments total next to the title ("24", "2.4K")
+ )
+\ No newline at end of file
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/gen/WatchNextHelper.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/gen/WatchNextHelper.kt
+index 7692924..600b987 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/gen/WatchNextHelper.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/gen/WatchNextHelper.kt
+@@ -188,6 +188,8 @@ internal fun List<ContinuationItem?>.getContinuationToken(): String? = firstNotN
+ internal fun EngagementPanel.getTopCommentsToken(): String? = getSubMenuItems()?.getOrNull(0)?.continuation?.getContinuationToken() ?:
+     getSections()?.firstNotNullOfOrNull { it?.itemSectionRenderer?.continuations?.getContinuationToken() }
+ internal fun EngagementPanel.getNewCommentsToken(): String? = getSubMenuItems()?.getOrNull(1)?.continuation?.getContinuationToken()
++internal fun EngagementPanel.getCommentsCount(): String? =
++    engagementPanelSectionListRenderer?.header?.engagementPanelTitleHeaderRenderer?.contextualInfo?.getText()
+ internal fun EngagementPanel.isCommentsSection(): Boolean = engagementPanelSectionListRenderer?.panelIdentifier == "comment-item-section"
+ internal fun EngagementPanel.isDescriptionSection(): Boolean = engagementPanelSectionListRenderer?.panelIdentifier == "video-description-ep-identifier"
+ internal fun EngagementPanel.isCollaboratorSection(): Boolean = engagementPanelSectionListRenderer?.identifier?.tag?.startsWith("channel-actions-panel-") ?: false
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/impl/MediaItemMetadataImpl.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/impl/MediaItemMetadataImpl.kt
+index 2cad49f..aa95319 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/impl/MediaItemMetadataImpl.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/impl/MediaItemMetadataImpl.kt
+@@ -261,6 +261,14 @@ internal data class MediaItemMetadataImpl(private val watchNextResult: WatchNext
+         return commentsKeyItem
+     }
+ 
++    override fun getCommentsCount(): String? {
++        return commentsPanel?.getCommentsCount()
++    }
++
++    override fun getNewestCommentsKey(): String? {
++        return commentsPanel?.getNewCommentsToken()
++    }
++
+     override fun isUpcoming(): Boolean {
+         return isUpcomingItem
+     }
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
 index 1bfecfd..1380533 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java

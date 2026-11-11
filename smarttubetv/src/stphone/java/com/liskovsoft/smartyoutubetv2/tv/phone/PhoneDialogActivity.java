@@ -12,6 +12,8 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.Switch;
 import android.widget.TextView;
 
@@ -24,6 +26,7 @@ import com.liskovsoft.mediaserviceinterfaces.data.CommentGroup;
 import com.liskovsoft.mediaserviceinterfaces.data.CommentItem;
 import com.liskovsoft.sharedutils.helpers.Helpers;
 import com.liskovsoft.sharedutils.helpers.MessageHelpers;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.AbstractCommentsReceiver;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.CommentsReceiver;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionCategory;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionItem;
@@ -83,6 +86,10 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     private final RowsAdapter mAdapter = new RowsAdapter();
     private TextView mTitle;
     private View mBack;
+    private TextView mCount; // comments total next to the title
+    private View mSort; // comments: Top / Newest
+    private TextView mSortLabel;
+    private View mSortChevron;
     private RecyclerView mList;
     private com.liskovsoft.smartyoutubetv2.tv.phone.widget.MaxHeightFrameLayout mListFrame;
     private int mVideoLimit;
@@ -107,6 +114,11 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
 
         mTitle = findViewById(R.id.phone_sheet_title);
         mBack = findViewById(R.id.phone_sheet_back);
+        mCount = findViewById(R.id.phone_sheet_count);
+        mSort = findViewById(R.id.phone_sheet_sort);
+        mSortLabel = findViewById(R.id.phone_sheet_sort_label);
+        mSortChevron = findViewById(R.id.phone_sheet_sort_chevron);
+        mSort.setOnClickListener(v -> showSortMenu());
         RecyclerView list = findViewById(R.id.phone_sheet_list);
         mList = list;
         mListFrame = findViewById(R.id.phone_sheet_list_frame);
@@ -401,6 +413,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         mTitle.setText(page.title);
         mTitle.setVisibility(TextUtils.isEmpty(page.title) ? View.INVISIBLE : View.VISIBLE);
         mBack.setVisibility(mStack.size() > 1 ? View.VISIBLE : View.GONE);
+        renderCommentsHeader(page);
         if (page.comments != null) {
             // Comments keep a steady, tall sheet while they load
             // (over the player: all the space under the video)
@@ -414,6 +427,105 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             }
             mAdapter.setRows(page.rows);
         }
+    }
+
+    /** Comments: "Comments 24" and the Top / Newest button (replies and other sheets show neither) */
+    private void renderCommentsHeader(Page page) {
+        AbstractCommentsReceiver receiver = page.comments != null && page.comments.receiver instanceof AbstractCommentsReceiver
+                ? (AbstractCommentsReceiver) page.comments.receiver : null;
+        String count = receiver != null ? receiver.getCommentsCount() : null;
+        mCount.setText(count);
+        mCount.setVisibility(TextUtils.isEmpty(count) ? View.GONE : View.VISIBLE);
+        boolean sortable = receiver != null && receiver.canSortByNewest();
+        mSort.setVisibility(sortable ? View.VISIBLE : View.GONE);
+        if (sortable) {
+            mSortLabel.setText(receiver.isSortedByNewest() ? R.string.phone_comments_newest : R.string.phone_comments_top);
+        }
+    }
+
+    private void showSortMenu() {
+        Page page = currentPage();
+        if (page == null || page.comments == null || !(page.comments.receiver instanceof AbstractCommentsReceiver)) {
+            return;
+        }
+        AbstractCommentsReceiver receiver = (AbstractCommentsReceiver) page.comments.receiver;
+        boolean newest = receiver.isSortedByNewest();
+        float density = getResources().getDisplayMetrics().density;
+
+        LinearLayout menu = new LinearLayout(this);
+        menu.setOrientation(LinearLayout.VERTICAL);
+        menu.setPadding(0, (int) (6 * density), 0, (int) (6 * density));
+        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+        background.setColor(getResources().getColor(R.color.phone_surface_2));
+        background.setCornerRadius(14 * density);
+        menu.setBackground(background);
+
+        android.widget.PopupWindow popup = new android.widget.PopupWindow(menu,
+                (int) (264 * density), ViewGroup.LayoutParams.WRAP_CONTENT, true);
+        popup.setElevation(12 * density);
+        popup.setOutsideTouchable(true);
+        menu.addView(sortRow(R.string.phone_comments_top, R.string.phone_comments_top_hint, !newest, () -> {
+            popup.dismiss();
+            setCommentsOrder(page, false);
+        }));
+        menu.addView(sortRow(R.string.phone_comments_newest, R.string.phone_comments_newest_hint, newest, () -> {
+            popup.dismiss();
+            setCommentsOrder(page, true);
+        }));
+        mSortChevron.setRotation(-90);
+        popup.setOnDismissListener(() -> mSortChevron.setRotation(90));
+        popup.showAsDropDown(mSort, 0, 0, android.view.Gravity.END);
+    }
+
+    private View sortRow(int title, int hint, boolean checked, Runnable onClick) {
+        float density = getResources().getDisplayMetrics().density;
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding((int) (16 * density), (int) (10 * density), (int) (16 * density), (int) (10 * density));
+        android.util.TypedValue ripple = new android.util.TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackground, ripple, true);
+        if (ripple.resourceId != 0) {
+            row.setBackgroundResource(ripple.resourceId);
+        }
+
+        ImageView check = new ImageView(this);
+        check.setImageResource(R.drawable.ic_phone_check);
+        check.setImageTintList(android.content.res.ColorStateList.valueOf(getResources().getColor(R.color.phone_text)));
+        check.setVisibility(checked ? View.VISIBLE : View.INVISIBLE);
+        row.addView(check, new LinearLayout.LayoutParams((int) (24 * density), (int) (24 * density)));
+
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        TextView name = new TextView(this);
+        name.setText(title);
+        name.setTextSize(16);
+        name.setTextColor(getResources().getColor(R.color.phone_text));
+        TextView description = new TextView(this);
+        description.setText(hint);
+        description.setTextSize(13);
+        description.setTextColor(getResources().getColor(R.color.phone_text_2));
+        texts.addView(name);
+        texts.addView(description);
+        LinearLayout.LayoutParams textsParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        textsParams.setMarginStart((int) (16 * density));
+        row.addView(texts, textsParams);
+
+        row.setOnClickListener(v -> onClick.run());
+        return row;
+    }
+
+    /** Top or Newest: the list starts over from the first page of that order */
+    private void setCommentsOrder(Page page, boolean newest) {
+        AbstractCommentsReceiver receiver = (AbstractCommentsReceiver) page.comments.receiver;
+        if (receiver.isSortedByNewest() == newest) {
+            return;
+        }
+        receiver.setSortedByNewest(newest);
+        page.comments.restart();
+        mList.scrollToPosition(0);
+        renderCommentsHeader(page);
     }
 
     private Page commentsPage(OptionCategory category) {
@@ -535,6 +647,17 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             }
             receiver.setCallback(this);
             receiver.onStart();
+        }
+
+        /** Another order picked: empty list, loading line, first page again */
+        void restart() {
+            items.clear();
+            group = null;
+            loading = true;
+            finished = false;
+            footer = receiver != null ? receiver.getLoadingMessage() : null;
+            adapter.notifyDataSetChanged();
+            start();
         }
 
         @Override

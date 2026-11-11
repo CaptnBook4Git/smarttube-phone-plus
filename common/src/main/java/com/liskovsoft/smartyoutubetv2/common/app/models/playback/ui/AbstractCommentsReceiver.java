@@ -39,6 +39,24 @@ public abstract class AbstractCommentsReceiver implements CommentsReceiver {
         mCallback = callback;
     }
 
+    /** Phone: the comments total to show next to the title ("24", "2.4K"), or null */
+    public String getCommentsCount() {
+        return null;
+    }
+
+    /** Phone: whether these comments can also be listed Newest first */
+    public boolean canSortByNewest() {
+        return false;
+    }
+
+    public boolean isSortedByNewest() {
+        return false;
+    }
+
+    /** Phone: Top (false) or Newest (true) order for the next {@link #onStart()} */
+    public void setSortedByNewest(boolean newest) {
+    }
+
     @Override
     public void onLoadMore(CommentGroup commentGroup) {
 

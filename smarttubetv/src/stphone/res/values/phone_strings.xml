@@ -94,4 +94,8 @@
     <string name="phone_about_built_on">Built on SmartTube by Yuriy Liskov</string>
     <string name="phone_about_license">MIT License</string>
     <string name="phone_about_source">Source code on GitHub</string>
+    <string name="phone_comments_top">Top</string>
+    <string name="phone_comments_top_hint">Most liked first</string>
+    <string name="phone_comments_newest">Newest</string>
+    <string name="phone_comments_newest_hint">Includes possible spam</string>
 </resources>
