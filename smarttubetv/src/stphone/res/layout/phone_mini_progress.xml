@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ProgressBar xmlns:android="http://schemas.android.com/apk/res/android"
+<com.liskovsoft.smartyoutubetv2.tv.phone.widget.PhoneProgressBar xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/phone_mini_progress"
     style="?android:attr/progressBarStyleHorizontal"
     android:layout_width="match_parent"

@@ -90,9 +90,10 @@
     <string name="phone_quick_not_interested_setting">Show \"Not interested\" button on videos</string>
     <string name="phone_quick_not_interested_desc">Directly mark videos as not interested everywhere (long-press to block channel)</string>
     <string name="phone_quick_dont_recommend_channel">Don\'t recommend channel</string>
-    <string name="phone_quick_dont_recommend_short">Hide channel</string>
+    <string name="phone_quick_dont_recommend_short">Don\'t recommend</string>
     <string name="phone_quick_dont_recommend_setting">Show \"Don\'t recommend channel\" button on videos</string>
     <string name="phone_quick_dont_recommend_desc">Separate button to hide all recommendations from a channel</string>
+    <string name="phone_channel_not_recommended">Channel won\'t be recommended</string>
     <string name="phone_quick_like_dislike_setting">Show Like &amp; Dislike buttons on videos</string>
     <string name="phone_quick_like_dislike_desc">Thumbs up and thumbs down directly on all video cards</string>
     <string name="phone_quick_liked_toast">Liked</string>
@@ -106,6 +107,9 @@
     <string name="phone_filter_cat_upload_date">UPLOAD DATE</string>
     <string name="phone_filter_cat_features">FEATURES</string>
     <string name="phone_filter_cat_sort">PRIORITIZE</string>
+    <string name="phone_filter_cat_other">MORE OPTIONS</string>
+    <string name="phone_filter_hide_watched">Hide watched / started videos</string>
+    <string name="phone_filter_hide_watched_chip">Hide watched</string>
     <string name="phone_filter_any">Any</string>
     <string name="phone_filter_type_videos">Videos</string>
     <string name="phone_filter_type_shorts">Shorts</string>

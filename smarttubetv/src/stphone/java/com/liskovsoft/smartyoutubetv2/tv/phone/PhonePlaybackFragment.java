@@ -23,6 +23,8 @@ public class PhonePlaybackFragment extends PlaybackFragment {
         void onPlayerButtonState(int buttonId, int buttonState);
 
         void onPlayerChannelIcon(String iconUrl);
+
+        void onPlayerSeekBarSegments(java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.SeekBarSegment> segments);
     }
 
     @Override
@@ -141,6 +143,15 @@ public class PhonePlaybackFragment extends PlaybackFragment {
         Host host = getPhoneHost();
         if (host != null) {
             host.onPlayerButtonState(buttonId, buttonState);
+        }
+    }
+
+    @Override
+    public void setSeekBarSegments(java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.SeekBarSegment> segments) {
+        super.setSeekBarSegments(segments);
+        Host host = getPhoneHost();
+        if (host != null) {
+            host.onPlayerSeekBarSegments(segments);
         }
     }
 

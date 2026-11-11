@@ -37,10 +37,15 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
 import com.liskovsoft.smartyoutubetv2.common.app.models.data.VideoGroup;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.manager.PlayerUI;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.SeekBarSegment;
 import com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter;
 import com.liskovsoft.smartyoutubetv2.tv.R;
+import com.liskovsoft.smartyoutubetv2.tv.phone.widget.PhoneProgressBar;
+import com.liskovsoft.smartyoutubetv2.tv.phone.widget.PhoneSeekBar;
 import com.liskovsoft.smartyoutubetv2.tv.phone.widget.RatioFrameLayout;
 import com.liskovsoft.smartyoutubetv2.tv.ui.playback.PlaybackActivity;
+
+import java.util.List;
 
 /**
  * Phone player built around SmartTube's playback engine:
@@ -65,8 +70,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private ImageView mFullscreenButton;
     private TextView mControlsTitle;
     private TextView mTime;
-    private SeekBar mSeek;
-    private ProgressBar mMiniProgress;
+    private PhoneSeekBar mSeek;
+    private PhoneProgressBar mMiniProgress;
+    private List<SeekBarSegment> mSeekBarSegments;
     private View mHeader;
     private View mShorts;
     private View mShortsPaused;
@@ -206,6 +212,14 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mTime = findViewById(R.id.phone_ctl_time);
         mSeek = findViewById(R.id.phone_ctl_seek);
         mMiniProgress = findViewById(R.id.phone_mini_progress);
+        if (mSeekBarSegments != null) {
+            if (mSeek != null) {
+                mSeek.setSegments(mSeekBarSegments);
+            }
+            if (mMiniProgress != null) {
+                mMiniProgress.setSegments(mSeekBarSegments);
+            }
+        }
         mShorts = findViewById(R.id.phone_shorts);
         mShortsPaused = findViewById(R.id.phone_shorts_paused);
 
@@ -620,6 +634,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
      * mini player (picture in picture) from exactly where it is, or springs back if the drag was short.
      */
     private boolean handleShrinkDrag(MotionEvent event) {
+        if (mIsSeeking || (mControls != null && mControls.getVisibility() == View.VISIBLE)) {
+            if (mShrinkDragging) {
+                mShrinkDragging = false;
+                animateShrink(0);
+            }
+            return false;
+        }
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN) {
             trackCloseDrag(event);
@@ -800,8 +821,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             Rect box = new Rect();
             mVideoBox.getGlobalVisibleRect(box);
             boolean onVideo = box.contains((int) event.getRawX(), (int) event.getRawY());
-            mTouchStartedOnVideo = onVideo;
-            mRouteTouchToPlayer = onVideo && !mShortsMode && mControls.getVisibility() != View.VISIBLE;
+            float density = getResources().getDisplayMetrics().density;
+            boolean onTimeline = onVideo && (event.getRawY() >= box.bottom - 48 * density);
+            boolean controlsVisible = mControls != null && mControls.getVisibility() == View.VISIBLE;
+            mTouchStartedOnVideo = onVideo && !controlsVisible && !onTimeline;
+            mRouteTouchToPlayer = onVideo && !mShortsMode && !controlsVisible;
         }
 
         // Swipe the video down to shrink the player (portrait, regular videos): the video follows the finger
@@ -1844,11 +1868,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         LinearLayout actions = mHeader.findViewById(R.id.phone_player_actions);
         addAction(actions, R.id.action_thumbs_up, R.drawable.ic_phone_like, getString(R.string.phone_like));
         addAction(actions, R.id.action_thumbs_down, R.drawable.ic_phone_dislike, null);
-        addAction(actions, R.id.phone_action_not_interested, R.drawable.ic_phone_not_interested, getString(R.string.phone_quick_not_interested));
-        addAction(actions, R.id.phone_action_dont_recommend_channel, R.drawable.ic_phone_block_channel, getString(R.string.phone_quick_dont_recommend_short));
         addAction(actions, R.id.action_chat, R.drawable.ic_phone_comments, getString(R.string.phone_comments));
         addAction(actions, R.id.action_share, R.drawable.ic_phone_share, getString(R.string.phone_share));
         addAction(actions, R.id.action_playlist_add, R.drawable.ic_phone_save, getString(R.string.phone_save));
+        addAction(actions, R.id.phone_action_not_interested, R.drawable.ic_phone_not_interested, getString(R.string.phone_quick_not_interested));
+        addAction(actions, R.id.phone_action_dont_recommend_channel, R.drawable.ic_phone_block_channel, getString(R.string.phone_quick_dont_recommend_short));
         addAction(actions, R.id.phone_action_download, R.drawable.ic_phone_download, getString(R.string.phone_download));
         addAction(actions, R.id.lb_control_high_quality, R.drawable.ic_phone_settings, getString(R.string.phone_quality));
         addAction(actions, R.id.action_video_speed, R.drawable.ic_phone_speed, getString(R.string.phone_speed));
@@ -2068,6 +2092,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             applySystemBars();
         }
         mDescriptionExpanded = false;
+        mSeekBarSegments = null;
+        if (mSeek != null) {
+            mSeek.setSegments(null);
+        }
+        if (mMiniProgress != null) {
+            mMiniProgress.setSegments(null);
+        }
         if (mAdapter != null && video != null) {
             mAdapter.setExcludedVideoId(video.videoId);
         }
@@ -2132,6 +2163,17 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (video != null && !TextUtils.isEmpty(iconUrl)) {
             AvatarCache.rememberUrl(this, video.channelId, video.getAuthor(), AvatarFetcher.handleOf(video), iconUrl);
             refreshDetails();
+        }
+    }
+
+    @Override
+    public void onPlayerSeekBarSegments(List<SeekBarSegment> segments) {
+        mSeekBarSegments = segments;
+        if (mSeek != null) {
+            mSeek.setSegments(segments);
+        }
+        if (mMiniProgress != null) {
+            mMiniProgress.setSegments(segments);
         }
     }
 

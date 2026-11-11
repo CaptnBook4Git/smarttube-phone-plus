@@ -944,6 +944,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             mActiveSavedList = null;
             mActiveSavedListQuery = null;
             mActiveSavedListOptions = 0;
+            mAdapter.setFilter(null);
             updateChips();
             if (mHomeAllContent != null) {
                 mAdapter.restoreContent(mHomeAllContent);
@@ -977,6 +978,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         hideMessage();
         mAdapter.restoreContent(null);
         mAdapter.setMode(FeedAdapter.MODE_FEED);
+        if ((mActiveSavedListOptions & PhoneSearchFilters.FILTER_HIDE_WATCHED) != 0) {
+            mAdapter.setFilter(video -> !PhoneSearchFilters.isWatchedOrStarted(this, video));
+        } else {
+            mAdapter.setFilter(null);
+        }
 
         final String expectedId = mActiveSavedList.id;
         final BrowseSection section = mCurrentSection;

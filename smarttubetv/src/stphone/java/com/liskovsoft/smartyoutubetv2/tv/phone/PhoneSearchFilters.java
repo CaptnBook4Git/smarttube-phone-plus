@@ -18,6 +18,8 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 
 import com.liskovsoft.mediaserviceinterfaces.data.SearchOptions;
+import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.service.VideoStateService;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionItem;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem;
 import com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter;
@@ -47,6 +49,7 @@ public final class PhoneSearchFilters {
     public static final int FEATURE_3D = 1 << 25;
     public static final int FEATURE_LOCATION = 1 << 26;
     public static final int FEATURE_PURCHASED = 1 << 27;
+    public static final int FILTER_HIDE_WATCHED = 1 << 28;
 
     public static final int MASK_UPLOAD_DATE =
             SearchOptions.UPLOAD_DATE_LAST_HOUR
@@ -89,6 +92,26 @@ public final class PhoneSearchFilters {
     private static volatile int sListsVersion = 1;
 
     private PhoneSearchFilters() {
+    }
+
+    public static boolean isWatchedOrStarted(Context context, Video video) {
+        if (video == null) {
+            return false;
+        }
+        if (video.percentWatched > 0) {
+            return true;
+        }
+        try {
+            VideoStateService stateService = VideoStateService.instance(context);
+            if (stateService != null && !TextUtils.isEmpty(video.videoId)) {
+                VideoStateService.State state = stateService.getByVideoId(video.videoId);
+                if (state != null && state.positionMs > 0) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     public interface IntCallback {
@@ -266,7 +289,8 @@ public final class PhoneSearchFilters {
                 {FEATURE_PURCHASED, R.string.phone_filter_feat_purchased},
                 {SearchOptions.SORT_BY_VIEW_COUNT, R.string.phone_filter_sort_popularity},
                 {SearchOptions.SORT_BY_UPLOAD_DATE, R.string.phone_filter_sort_date},
-                {SearchOptions.SORT_BY_RATING, R.string.phone_filter_sort_rating}
+                {SearchOptions.SORT_BY_RATING, R.string.phone_filter_sort_rating},
+                {FILTER_HIDE_WATCHED, R.string.phone_filter_hide_watched_chip}
         };
         for (int[] pair : allPairs) {
             if ((options & pair[0]) == pair[0]) {
@@ -439,6 +463,24 @@ public final class PhoneSearchFilters {
             ));
         }
         dialog.appendRadioCategory(context.getString(R.string.phone_filter_cat_sort), sortOpts);
+
+        // 6. WEITERE OPTIONEN (Multi-select)
+        List<OptionItem> otherOpts = new ArrayList<>();
+        otherOpts.add(UiOptionItem.from(
+                context.getString(R.string.phone_filter_hide_watched),
+                item -> {
+                    if (item.isSelected()) {
+                        state[0] |= FILTER_HIDE_WATCHED;
+                    } else {
+                        state[0] &= ~FILTER_HIDE_WATCHED;
+                    }
+                    if (onChanged != null) {
+                        onChanged.onOptionsChanged(state[0]);
+                    }
+                },
+                (state[0] & FILTER_HIDE_WATCHED) == FILTER_HIDE_WATCHED
+        ));
+        dialog.appendCheckedCategory(context.getString(R.string.phone_filter_cat_other), otherOpts);
 
         dialog.showDialog(context.getString(R.string.phone_search_filters_title));
     }

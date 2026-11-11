@@ -5,9 +5,10 @@
     <string name="phone_quick_not_interested_setting">Button „Kein Interesse“ bei Videos anzeigen</string>
     <string name="phone_quick_not_interested_desc">Videos überall direkt mit einem Tipp ablehnen (gedrückt halten für „Kanal nicht empfehlen“)</string>
     <string name="phone_quick_dont_recommend_channel">Kanal nicht empfehlen</string>
-    <string name="phone_quick_dont_recommend_short">Kanal ausblenden</string>
+    <string name="phone_quick_dont_recommend_short">Kanal nicht empfehlen</string>
     <string name="phone_quick_dont_recommend_setting">Button „Kanal nicht empfehlen“ bei Videos anzeigen</string>
     <string name="phone_quick_dont_recommend_desc">Eigener Button, um einen gesamten Kanal sofort aus den Empfehlungen zu entfernen</string>
+    <string name="phone_channel_not_recommended">Kanal wird nicht mehr empfohlen</string>
     <string name="phone_quick_like_dislike_setting">Daumen hoch &amp; Daumen runter bei Videos anzeigen</string>
     <string name="phone_quick_like_dislike_desc">Videos direkt in der Übersicht bewerten, um den Algorithmus zu steuern</string>
     <string name="phone_quick_liked_toast">Mag ich</string>

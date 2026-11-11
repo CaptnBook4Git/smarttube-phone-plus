@@ -204,12 +204,25 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
         });
     }
 
+    private void applyContentFilter() {
+        if (mAdapter == null || mPresenter == null) {
+            return;
+        }
+        int options = mPresenter.getSearchOptions();
+        if ((options & PhoneSearchFilters.FILTER_HIDE_WATCHED) != 0) {
+            mAdapter.setFilter(video -> !PhoneSearchFilters.isWatchedOrStarted(this, video));
+        } else {
+            mAdapter.setFilter(null);
+        }
+    }
+
     private void updateFilterRow() {
         if (mFilterRow == null || mPresenter == null) {
             return;
         }
         mFilterRow.removeAllViews();
         int options = mPresenter.getSearchOptions();
+        applyContentFilter();
         List<PhoneSearchFilters.ActiveChip> active = PhoneSearchFilters.getActiveChips(this, options);
         int dp8 = (int) (getResources().getDisplayMetrics().density * 8);
         int dp36 = (int) (getResources().getDisplayMetrics().density * 36);
@@ -294,6 +307,7 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
     @Override
     public void updateSearch(VideoGroup group) {
         hideMessage();
+        applyContentFilter();
         mAdapter.update(group);
         checkScrollEndLater();
     }

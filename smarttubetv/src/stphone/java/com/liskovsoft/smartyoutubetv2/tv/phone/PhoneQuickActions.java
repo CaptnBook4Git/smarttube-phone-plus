@@ -264,13 +264,10 @@ public final class PhoneQuickActions {
             return;
         }
         MediaItemService itemService = YouTubeServiceManager.instance().getMediaItemService();
-        boolean hasToken = false;
         if (video.mediaItem != null) {
             if (video.mediaItem.getFeedbackToken2() != null) {
-                hasToken = true;
                 RxHelper.execute(itemService.markAsNotInterestedObserve(video.mediaItem.getFeedbackToken2()));
             } else if (video.mediaItem.getFeedbackEndpoint() != null) {
-                hasToken = true;
                 itemService.getFeedbackTokensObserve(video.mediaItem.getFeedbackEndpoint())
                         .subscribe(
                                 tokens -> {
@@ -286,12 +283,9 @@ public final class PhoneQuickActions {
                 RxHelper.execute(itemService.markAsNotInterestedObserve(video.mediaItem.getFeedbackToken()));
             }
         }
-        if (!hasToken && (!TextUtils.isEmpty(video.channelId) || !TextUtils.isEmpty(video.getAuthor()))) {
-            BlockedChannelData.instance(context).addChannel(video.channelId, video.getAuthor());
-        }
         PhoneShortsQueue.removeAuthor(video.getAuthor());
         PhoneShortsQueue.remove(video);
-        MessageHelpers.showMessage(context, R.string.channel_blocked);
+        MessageHelpers.showMessage(context, R.string.phone_channel_not_recommended);
         if (onRemoveAuthor != null) {
             onRemoveAuthor.run();
         }
