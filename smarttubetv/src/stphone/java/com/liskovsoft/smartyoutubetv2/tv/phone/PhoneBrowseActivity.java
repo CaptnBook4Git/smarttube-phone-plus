@@ -487,7 +487,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         List<BrowseSection> sections = sectionsOfTab(mCurrentTab);
 
         // The Subscriptions feed has its own channels row and filter chips (All opens the Channels section)
-        if (sections.size() <= 1 || isSubscriptionsFeed()) {
+        if ((sections.size() <= 1 && mCurrentTab != TAB_YOU) || isSubscriptionsFeed()) { // You always has Downloads
             mChipsScroll.setVisibility(View.GONE);
             return;
         }
@@ -525,7 +525,31 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             if (selected) {
                 chip.post(() -> mChipsScroll.smoothScrollTo(Math.max(0, chip.getLeft() - dp(16)), 0));
             }
+
+            // You: Downloads right after History (videos and audio saved by the app, played in the app)
+            if (mCurrentTab == TAB_YOU && section.getId() == MediaGroup.TYPE_HISTORY) {
+                addDownloadsChip();
+            }
         }
+        if (mCurrentTab == TAB_YOU && sectionById(MediaGroup.TYPE_HISTORY) == null) {
+            addDownloadsChip();
+        }
+    }
+
+    private void addDownloadsChip() {
+        TextView chip = new TextView(this);
+        chip.setText(R.string.phone_downloads);
+        chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        chip.setGravity(Gravity.CENTER);
+        chip.setPadding(dp(14), 0, dp(14), 0);
+        chip.setBackgroundResource(R.drawable.phone_chip_bg);
+        chip.setTextColor(getResources().getColor(R.color.phone_text));
+        chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        chip.setOnClickListener(v -> PhoneDownloadsActivity.open(this));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
+        params.setMarginStart(dp(4));
+        params.setMarginEnd(dp(4));
+        mChips.addView(chip, params);
     }
 
     /**

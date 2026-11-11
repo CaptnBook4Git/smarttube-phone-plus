@@ -120,6 +120,17 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleTop"
             android:screenOrientation="portrait" />
+        <!-- You > Downloads, and the in-app player for downloaded files -->
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneDownloadsActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneLocalPlayerActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection|keyboardHidden"
+            android:screenOrientation="fullUser"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
         <receiver
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneUpdater$InstallReceiver"
             android:exported="false" />
