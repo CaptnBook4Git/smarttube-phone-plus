@@ -552,6 +552,9 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             Page current = currentPage();
             if (current == page && page.comments != null) {
                 if (comment != null && !TextUtils.isEmpty(comment.getMessage())) {
+                    if (comment.getId() != null) {
+                        sPostedIds.add(comment.getId()); // long press offers Delete
+                    }
                     page.comments.items.add(0, comment);
                     page.comments.adapter.notifyItemInserted(0);
                     mList.scrollToPosition(0);
@@ -571,6 +574,85 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                 message = getString(R.string.phone_comment_sign_in);
             }
             android.widget.Toast.makeText(this, getString(R.string.phone_comment_failed, message), android.widget.Toast.LENGTH_LONG).show();
+        });
+    }
+
+    /** Comments posted from this app (YouTube may show them under another name until the list reloads) */
+    private static final java.util.Set<String> sPostedIds = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    /** "@Some_Handle" and "some_handle" are the same person */
+    private static String normalizeHandle(String name) {
+        if (name == null) {
+            return null;
+        }
+        String handle = name.trim();
+        if (handle.startsWith("@")) {
+            handle = handle.substring(1);
+        }
+        return handle.isEmpty() ? null : handle.toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /** Written by the signed-in account (its channel handle or name is the comment's author) */
+    private boolean isOwnComment(CommentItem item) {
+        if (item == null || item.getId() == null || writableReceiver(currentPage()) == null) {
+            return false;
+        }
+        com.liskovsoft.mediaserviceinterfaces.oauth.Account account =
+                com.liskovsoft.smartyoutubetv2.common.misc.MediaServiceManager.instance().getSelectedAccount();
+        if (account == null || account.isEmpty()) {
+            return false;
+        }
+        if (sPostedIds.contains(item.getId())) {
+            return true;
+        }
+        String author = normalizeHandle(item.getAuthorName());
+        if (author == null) {
+            return false;
+        }
+        String channel = account instanceof com.liskovsoft.googlecommon.service.oauth.YouTubeAccount
+                ? normalizeHandle(((com.liskovsoft.googlecommon.service.oauth.YouTubeAccount) account).getChannelName()) : null;
+        return author.equals(channel) || author.equals(normalizeHandle(account.getName()));
+    }
+
+    private void confirmDelete(CommentItem item) {
+        Page page = currentPage();
+        boolean reply = item.getId().contains(".");
+        new android.app.AlertDialog.Builder(this, PhoneTheme.isNight(this)
+                ? android.R.style.Theme_DeviceDefault_Dialog_Alert : android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+                .setTitle(reply ? R.string.phone_comment_delete_reply_title : R.string.phone_comment_delete_title)
+                .setMessage(R.string.phone_comment_delete_message)
+                .setNegativeButton(R.string.phone_comment_delete_cancel, null)
+                .setPositiveButton(R.string.phone_comment_delete, (dialog, which) -> deleteComment(page, item))
+                .show();
+    }
+
+    /** YouTube removes the comment (or reply); it leaves the list right away */
+    private void deleteComment(Page page, CommentItem item) {
+        AbstractCommentsReceiver receiver = writableReceiver(page);
+        if (receiver == null) {
+            return;
+        }
+        com.liskovsoft.mediaserviceinterfaces.CommentsService service =
+                com.liskovsoft.youtubeapi.service.YouTubeServiceManager.instance().getCommentsService();
+        com.liskovsoft.sharedutils.rx.RxHelper.execute(service.deleteCommentObserve(receiver.getVideoId(), item.getId()), error -> {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            String message = error.getMessage() != null ? error.getMessage().replace("ErrorResponse: ", "") : "";
+            android.widget.Toast.makeText(this, getString(R.string.phone_comment_delete_failed, message), android.widget.Toast.LENGTH_LONG).show();
+        }, () -> {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            sPostedIds.remove(item.getId());
+            if (page.comments != null) {
+                int index = page.comments.items.indexOf(item);
+                if (index >= 0) {
+                    page.comments.items.remove(index);
+                    page.comments.adapter.notifyItemRemoved(index);
+                }
+            }
+            android.widget.Toast.makeText(this, R.string.phone_comment_deleted, android.widget.Toast.LENGTH_SHORT).show();
         });
     }
 
@@ -960,7 +1042,11 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                 }
             });
             view.setOnLongClickListener(v -> {
-                mState.receiver.onCommentLongClicked(item);
+                if (isOwnComment(item)) {
+                    confirmDelete(item); // the account's own comment: delete it
+                } else {
+                    mState.receiver.onCommentLongClicked(item);
+                }
                 return true;
             });
         }
