@@ -65,7 +65,10 @@ import okhttp3.ResponseBody;
  *     downloaded and joined into one MP4 on the phone (MediaExtractor + MediaMuxer, no re-encoding)</li>
  *     <li>Audio: the AAC (M4A) track, rewritten from YouTube's streaming layout into a plain M4A file</li>
  * </ul>
- * Files are fetched in pieces with the player's user agent: YouTube cuts off or slows down one long request.
+ * The formats come from a download client first (VISIONOS, then ANDROID_VR: their separate video and audio files have
+ * direct links, while the player's TV client streams them with SABR only); when that fails, from the player's own
+ * answer (360p, and the audio taken out of it). Files are fetched in pieces with the user agent of the client that
+ * gave the links: YouTube cuts off or slows down one long request.
  */
 final class PhoneDownloads {
     private static final String TAG = "PhoneDownloads";
@@ -87,6 +90,10 @@ final class PhoneDownloads {
         /** Higher qualities: the sound, joined to the picture in {@link #url} after both are downloaded */
         String audioUrl;
         long audioSize = -1;
+        /** Audio taken out of the 360p video file (when YouTube gives no separate audio file to download) */
+        boolean fromVideo;
+        /** The user agent of the client whose answer gave the links */
+        String userAgent = DefaultHeaders.APP_USER_AGENT;
 
         Option(boolean audio, String url, long size, String label) {
             this.audio = audio;
@@ -130,10 +137,26 @@ final class PhoneDownloads {
 
         Toast.makeText(activity, R.string.phone_download_checking, Toast.LENGTH_SHORT).show();
         String title = !TextUtils.isEmpty(video.getTitle()) ? video.getTitle() : video.videoId;
+        RxHelper.execute(com.liskovsoft.youtubeapi.service.YouTubeDownloadService.getDownloadInfoObserve(video.videoId),
+                download -> {
+                    if (PhoneUi.isAlive(activity)) {
+                        showSheet(activity, download.formatInfo, title, download.userAgent);
+                    }
+                },
+                error -> {
+                    // No download client gave file links: what the player's answer has (360p and its sound)
+                    Log.e(TAG, "Download formats: " + error.getMessage());
+                    if (PhoneUi.isAlive(activity)) {
+                        showPlayerOptions(activity, video, title);
+                    }
+                });
+    }
+
+    private static void showPlayerOptions(Activity activity, Video video, String title) {
         RxHelper.execute(YouTubeServiceManager.instance().getMediaItemService().getFormatInfoObserve(video.videoId),
                 formatInfo -> {
                     if (PhoneUi.isAlive(activity)) {
-                        showSheet(activity, formatInfo, title);
+                        showSheet(activity, formatInfo, title, DefaultHeaders.APP_USER_AGENT);
                     }
                 },
                 error -> {
@@ -144,7 +167,7 @@ final class PhoneDownloads {
                 });
     }
 
-    private static void showSheet(Activity activity, MediaItemFormatInfo formatInfo, String title) {
+    private static void showSheet(Activity activity, MediaItemFormatInfo formatInfo, String title, String userAgent) {
         if (formatInfo == null || formatInfo.isLive() || formatInfo.isUnplayable()) {
             Toast.makeText(activity, R.string.phone_download_unavailable, Toast.LENGTH_LONG).show();
             return;
@@ -152,13 +175,19 @@ final class PhoneDownloads {
 
         Option video = videoOption(activity, formatInfo);
         MediaFormat audioFormat = audioFormat(formatInfo);
-        Option audio = audioFormat != null
-                ? new Option(true, audioFormat.getUrl(), parseSize(audioFormat.getClen()), activity.getString(R.string.phone_download_audio))
-                : null;
+        Option audio = null;
+        if (audioFormat != null) {
+            audio = new Option(true, audioFormat.getUrl(), parseSize(audioFormat.getClen()), activity.getString(R.string.phone_download_audio));
+        } else if (video != null) {
+            // No separate audio file with a link: the sound of the 360p file (same AAC sound, a bit lower bitrate)
+            audio = new Option(true, video.url, -1, activity.getString(R.string.phone_download_audio));
+            audio.fromVideo = true;
+        }
 
         java.util.List<Option> options = new java.util.ArrayList<>();
         if (audioFormat != null) {
-            options.addAll(mergedOptions(activity, formatInfo, audioFormat));
+            // 360p joined too when there is no single 360p file (download clients have none)
+            options.addAll(mergedOptions(activity, formatInfo, audioFormat, video == null));
         }
         if (video != null) {
             options.add(video);
@@ -173,15 +202,44 @@ final class PhoneDownloads {
 
         Context app = activity.getApplicationContext();
         AppDialogPresenter dialog = AppDialogPresenter.instance(activity);
+        if (!hasMergedOptions(options) && hasHigherQualities(formatInfo)) {
+            // Higher qualities exist, but YouTube streams them without a file link (SABR): say so instead of hiding them
+            dialog.appendSingleButton(UiOptionItem.from(activity.getString(R.string.phone_download_no_hd),
+                    activity.getString(R.string.phone_download_no_hd_reason), item -> AppDialogPresenter.instance(activity).closeDialog()));
+        }
         for (Option option : options) {
+            option.userAgent = userAgent;
             long total = option.totalSize();
-            String description = total > 0 ? sizeText(total) : null;
+            String description = option.fromVideo ? activity.getString(R.string.phone_download_audio_from_video)
+                    : total > 0 ? sizeText(total) : null;
             dialog.appendSingleButton(UiOptionItem.from(option.label, description, item -> {
                 AppDialogPresenter.instance(activity).closeDialog();
                 enqueue(app, option, title);
             }));
         }
         dialog.showDialog(activity.getString(R.string.phone_download));
+    }
+
+    private static boolean hasMergedOptions(java.util.List<Option> options) {
+        for (Option option : options) {
+            if (option.isMerged()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The video has qualities above 360p, with or without a file link */
+    private static boolean hasHigherQualities(MediaItemFormatInfo formatInfo) {
+        if (formatInfo.getAdaptiveFormats() == null) {
+            return false;
+        }
+        for (MediaFormat format : formatInfo.getAdaptiveFormats()) {
+            if (format != null && format.getMimeType() != null && format.getMimeType().startsWith("video/") && lines(format) > 360) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The video with sound in one file: 360p (YouTube's only remaining one) */
@@ -212,7 +270,7 @@ final class PhoneDownloads {
      * 480p to 1080p: the H.264 picture of each height (the highest frame rate, then bitrate), to join with the sound.
      * Heights the single 360p file already covers are left out.
      */
-    private static java.util.List<Option> mergedOptions(Context context, MediaItemFormatInfo formatInfo, MediaFormat audio) {
+    private static java.util.List<Option> mergedOptions(Context context, MediaItemFormatInfo formatInfo, MediaFormat audio, boolean withSd) {
         java.util.List<Option> result = new java.util.ArrayList<>();
         if (formatInfo.getAdaptiveFormats() == null) {
             return result;
@@ -221,7 +279,7 @@ final class PhoneDownloads {
         for (MediaFormat format : formatInfo.getAdaptiveFormats()) {
             String mime = format != null ? format.getMimeType() : null;
             if (mime == null || TextUtils.isEmpty(format.getUrl()) || !mime.startsWith("video/mp4") || !mime.contains("avc1")
-                    || format.isOtf() || lines(format) <= 360 || lines(format) > MAX_HEIGHT) {
+                    || format.isOtf() || lines(format) < 360 || (!withSd && lines(format) == 360) || lines(format) > MAX_HEIGHT) {
                 continue;
             }
             MediaFormat current = byHeight.get(lines(format));
@@ -288,12 +346,12 @@ final class PhoneDownloads {
             try {
                 temp = new File(app.getCacheDir(), "download_" + id + ".part");
                 long grandTotal = option.totalSize();
-                long downloaded = fetch(app, option.url, option.size, temp, id, progress, 0, grandTotal);
+                long downloaded = fetch(app, option.url, option.size, option.userAgent, temp, id, progress, 0, grandTotal);
 
                 File result = temp;
                 if (option.isMerged()) {
                     soundTemp = new File(app.getCacheDir(), "download_" + id + ".audio.part");
-                    fetch(app, option.audioUrl, option.audioSize, soundTemp, id, progress, downloaded, grandTotal);
+                    fetch(app, option.audioUrl, option.audioSize, option.userAgent, soundTemp, id, progress, downloaded, grandTotal);
                     progress.setProgress(0, 0, true).setContentText(app.getString(R.string.phone_download_joining));
                     notify(app, id, progress);
                     remuxed = new File(app.getCacheDir(), "download_" + id + ".mp4");
@@ -303,6 +361,8 @@ final class PhoneDownloads {
                     remuxed = new File(app.getCacheDir(), "download_" + id + ".m4a");
                     if (remuxAudio(temp, remuxed)) {
                         result = remuxed;
+                    } else if (option.fromVideo) {
+                        throw new IOException("Couldn't take the sound out of the video file");
                     }
                 }
 
@@ -331,9 +391,9 @@ final class PhoneDownloads {
      * The file in pieces (ranged requests), a few retries per piece. The progress counts from offset of grandTotal
      * (picture then sound for the joined qualities). Returns the bytes downloaded.
      */
-    private static long fetch(Context app, String url, long size, File target, int id, NotificationCompat.Builder progress,
-                              long offset, long grandTotal) throws IOException {
-        OkHttpClient client = OkHttpManager.instance().getClient();
+    private static long fetch(Context app, String url, long size, String userAgent, File target, int id,
+                              NotificationCompat.Builder progress, long offset, long grandTotal) throws IOException {
+        OkHttpClient client = mediaClient();
         long total = size;
         long position = 0;
         long lastUpdate = 0;
@@ -347,7 +407,7 @@ final class PhoneDownloads {
                 }
                 Request request = new Request.Builder()
                         .url(url)
-                        .header("User-Agent", DefaultHeaders.APP_USER_AGENT)
+                        .header("User-Agent", userAgent)
                         .header("Range", "bytes=" + position + "-" + end)
                         .build();
 
@@ -673,6 +733,24 @@ final class PhoneDownloads {
     // endregion
 
     // region Helpers
+
+    private static OkHttpClient sMediaClient;
+
+    /**
+     * SmartTube's HTTP client (same proxy, DNS and connections) without its YouTube API interceptors: the video servers
+     * can refuse requests that carry the account and visitor headers. No overall call timeout (a piece on a slow link).
+     */
+    private static synchronized OkHttpClient mediaClient() {
+        if (sMediaClient == null) {
+            OkHttpClient.Builder builder = OkHttpManager.instance().getClient().newBuilder()
+                    .callTimeout(0, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS);
+            builder.interceptors().clear();
+            builder.networkInterceptors().clear();
+            sMediaClient = builder.build();
+        }
+        return sMediaClient;
+    }
 
     private static void copy(InputStream in, OutputStream out) throws IOException {
         byte[] buffer = new byte[64 * 1024];

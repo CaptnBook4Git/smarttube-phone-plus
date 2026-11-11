@@ -78,6 +78,9 @@
     <string name="phone_download_started">Download started</string>
     <string name="phone_download_waiting">Waiting…</string>
     <string name="phone_download_progress">%1$s of %2$s</string>
+    <string name="phone_download_audio_from_video">From the 360p video\'s sound</string>
+    <string name="phone_download_no_hd">Higher qualities can\'t be saved</string>
+    <string name="phone_download_no_hd_reason">YouTube streams them for this video without a file to download</string>
     <string name="phone_download_joining">Joining video and sound…</string>
     <string name="phone_download_done">Saved to Download/SmartTube</string>
     <string name="phone_download_failed">Download failed</string>
