@@ -497,7 +497,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mVideoBox.setLayoutParams(params);
 
         mDetails.setVisibility(withDetails ? View.VISIBLE : View.GONE);
-        mMiniProgress.setVisibility(mPortrait && !pip ? View.VISIBLE : View.GONE);
+        boolean controlsVisible = mControls != null && mControls.getVisibility() == View.VISIBLE;
+        if (mMiniProgress != null) {
+            mMiniProgress.setVisibility(!controlsVisible && mPortrait && !pip ? View.VISIBLE : View.GONE);
+        }
         mRoot.setPadding(0, withDetails ? mStatusInset : 0, 0, 0);
 
         mShorts.setVisibility(shorts ? View.VISIBLE : View.GONE);
@@ -1101,12 +1104,18 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
                 mIsSeeking = true;
+                if (mSeek instanceof PhoneSeekBar) {
+                    ((PhoneSeekBar) mSeek).setDragging(true);
+                }
                 mHandler.removeCallbacks(mAutoHide);
             }
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
                 mIsSeeking = false;
+                if (mSeek instanceof PhoneSeekBar) {
+                    ((PhoneSeekBar) mSeek).setDragging(false);
+                }
                 if (mPlayer != null) {
                     long duration = mPlayer.getDurationMs();
                     if (duration > 0) {
@@ -1131,6 +1140,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
         boolean visible = show && !mShortsMode && !isPip();
         mControls.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (mMiniProgress != null) {
+            mMiniProgress.setVisibility(!visible && mPortrait && !isPip() ? View.VISIBLE : View.GONE);
+        }
         if (visible) {
             updatePlayButton();
             updateProgress();
