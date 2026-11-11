@@ -13,6 +13,18 @@
     <!-- Settings, Check for updates: installs new releases from GitHub -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Permissions the TV app uses and the phone app never does. Removed from the phone build: together they read like
+         the profile of harmful software (draw over other apps, start at boot, delete apps, microphone, privileged
+         phone state), and Play Protect blocks such apps when they are installed from outside the Play Store.
+         Voice search uses Android's own speech screen, which needs no microphone permission. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACTION_MANAGE_OVERLAY_PERMISSION" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />
+    <uses-permission android:name="android.permission.QUICKBOOT_POWERON" tools:node="remove" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
+
     <!-- Browsing uses the phone UI in portrait. The remaining Leanback screens (player, sign-in) stay landscape. -->
     <application
         android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneApplication"
@@ -99,5 +111,9 @@
         <receiver
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneUpdater$InstallReceiver"
             android:exported="false" />
+        <!-- TV only: starts SmartTube's remote control service at boot, screen on, power connected... -->
+        <receiver
+            android:name="com.liskovsoft.smartyoutubetv2.common.misc.RemoteControlReceiver"
+            tools:node="remove" />
     </application>
 </manifest>
