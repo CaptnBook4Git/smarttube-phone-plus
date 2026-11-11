@@ -89,6 +89,7 @@
     <string name="phone_rebrand_message">SmartTube for phones has a new name, to make clear it\'s its own app, separate from SmartTube for TV.</string>
     <string name="phone_rebrand_details">Same app, same features, nothing to set up. Your account, history, settings and downloads are right where you left them.</string>
     <string name="phone_rebrand_button">Got it</string>
+    <string name="phone_rebrand_never">Don\'t show again</string>
     <string name="phone_about_title">About StreamTube</string>
     <string name="phone_about_build">Build %1$d</string>
     <string name="phone_about_built_on">Built on SmartTube by Yuriy Liskov</string>
