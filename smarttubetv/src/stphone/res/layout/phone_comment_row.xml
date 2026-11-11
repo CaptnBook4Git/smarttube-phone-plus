@@ -47,27 +47,43 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <ImageView
-                android:id="@+id/phone_comment_like_icon"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:importantForAccessibility="no"
-                android:src="@drawable/ic_phone_like"
-                android:tint="@color/phone_text_2" />
-
-            <TextView
-                android:id="@+id/phone_comment_likes"
+            <!-- Tap to like (signed in) -->
+            <LinearLayout
+                android:id="@+id/phone_comment_like"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:textColor="@color/phone_text_2"
-                android:textSize="12.5sp" />
+                android:layout_marginStart="-6dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/phone_comment_like"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="6dp"
+                android:paddingTop="6dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="6dp">
+
+                <ImageView
+                    android:id="@+id/phone_comment_like_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_phone_like"
+                    android:tint="@color/phone_text_2" />
+
+                <TextView
+                    android:id="@+id/phone_comment_likes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:textColor="@color/phone_text_2"
+                    android:textSize="12.5sp" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/phone_comment_replies"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
+                android:layout_marginStart="10dp"
                 android:fontFamily="sans-serif-medium"
                 android:textColor="@color/phone_link"
                 android:textSize="13sp" />

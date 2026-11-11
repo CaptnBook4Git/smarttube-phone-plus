@@ -662,6 +662,28 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    /** Payload: only the watch progress bars changed (a video was just watched) */
+    private static final Object PROGRESS = new Object();
+
+    /** Back from the player: the red bars show how far each video was watched, without reloading the cards */
+    public void refreshProgress() {
+        if (getItemCount() > 0) {
+            notifyItemRangeChanged(0, getItemCount(), PROGRESS);
+        }
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position, @NonNull List<Object> payloads) {
+        if (!payloads.isEmpty() && payloads.get(0) == PROGRESS) {
+            Object item = mItems.get(position);
+            if (item instanceof Video && holder.itemView.findViewById(R.id.phone_progress) != null) {
+                PhoneUi.bindProgress(holder.itemView, (Video) item);
+            }
+            return;
+        }
+        onBindViewHolder(holder, position);
+    }
+
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Object item = mItems.get(position);

@@ -64,6 +64,8 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
 
         findViewById(R.id.phone_back).setOnClickListener(v -> onBackPressed());
         findViewById(R.id.phone_mic).setOnClickListener(v -> startVoiceRecognition());
+        // Filters sheet: picking an option searches again with it
+        findViewById(R.id.phone_filter).setOnClickListener(v -> mPresenter.onSearchSettingsClicked());
         mClear.setOnClickListener(v -> {
             mQuery.setText("");
             showSuggestions(true);
