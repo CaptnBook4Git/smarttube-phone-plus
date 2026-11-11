@@ -57,6 +57,16 @@ public abstract class AbstractCommentsReceiver implements CommentsReceiver {
     public void setSortedByNewest(boolean newest) {
     }
 
+    /** Phone: the video a new comment goes to; null when these comments can't be written to */
+    public String getVideoId() {
+        return null;
+    }
+
+    /** Phone: the top-level comment a new reply goes to; null for the video's own comments */
+    public String getParentCommentId() {
+        return null;
+    }
+
     @Override
     public void onLoadMore(CommentGroup commentGroup) {
 

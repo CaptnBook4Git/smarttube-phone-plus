@@ -71,6 +71,7 @@ public class CommentsController extends BasePlayerController {
         }
 
         String title = getPlayer() != null && getPlayer().getVideo() != null ? getPlayer().getVideo().getTitleFull() : mTitle;
+        final String videoId = getVideo() != null ? getVideo().videoId : null; // where a new comment goes (phone)
 
         CommentsReceiver commentsReceiver = new AbstractCommentsReceiver(getContext()) {
             @Override
@@ -96,6 +97,11 @@ public class CommentsController extends BasePlayerController {
             @Override
             public String getCommentsCount() {
                 return mCommentsCount;
+            }
+
+            @Override
+            public String getVideoId() {
+                return videoId;
             }
 
             @Override
@@ -128,6 +134,16 @@ public class CommentsController extends BasePlayerController {
                     @Override
                     public void onStart() {
                         loadComments(this, commentItem.getNestedCommentsKey());
+                    }
+
+                    @Override
+                    public String getVideoId() {
+                        return videoId;
+                    }
+
+                    @Override
+                    public String getParentCommentId() {
+                        return commentItem.getId();
                     }
 
                     @Override

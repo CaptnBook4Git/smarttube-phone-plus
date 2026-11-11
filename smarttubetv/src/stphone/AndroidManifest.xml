@@ -51,7 +51,8 @@
             android:launchMode="singleInstance"
             android:noHistory="true"
             android:screenOrientation="unspecified"
-            android:theme="@style/PhoneSheetTheme" />
+            android:theme="@style/PhoneSheetTheme"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
 
         <!-- Player: same task as the rest of the app (one card in recents). Picture-in-picture moves it to its own window.
              Not shown over the lock screen: locking the phone locks it, the video keeps playing in the background and

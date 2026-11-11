@@ -86,7 +86,7 @@ It installs as its own app (`org.smarttube.phone`), so it can sit next to the of
 **Player**
 - Portrait player with the video on top and title, channel, buttons, comments and recommendations below
 - Like, dislike, subscribe, share, save to a playlist, captions and quality, right under the video
-- Comments with replies, readable in a sheet
+- Comments with replies: the total count, Top or Newest first, and write your own comments and replies when signed in
 - Rotate the phone (or tap the full screen button) for full screen
 - Full screen gestures: double tap to skip, pinch to fill the screen, swipe for brightness and volume
 
@@ -213,7 +213,7 @@ The app retries a few times on its own. If it still shows "Can't reach YouTube r
 - **Seek** by dragging along the red progress bar at the bottom of the video.
 - **Double tap** the left or right side of the video to jump back or forward.
 - **Below the video**: the title, the channel with its Subscribe button, and the buttons Like, Dislike, Comments, Share and Save. Scroll the row sideways for more.
-- **Comments** opens a sheet; tap a comment's replies to read the thread.
+- **Comments** opens a sheet with the total count and a **Top / Newest** switch; tap a comment's replies to read the thread. Signed in, type in the bar at the bottom and tap the send button to post a comment (or, in a thread, a reply); it appears on top right away.
 - **Recommendations** are listed under the buttons. Tap one to play it.
 - **Close the player**: tap the arrow at the top left, or drag the video down (it becomes the mini player, see below).
 
