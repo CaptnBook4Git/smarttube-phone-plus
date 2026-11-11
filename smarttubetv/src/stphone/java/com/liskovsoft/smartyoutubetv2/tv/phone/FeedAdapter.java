@@ -58,6 +58,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private static final Object HEADER_ITEM = new Object();
     private View mHeaderView;
+    /** Each header view has a view type of its own: a recycled holder never shows another screen's header */
+    private int mHeaderViewType = VT_CUSTOM_HEADER;
 
     public interface Listener {
         void onVideoClicked(Video video);
@@ -168,6 +170,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
      */
     public void setHeaderView(View header) {
         mHeaderView = header;
+        mHeaderViewType = header == null ? VT_CUSTOM_HEADER : 1000 + (System.identityHashCode(header) & 0x7fff);
         rebuild();
     }
 
@@ -195,6 +198,22 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private String mExcludedVideoId;
     private String mHiddenAuthor;
+
+    /** Which videos of a flat feed are listed (Subscriptions filter chips) */
+    public interface VideoFilter {
+        boolean accept(Video video);
+    }
+
+    private VideoFilter mFilter;
+
+    /** Shows only the videos the filter accepts; null shows them all. The loaded videos are kept. */
+    public void setFilter(VideoFilter filter) {
+        if (filter == mFilter) {
+            return;
+        }
+        mFilter = filter;
+        rebuild();
+    }
 
     /** Rows on a channel page: drop the channel's own name from each row's details line */
     public void setHiddenAuthor(String author) {
@@ -486,6 +505,12 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     for (int i = 0; i < count; i++) {
                         items.add(group.tile(i));
                     }
+                } else if (mFilter != null) {
+                    for (Video video : group.videos) {
+                        if (video != null && mFilter.accept(video)) {
+                            items.add(video);
+                        }
+                    }
                 } else {
                     items.addAll(group.videos);
                 }
@@ -526,7 +551,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         Object item = mItems.get(position);
         long hash = System.identityHashCode(item) & 0xffffffffL;
         if (item == HEADER_ITEM) {
-            return 6L << 32;
+            return (6L << 32) | mHeaderViewType;
         } else if (item instanceof Shelf) {
             return (1L << 32) | hash;
         } else if (item instanceof Strip) {
@@ -545,7 +570,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public int getItemViewType(int position) {
         Object item = mItems.get(position);
         if (item == HEADER_ITEM) {
-            return VT_CUSTOM_HEADER;
+            return mHeaderViewType;
         } else if (item instanceof Shelf) {
             return VT_SHELF;
         } else if (item instanceof Strip) {
@@ -578,6 +603,15 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         LayoutInflater inflater = LayoutInflater.from(parent.getContext());
 
+        if (viewType == mHeaderViewType && mHeaderView != null) {
+            if (mHeaderView.getParent() instanceof ViewGroup) {
+                ((ViewGroup) mHeaderView.getParent()).removeView(mHeaderView);
+            }
+            mHeaderView.setLayoutParams(new RecyclerView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            return new Holder(mHeaderView);
+        }
+
         switch (viewType) {
             case VT_SHORT: {
                 View view = inflater.inflate(R.layout.phone_item_short, parent, false);
@@ -608,14 +642,6 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 return new Holder(inflater.inflate(R.layout.phone_item_setting, parent, false));
             case VT_SECTION_HEADER:
                 return new Holder(inflater.inflate(R.layout.phone_item_section_header, parent, false));
-            case VT_CUSTOM_HEADER: {
-                if (mHeaderView.getParent() instanceof ViewGroup) {
-                    ((ViewGroup) mHeaderView.getParent()).removeView(mHeaderView);
-                }
-                mHeaderView.setLayoutParams(new RecyclerView.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-                return new Holder(mHeaderView);
-            }
             case VT_VIDEO:
             default:
                 return new Holder(inflater.inflate(R.layout.phone_item_video, parent, false));
@@ -627,7 +653,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         Object item = mItems.get(position);
         int type = holder.getItemViewType();
 
-        if (type == VT_CUSTOM_HEADER) {
+        if (type == mHeaderViewType) {
             return; // bound by the owner
         } else if (type == VT_SHELF) {
             ((ShelfHolder) holder).bind(((Shelf) item).group, false);

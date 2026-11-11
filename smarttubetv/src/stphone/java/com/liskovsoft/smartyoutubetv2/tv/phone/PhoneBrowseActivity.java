@@ -65,6 +65,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private BrowseSection mShortsReturnSection;
     private BrowseSection mLoadedSection; // what the presenter actually loads (Home falls back when signed out)
     private View mSignInCard;
+    private PhoneSubscriptionsHeader mSubsHeader; // channels row and filter chips above the Subscriptions feed
     private ImageView mTopAvatar;
     private SettingsGroup mSettingsGroup; // last Settings content, rebuilt when the notification setting changes
 
@@ -142,11 +143,19 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     protected void onDestroy() {
         super.onDestroy();
         MediaServiceManager.instance().removeAccountListener(this);
+        if (mSubsHeader != null) {
+            mSubsHeader.release();
+        }
         mPresenter.onViewDestroyed();
     }
 
     @Override
     public void onBackPressed() {
+        if (isSection(MediaGroup.TYPE_CHANNEL_UPLOADS) && sectionById(MediaGroup.TYPE_SUBSCRIPTIONS) != null) {
+            // All channels was opened from the Subscriptions feed: go back to it
+            focusSection(sectionById(MediaGroup.TYPE_SUBSCRIPTIONS));
+            return;
+        }
         if (mCurrentTab != TAB_HOME && hasTab(TAB_HOME)) {
             selectTab(TAB_HOME);
             return;
@@ -234,6 +243,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 return;
             }
             mUserRefreshing = true;
+            if (isSubscriptionsFeed()) {
+                mSubsHeader.onShown(true);
+            }
             showLoadingPlaceholders();
             mRefresh.setRefreshing(false); // the pulsing placeholders take over from the spinner (like YouTube)
             mPresenter.refresh(false);
@@ -285,6 +297,32 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mTopAvatar.setOnClickListener(v -> selectTab(TAB_YOU));
         mSignInCard = getLayoutInflater().inflate(R.layout.phone_signin_card, mList, false);
         mSignInCard.findViewById(R.id.phone_signin_card_button).setOnClickListener(v -> YTSignInPresenter.instance(this).start());
+        mSubsHeader = new PhoneSubscriptionsHeader(this, mList, new PhoneSubscriptionsHeader.Callback() {
+            @Override
+            public void onChannelClicked(Video channel) {
+                com.liskovsoft.smartyoutubetv2.common.app.presenters.ChannelPresenter.instance(PhoneBrowseActivity.this).openChannel(channel);
+            }
+
+            @Override
+            public void onChannelLongClicked(Video channel) {
+                onVideoLongClicked(channel);
+            }
+
+            @Override
+            public void onAllChannelsClicked() {
+                BrowseSection channels = sectionById(MediaGroup.TYPE_CHANNEL_UPLOADS);
+                if (channels != null) {
+                    focusSection(channels);
+                }
+            }
+
+            @Override
+            public void onFilterChanged(FeedAdapter.VideoFilter filter) {
+                mAdapter.setFilter(filter);
+                mList.scrollToPosition(0);
+                checkScrollEndLater(); // few matches: load more of the feed
+            }
+        });
         findViewById(R.id.phone_logo).setOnClickListener(v -> scrollToTopOrRefresh());
     }
 
@@ -329,6 +367,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             tab.setOnClickListener(v -> {
                 if (index == TAB_SHORTS) {
                     playShorts();
+                } else if (index == TAB_SUBS && mCurrentTab == TAB_SUBS && !isSubscriptionsFeed()) {
+                    selectTab(TAB_SUBS); // from All channels back to the feed
                 } else if (index == mCurrentTab) {
                     scrollToTopOrRefresh();
                 } else {
@@ -368,7 +408,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mChips.removeAllViews();
         List<BrowseSection> sections = sectionsOfTab(mCurrentTab);
 
-        if (sections.size() <= 1) {
+        // The Subscriptions feed has its own channels row and filter chips (All opens the Channels section)
+        if (sections.size() <= 1 || isSubscriptionsFeed()) {
             mChipsScroll.setVisibility(View.GONE);
             return;
         }
@@ -575,6 +616,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
 
         BrowseSection target = sections.get(0);
+        if (tab == TAB_SUBS && sectionById(MediaGroup.TYPE_SUBSCRIPTIONS) != null) {
+            // The Subscriptions tab always opens on the feed, like the YouTube app
+            focusSection(sectionById(MediaGroup.TYPE_SUBSCRIPTIONS));
+            return;
+        }
         for (BrowseSection section : sections) {
             if (section.getId() == mTabSectionIds[tab]) {
                 target = section;
@@ -604,7 +650,12 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         mLoadedSection = load;
 
-        mAdapter.setHeaderView(load != section ? mSignInCard : null);
+        boolean subsFeed = isSubscriptionsFeed() && isSignedIn();
+        mAdapter.setFilter(null);
+        mAdapter.setHeaderView(load != section ? mSignInCard : subsFeed ? mSubsHeader.getView() : null);
+        if (subsFeed) {
+            mSubsHeader.onShown(false);
+        }
         mAdapter.setMode(load != section && load.getType() == BrowseSection.TYPE_ROW ? FeedAdapter.MODE_FEED : modeOf(load));
         mList.scrollToPosition(0);
 
@@ -613,6 +664,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
 
         mPresenter.onSectionFocused(load.getId());
+    }
+
+    private boolean isSection(int id) {
+        return mCurrentSection != null && mCurrentSection.getId() == id;
+    }
+
+    private boolean isSubscriptionsFeed() {
+        return isSection(MediaGroup.TYPE_SUBSCRIPTIONS);
     }
 
     private static int modeOf(BrowseSection section) {

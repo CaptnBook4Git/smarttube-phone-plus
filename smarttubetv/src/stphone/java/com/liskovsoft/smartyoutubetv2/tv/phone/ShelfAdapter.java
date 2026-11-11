@@ -102,6 +102,10 @@ class ShelfAdapter extends RecyclerView.Adapter<ShelfAdapter.Holder> {
             boolean selected = video.equals(mSelection.getSelected());
             title.setTextColor(view.getResources().getColor(selected ? R.color.phone_text : R.color.phone_text_2));
             avatar.setAlpha(mSelection.getSelected() == null || selected ? 1f : 0.55f);
+            View dot = view.findViewById(R.id.phone_new_dot);
+            if (dot != null) {
+                dot.setVisibility(video.hasNewContent ? View.VISIBLE : View.GONE); // new uploads (like the YouTube app)
+            }
             view.setOnClickListener(v -> mListener.onStripClicked(video));
             view.setOnLongClickListener(v -> {
                 mListener.onVideoLongClicked(video);
