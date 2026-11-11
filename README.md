@@ -208,6 +208,7 @@ The app retries a few times on its own. If it still shows "Can't reach YouTube r
 </p>
 
 - **Tap the video** to show or hide the controls: play and pause, previous and next, playback speed, captions (CC), settings (quality and more) and full screen.
+- **Download** (in the buttons under the video): choose **Video · 360p (MP4)** or **Audio only (M4A)**. The file downloads in the background with a progress notification and is saved to **Download/SmartTube**. Higher video qualities aren't offered yet: YouTube serves them as separate video and audio files. Live streams can't be downloaded.
 - **Seek** by dragging along the red progress bar at the bottom of the video.
 - **Double tap** the left or right side of the video to jump back or forward.
 - **Below the video**: the title, the channel with its Subscribe button, and the buttons Like, Dislike, Comments, Share and Save. Scroll the row sideways for more.
@@ -273,7 +274,7 @@ Rotate back to portrait, or press back, to leave full screen.
 
 ### Subscriptions and the You tab
 
-- **Subscriptions** shows the latest videos from the channels you follow (sign in first). On top, a row of your channels, newest uploads first, with a blue dot on channels that have new videos. Tap a channel to see only its videos and Shorts (tap it again for all channels again, or **View channel** for its page); **All** opens the full list. Below it, the chips **All**, **Today**, **Videos**, **Shorts** and **Live** filter the feed.
+- **Subscriptions** shows the latest videos from the channels you follow (sign in first). On top, a row of your channels, newest uploads first, with a blue dot on channels that have new videos. Tap a channel to see only its videos and Shorts, and tap it again to see all channels again. Below it, the chips **All**, **Today**, **Videos**, **Shorts** and **Live** filter the feed.
 - **You** shows your account at the top (Sign in, or Switch account once signed in, and Accounts). Below it, the chips **History**, **Playlists** (including Watch later and liked videos), **My videos** and **Settings**.
 
 ### Settings and appearance

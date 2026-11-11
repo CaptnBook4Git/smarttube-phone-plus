@@ -308,21 +308,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             }
 
             @Override
-            public void onOpenChannel(Video channel) {
-                com.liskovsoft.smartyoutubetv2.common.app.presenters.ChannelPresenter.instance(PhoneBrowseActivity.this).openChannel(channel);
-            }
-
-            @Override
             public void onChannelLongClicked(Video channel) {
                 onVideoLongClicked(channel);
-            }
-
-            @Override
-            public void onAllChannelsClicked() {
-                BrowseSection channels = sectionById(MediaGroup.TYPE_CHANNEL_UPLOADS);
-                if (channels != null) {
-                    focusSection(channels);
-                }
             }
 
             @Override

@@ -29,7 +29,7 @@ import io.reactivex.disposables.Disposable;
 
 /**
  * Top of the Subscriptions tab, like the YouTube app: a row of your channels (newest uploads first, a blue dot on
- * channels with new videos) with an All link, then filter chips (All, Today, Videos, Shorts, Live) for the feed below.
+ * channels with new videos), then filter chips (All, Today, Videos, Shorts, Live) for the feed below.
  * Tapping a channel selects it (the feed shows only its videos and Shorts); tapping it again shows every channel.
  */
 final class PhoneSubscriptionsHeader {
@@ -37,11 +37,7 @@ final class PhoneSubscriptionsHeader {
         /** A channel was selected, or null: the selection was cleared */
         void onChannelSelected(Video channel);
 
-        void onOpenChannel(Video channel);
-
         void onChannelLongClicked(Video channel);
-
-        void onAllChannelsClicked();
 
         void onFilterChanged(FeedAdapter.VideoFilter filter);
     }
@@ -63,7 +59,6 @@ final class PhoneSubscriptionsHeader {
     private final LinearLayout mFilters;
     private final List<Video> mChannels = new ArrayList<>();
     private final ShelfAdapter mChannelsAdapter;
-    private final TextView mAllLink;
     private Video mSelected;
     private int mFilter = FILTER_ALL;
     private long mLoadedAt;
@@ -100,14 +95,7 @@ final class PhoneSubscriptionsHeader {
         mChannelsList.setAdapter(mChannelsAdapter);
         mChannelsList.setVisibility(View.GONE);
 
-        mAllLink = mView.findViewById(R.id.phone_subs_all);
-        mAllLink.setOnClickListener(v -> {
-            if (mSelected != null) {
-                mCallback.onOpenChannel(mSelected);
-            } else {
-                mCallback.onAllChannelsClicked();
-            }
-        });
+
 
         buildFilters();
     }
@@ -138,7 +126,6 @@ final class PhoneSubscriptionsHeader {
         }
         mSelected = channel;
         mChannelsAdapter.notifyDataSetChanged();
-        mAllLink.setText(channel != null ? R.string.phone_subs_view_channel : R.string.phone_subs_all);
         mCallback.onChannelSelected(channel);
     }
 
