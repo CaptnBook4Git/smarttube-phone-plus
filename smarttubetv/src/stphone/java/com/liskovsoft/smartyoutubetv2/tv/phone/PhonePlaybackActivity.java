@@ -696,7 +696,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         long dt = Math.max(1, event.getEventTime() - mDragStartTime);
         boolean shrink = action == MotionEvent.ACTION_UP && (dy > dp(160) || (dy > dp(60) && dy / dt > 0.6f));
         if (shrink) {
-            enterMiniPlayer();
+            growThenEnterMiniPlayer();
         } else {
             animateShrink(0);
         }
@@ -704,6 +704,49 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     private float mShrinkOffset;
+
+    /**
+     * Android animates the floating window out of the video (source rect hint) only when that rectangle is larger
+     * than the floating window; a smaller one (a video shrunk by the drag) gets a plain black box that fades to the
+     * video once it redraws. So the video first grows back to full width where the drag left it (quickly), then the
+     * floating window takes it from there.
+     */
+    private void growThenEnterMiniPlayer() {
+        if (mShrinkAnimator != null) {
+            mShrinkAnimator.cancel();
+        }
+        View root = getWindow().getDecorView();
+        float startScale = mVideoBox.getScaleX();
+        float startY = mVideoBox.getTranslationY();
+        // Full size, as low as the drag left it but still entirely on screen
+        float endY = Math.min(startY, Math.max(0, root.getHeight() - mVideoBox.getTop() - mVideoBox.getHeight()));
+        mShrinkAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        mShrinkAnimator.setDuration(120);
+        mShrinkAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        mShrinkAnimator.addUpdateListener(a -> {
+            float f = (float) a.getAnimatedValue();
+            float scale = startScale + (1f - startScale) * f;
+            mVideoBox.setScaleX(scale);
+            mVideoBox.setScaleY(scale);
+            mVideoBox.setTranslationY(startY + (endY - startY) * f);
+        });
+        mShrinkAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+            private boolean mCancelled;
+
+            @Override
+            public void onAnimationCancel(android.animation.Animator animation) {
+                mCancelled = true;
+            }
+
+            @Override
+            public void onAnimationEnd(android.animation.Animator animation) {
+                if (!mCancelled && !isFinishing()) {
+                    enterMiniPlayer();
+                }
+            }
+        });
+        mShrinkAnimator.start();
+    }
 
     private void setShrinkProgress(float offset) {
         mShrinkOffset = offset;
