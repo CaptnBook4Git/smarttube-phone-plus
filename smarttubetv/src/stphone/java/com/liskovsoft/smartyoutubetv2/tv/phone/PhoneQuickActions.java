@@ -180,14 +180,15 @@ public final class PhoneQuickActions {
             if (video.mediaItem.getFeedbackToken() != null) {
                 RxHelper.execute(itemService.markAsNotInterestedObserve(video.mediaItem.getFeedbackToken()));
             } else if (video.mediaItem.getFeedbackEndpoint() != null) {
-                RxHelper.execute(
-                        itemService.getFeedbackTokensObserve(video.mediaItem.getFeedbackEndpoint()),
-                        tokens -> {
-                            if (tokens != null && !tokens.isEmpty() && tokens.get(0) != null) {
-                                RxHelper.execute(itemService.markAsNotInterestedObserve(tokens.get(0)));
-                            }
-                        }
-                );
+                itemService.getFeedbackTokensObserve(video.mediaItem.getFeedbackEndpoint())
+                        .subscribe(
+                                tokens -> {
+                                    if (tokens != null && !tokens.isEmpty() && tokens.get(0) != null) {
+                                        RxHelper.execute(itemService.markAsNotInterestedObserve(tokens.get(0)));
+                                    }
+                                },
+                                error -> {}
+                        );
             }
         }
         if (video.belongsToHistory() && !TextUtils.isEmpty(video.videoId)) {
@@ -215,16 +216,17 @@ public final class PhoneQuickActions {
                 RxHelper.execute(itemService.markAsNotInterestedObserve(video.mediaItem.getFeedbackToken2()));
             } else if (video.mediaItem.getFeedbackEndpoint() != null) {
                 hasToken = true;
-                RxHelper.execute(
-                        itemService.getFeedbackTokensObserve(video.mediaItem.getFeedbackEndpoint()),
-                        tokens -> {
-                            if (tokens != null && tokens.size() > 1 && tokens.get(1) != null) {
-                                RxHelper.execute(itemService.markAsNotInterestedObserve(tokens.get(1)));
-                            } else if (tokens != null && !tokens.isEmpty() && tokens.get(0) != null) {
-                                RxHelper.execute(itemService.markAsNotInterestedObserve(tokens.get(0)));
-                            }
-                        }
-                );
+                itemService.getFeedbackTokensObserve(video.mediaItem.getFeedbackEndpoint())
+                        .subscribe(
+                                tokens -> {
+                                    if (tokens != null && tokens.size() > 1 && tokens.get(1) != null) {
+                                        RxHelper.execute(itemService.markAsNotInterestedObserve(tokens.get(1)));
+                                    } else if (tokens != null && !tokens.isEmpty() && tokens.get(0) != null) {
+                                        RxHelper.execute(itemService.markAsNotInterestedObserve(tokens.get(0)));
+                                    }
+                                },
+                                error -> {}
+                        );
             } else if (video.mediaItem.getFeedbackToken() != null) {
                 RxHelper.execute(itemService.markAsNotInterestedObserve(video.mediaItem.getFeedbackToken()));
             }
@@ -323,7 +325,6 @@ public final class PhoneQuickActions {
      */
     public static void openSettings(Context context, Runnable onChanged) {
         AppDialogPresenter dialog = AppDialogPresenter.instance(context);
-        dialog.clear();
 
         OptionItem notInterestedOpt = UiOptionItem.from(
                 context.getString(R.string.phone_quick_not_interested_setting),

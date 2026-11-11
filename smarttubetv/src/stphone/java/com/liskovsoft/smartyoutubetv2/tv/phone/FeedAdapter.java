@@ -450,7 +450,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public void removeVideo(Video video) {
         if (video != null) {
-            removeVideos(Collections.singletonList(video), null);
+            removeVideos(java.util.Collections.singletonList(video), null);
         }
     }
 
@@ -459,9 +459,9 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             return;
         }
         if (!TextUtils.isEmpty(video.getAuthor())) {
-            removeVideos(Collections.singletonList(video), video.getAuthor());
+            removeVideos(java.util.Collections.singletonList(video), video.getAuthor());
         } else {
-            removeVideos(Collections.singletonList(video), null);
+            removeVideos(java.util.Collections.singletonList(video), null);
         }
     }
 

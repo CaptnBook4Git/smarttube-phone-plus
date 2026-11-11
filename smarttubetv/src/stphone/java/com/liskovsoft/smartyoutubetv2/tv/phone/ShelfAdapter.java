@@ -34,6 +34,10 @@ class ShelfAdapter extends RecyclerView.Adapter<ShelfAdapter.Holder> {
     private final FeedAdapter.Listener mListener;
     private final SelectionProvider mSelection;
 
+    ShelfAdapter(List<Video> videos, int style, FeedAdapter.Listener listener, SelectionProvider selection) {
+        this(null, videos, style, listener, selection);
+    }
+
     ShelfAdapter(FeedAdapter parentAdapter, List<Video> videos, int style, FeedAdapter.Listener listener, SelectionProvider selection) {
         mParentAdapter = parentAdapter;
         mVideos = videos;
@@ -125,8 +129,16 @@ class ShelfAdapter extends RecyclerView.Adapter<ShelfAdapter.Holder> {
             meta.setVisibility(TextUtils.isEmpty(metaText) ? View.GONE : View.VISIBLE);
             PhoneUi.loadThumb(view.findViewById(R.id.phone_thumb), video, true);
             PhoneQuickActions.bind(view, video,
-                    () -> mParentAdapter.removeVideo(video),
-                    () -> mParentAdapter.removeAuthorOrVideo(video),
+                    () -> {
+                        if (mParentAdapter != null) {
+                            mParentAdapter.removeVideo(video);
+                        }
+                    },
+                    () -> {
+                        if (mParentAdapter != null) {
+                            mParentAdapter.removeAuthorOrVideo(video);
+                        }
+                    },
                     true);
         } else {
             PhoneUi.bindCard(view, video);
@@ -135,8 +147,16 @@ class ShelfAdapter extends RecyclerView.Adapter<ShelfAdapter.Holder> {
                 more.setOnClickListener(v -> mListener.onVideoLongClicked(video));
             }
             PhoneQuickActions.bind(view, video,
-                    () -> mParentAdapter.removeVideo(video),
-                    () -> mParentAdapter.removeAuthorOrVideo(video),
+                    () -> {
+                        if (mParentAdapter != null) {
+                            mParentAdapter.removeVideo(video);
+                        }
+                    },
+                    () -> {
+                        if (mParentAdapter != null) {
+                            mParentAdapter.removeAuthorOrVideo(video);
+                        }
+                    },
                     false);
         }
 
