@@ -42,7 +42,7 @@ import java.util.regex.Pattern;
  * Release tags are build-N and the app's version code is BASE_VERSION_CODE + N (see smarttubetv/build.gradle).
  */
 final class PhoneUpdater {
-    static final String REPO = "shreyas-bangera/smarttube-phone";
+    static final String REPO = "CaptnBook4Git/smarttube-phone";
     private static final String TAG = "PhoneUpdater";
     private static final String LATEST_URL = "https://api.github.com/repos/" + REPO + "/releases/latest";
     private static final String APK_NAME = "SmartTube-Phone-arm64.apk";
