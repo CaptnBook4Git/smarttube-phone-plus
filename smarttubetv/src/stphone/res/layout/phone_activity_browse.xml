@@ -35,13 +35,14 @@
         android:background="@color/phone_bg"
         android:orientation="vertical">
 
+        <!-- Sized like the YouTube app's header: logo and search at the same size and spot -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="60dp"
+            android:layout_height="49dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingStart="14dp"
-            android:paddingEnd="8dp">
+            android:paddingStart="15dp"
+            android:paddingEnd="0dp">
 
             <LinearLayout
                 android:id="@+id/phone_logo"
@@ -51,20 +52,19 @@
                 android:orientation="horizontal">
 
                 <ImageView
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
+                    android:layout_width="31dp"
+                    android:layout_height="31dp"
                     android:importantForAccessibility="no"
                     android:src="@drawable/ic_phone_brand" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
                     android:fontFamily="@font/oswald_semibold"
                     android:includeFontPadding="false"
                     android:text="@string/phone_brand_name"
                     android:textColor="@color/phone_text"
-                    android:textSize="26sp" />
+                    android:textSize="23sp" />
             </LinearLayout>
 
             <View
@@ -74,8 +74,8 @@
 
             <ImageView
                 android:id="@+id/phone_search"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:padding="11dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/phone_search_hint"
@@ -186,6 +186,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:paddingStart="10dp"
+                android:paddingTop="7dp"
                 android:paddingEnd="10dp"
                 android:paddingBottom="10dp" />
         </HorizontalScrollView>
