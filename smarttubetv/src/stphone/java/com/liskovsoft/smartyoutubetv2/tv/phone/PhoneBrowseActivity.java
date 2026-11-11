@@ -281,14 +281,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     private void setupTopBar() {
         findViewById(R.id.phone_search).setOnClickListener(v -> SearchPresenter.instance(this).startSearch(null));
-        // Notifications live behind the bell (like the YouTube app), not in the bottom bar
-        findViewById(R.id.phone_notifications).setOnClickListener(v -> {
-            if (mCurrentTab == TAB_NOTIFICATIONS) {
-                scrollToTopOrRefresh();
-            } else {
-                selectTab(TAB_NOTIFICATIONS);
-            }
-        });
         mTopAvatar = findViewById(R.id.phone_top_avatar);
         mTopAvatar.setOnClickListener(v -> selectTab(TAB_YOU));
         mSignInCard = getLayoutInflater().inflate(R.layout.phone_signin_card, mList, false);
@@ -357,8 +349,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             if (tab == null) {
                 continue;
             }
-            // Notifications open from the bell in the top bar
-            tab.setVisibility(i != TAB_NOTIFICATIONS && (i == TAB_YOU || hasTab(i)) ? View.VISIBLE : View.GONE);
+            // Notifications need an account: the tab shows when signed in
+            boolean visible = i == TAB_YOU || (hasTab(i) && (i != TAB_NOTIFICATIONS || isSignedIn()));
+            tab.setVisibility(visible ? View.VISIBLE : View.GONE);
             boolean selected = i == mCurrentTab;
             int color = getResources().getColor(selected ? R.color.phone_text : R.color.phone_icon_inactive);
             LinearLayout layout = (LinearLayout) tab;
@@ -368,12 +361,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             TextView label = (TextView) layout.getChildAt(1);
             label.setTextColor(color);
             label.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
-        }
-
-        View bell = findViewById(R.id.phone_notifications);
-        if (bell != null) {
-            bell.setVisibility(hasTab(TAB_NOTIFICATIONS) && isSignedIn() ? View.VISIBLE : View.GONE);
-            bell.setSelected(mCurrentTab == TAB_NOTIFICATIONS);
         }
     }
 

@@ -28,7 +28,7 @@
         android:layout_gravity="top"
         android:layout_marginStart="60dp"
         android:layout_marginTop="14dp"
-        android:layout_marginEnd="112dp"
+        android:layout_marginEnd="264dp"
         android:ellipsize="end"
         android:fontFamily="sans-serif-medium"
         android:maxLines="1"
@@ -67,6 +67,16 @@
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/phone_playback_mode"
             android:src="@drawable/ic_phone_mode_next" />
+
+        <ImageView
+            android:id="@+id/phone_ctl_speed"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/phone_speed"
+            android:src="@drawable/ic_phone_speed"
+            android:tint="#FFFFFF" />
 
         <ImageView
             android:id="@+id/phone_ctl_cc"

@@ -77,7 +77,7 @@ It installs as its own app (`org.smarttube.phone`), so it can sit next to the of
 ## Features
 
 **Feels like YouTube**
-- Bottom tabs: Home, Shorts, Subscriptions and You
+- Bottom tabs: Home, Shorts, Subscriptions, Notifications (when signed in) and You
 - Topic chips on Home (Kids, Sports, LIVE, Gaming, News and more)
 - Full-width video cards with channel pictures, and horizontal shelves
 - Videos open with a smooth expand-from-thumbnail animation
@@ -110,7 +110,7 @@ It installs as its own app (`org.smarttube.phone`), so it can sit next to the of
 - Works without Google Play services
 
 **Appearance**
-- Dark (default), Light, or Same as device
+- Dark (default, pure black for AMOLED screens), Light, or Same as device
 
 ## Requirements
 
@@ -199,7 +199,7 @@ The app retries a few times on its own. If it still shows "Can't reach YouTube r
 - Tap a chip at the top (Kids, Sports, LIVE, Gaming, News) to switch topics.
 - Tap a channel picture to open that channel.
 - Tap the three dots next to a video for more options, such as adding it to a playlist or opening its channel.
-- Top right: the bell (your YouTube notifications, when signed in) and the search button.
+- Top right: the search button. Your YouTube notifications are in the **Notifications** tab at the bottom (when signed in).
 
 ### Watching a video
 
@@ -207,7 +207,7 @@ The app retries a few times on its own. If it still shows "Can't reach YouTube r
   <img src="images/phone/02_player.jpg" width="240" alt="Player">
 </p>
 
-- **Tap the video** to show or hide the controls: play and pause, previous and next, captions (CC), settings (quality, speed and more) and full screen.
+- **Tap the video** to show or hide the controls: play and pause, previous and next, playback speed, captions (CC), settings (quality and more) and full screen.
 - **Seek** by dragging along the red progress bar at the bottom of the video.
 - **Double tap** the left or right side of the video to jump back or forward.
 - **Below the video**: the title, the channel with its Subscribe button, and the buttons Like, Dislike, Comments, Share and Save. Scroll the row sideways for more.
