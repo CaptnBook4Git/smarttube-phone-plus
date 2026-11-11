@@ -1,5 +1,5 @@
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
-index ad4bafa..2b87a92 100644
+index ad4bafa..fe4cd9f 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
 +++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
 @@ -14,6 +14,8 @@ import com.liskovsoft.youtubeapi.next.v2.gen.getItems
@@ -68,7 +68,7 @@ index ad4bafa..2b87a92 100644
      }
  
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
-index 1bfecfd..41cfa5e 100644
+index 1bfecfd..1380533 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
 +++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
 @@ -295,14 +295,18 @@ class YouTubeContentService implements ContentService {
@@ -76,14 +76,15 @@ index 1bfecfd..41cfa5e 100644
              //emitGroup(emitter, getBrowseService2().getShorts());
  
 -            MediaGroup shorts = getBrowseService2().getShorts();
-+            // Phone: the Shorts tab is the general Shorts feed (like the YouTube app), not only subscriptions
-+            MediaGroup shorts = getBrowseService2().getShortsFirst();
- 
+-
 -            if (shorts != null && shorts.getNextPageKey() != null) {
 -                emitGroup(emitter, shorts);
 -            } else {
 -                emitGroupPartial(emitter, shorts);
 -                emitGroup(emitter, getBrowseService2().getShorts2());
++            // Phone: the Shorts tab is the general Shorts feed (like the YouTube app), not only subscriptions
++            MediaGroup shorts = getBrowseService2().getShortsFirst();
++
 +            if (shorts == null || shorts.isEmpty() || shorts.getNextPageKey() == null) {
 +                shorts = getBrowseService2().getShorts2();
 +            }
@@ -96,3 +97,128 @@ index 1bfecfd..41cfa5e 100644
          });
      }
  
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeDownloadService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeDownloadService.java
+new file mode 100644
+index 0000000..fa503c1
+--- /dev/null
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeDownloadService.java
+@@ -0,0 +1,47 @@
++package com.liskovsoft.youtubeapi.service;
++
++import androidx.annotation.Nullable;
++
++import com.liskovsoft.mediaserviceinterfaces.data.MediaItemFormatInfo;
++import com.liskovsoft.sharedutils.rx.RxHelper;
++import com.liskovsoft.youtubeapi.service.data.YouTubeMediaItemFormatInfo;
++import com.liskovsoft.youtubeapi.videoinfo.V2.VideoInfoService;
++import com.liskovsoft.youtubeapi.videoinfo.models.VideoInfo;
++
++import io.reactivex.Observable;
++
++/**
++ * Phone downloads: the formats of a client whose separate video and audio files come with direct links (the player's
++ * TV client streams them with SABR only), plus the user agent those links expect. The player is not affected.
++ */
++public final class YouTubeDownloadService {
++    public static final class DownloadInfo {
++        public final MediaItemFormatInfo formatInfo;
++        public final String userAgent;
++
++        DownloadInfo(MediaItemFormatInfo formatInfo, String userAgent) {
++            this.formatInfo = formatInfo;
++            this.userAgent = userAgent;
++        }
++    }
++
++    private YouTubeDownloadService() {
++    }
++
++    /** Null when no download client gives file links for this video */
++    @Nullable
++    public static DownloadInfo getDownloadInfo(String videoId) {
++        VideoInfo videoInfo = VideoInfoService.instance().getDownloadVideoInfo(videoId);
++
++        if (videoInfo == null) {
++            return null;
++        }
++
++        return new DownloadInfo(YouTubeMediaItemFormatInfo.from(videoInfo), VideoInfoService.getDownloadUserAgent(videoInfo));
++    }
++
++    /** Errors (no file links) instead of emitting null */
++    public static Observable<DownloadInfo> getDownloadInfoObserve(String videoId) {
++        return RxHelper.fromCallable(() -> getDownloadInfo(videoId));
++    }
++}
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java
+index 29e7de1..5b57538 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java
+@@ -47,6 +47,14 @@ public class VideoInfoService extends VideoInfoServiceBase {
+             //AppClient.TV_SIMPLY, // hangs?
+             //AppClient.ANDROID_SDK_LESS, // doesn't require pot (hangs on Cronet!)
+     };
++    /**
++     * Phone downloads: clients whose answers carry direct file links for the separate video and audio files (the TV
++     * clients answer with SABR streaming only, which has no file to save).
++     */
++    private final static AppClient[] DOWNLOAD_CLIENT_LIST = {
++            AppClient.VISIONOS,
++            AppClient.ANDROID_VR,
++    };
+     @Nullable
+     private AppClient mActualClient = null;
+     @Nullable
+@@ -94,6 +102,52 @@ public class VideoInfoService extends VideoInfoServiceBase {
+         return result;
+     }
+ 
++    /**
++     * Phone downloads: the formats of the first download client whose separate video and audio files come with links,
++     * ready to fetch (signatures and n params applied). Never changes the client the player uses. Null when none has.
++     */
++    public VideoInfo getDownloadVideoInfo(String videoId) {
++        if (videoId == null) {
++            return null;
++        }
++
++        for (AppClient client : DOWNLOAD_CLIENT_LIST) {
++            try {
++                VideoInfo result = getVideoInfo(client, videoId, null);
++
++                if (result == null || result.isUnplayable() || result.getAdaptiveFormats() == null || result.getAdaptiveFormats().isEmpty()) {
++                    continue;
++                }
++
++                transformFormats(result);
++
++                if (hasAdaptiveUrls(result)) {
++                    return result;
++                }
++            } catch (Exception e) {
++                Log.e(TAG, "Download formats from %s failed: %s", client, e.getMessage());
++            }
++        }
++
++        return null;
++    }
++
++    /** The user agent the download client's file links expect */
++    public static String getDownloadUserAgent(VideoInfo videoInfo) {
++        AppClient client = videoInfo != null ? videoInfo.getClient() : null;
++        return client != null ? client.getUserAgent() : AppClient.VISIONOS.getUserAgent();
++    }
++
++    private static boolean hasAdaptiveUrls(VideoInfo videoInfo) {
++        for (com.liskovsoft.youtubeapi.videoinfo.models.formats.AdaptiveVideoFormat format : videoInfo.getAdaptiveFormats()) {
++            if (format != null && format.getUrl() != null) {
++                return true;
++            }
++        }
++
++        return false;
++    }
++
+     public VideoInfo getAuthVideoInfo(String videoId, String clickTrackingParams) {
+         if (videoId == null) {
+             return null;
