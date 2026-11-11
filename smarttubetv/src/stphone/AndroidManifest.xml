@@ -41,14 +41,17 @@
             android:screenOrientation="unspecified"
             android:theme="@style/PhoneSheetTheme" />
 
-        <!-- Player: same task as the rest of the app (one card in recents). Picture-in-picture moves it to its own window. -->
+        <!-- Player: same task as the rest of the app (one card in recents). Picture-in-picture moves it to its own window.
+             Not shown over the lock screen: locking the phone locks it, the video keeps playing in the background and
+             the lock screen shows its media controls. -->
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhonePlaybackActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleTask"
             android:resizeableActivity="true"
             android:screenOrientation="fullUser"
-            android:showWhenLocked="true"
+            android:showWhenLocked="false"
+            android:turnScreenOn="false"
             android:supportsPictureInPicture="true"
             android:theme="@style/App.Theme.Leanback.Player" />
         <activity

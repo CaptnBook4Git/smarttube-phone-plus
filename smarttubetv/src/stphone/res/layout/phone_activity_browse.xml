@@ -73,6 +73,17 @@
                 android:layout_weight="1" />
 
             <ImageView
+                android:id="@+id/phone_notifications"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:padding="12dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/phone_tab_notifications"
+                android:src="@drawable/ic_phone_bell"
+                android:tint="@color/phone_text"
+                android:visibility="gone" />
+
+            <ImageView
                 android:id="@+id/phone_search"
                 android:layout_width="52dp"
                 android:layout_height="52dp"
@@ -190,6 +201,16 @@
                 android:paddingBottom="10dp" />
         </HorizontalScrollView>
     </LinearLayout>
+
+    <!-- Covers the status bar area: the top bar slides up under it while scrolling, so the chips never show
+         behind the clock and icons -->
+    <View
+        android:id="@+id/phone_status_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_gravity="top"
+        android:background="@color/phone_bg"
+        android:importantForAccessibility="no" />
 
     <LinearLayout
         android:id="@+id/phone_bottom_bar"
