@@ -881,7 +881,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     private boolean routeTouch(MotionEvent event) {
 
-        if (event.getActionMasked() == MotionEvent.ACTION_DOWN || mRouteTouchToPlayer == null) {
+        // Mid drag the finger is often below the shrinking video already: the drag keeps the touch to its end
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN || (mRouteTouchToPlayer == null && !mShrinkDragging)) {
             Rect box = new Rect();
             mVideoBox.getGlobalVisibleRect(box);
             boolean onVideo = box.contains((int) event.getRawX(), (int) event.getRawY());
@@ -1050,6 +1051,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     private void copyFrame(FrameReady done) {
         View surface = mPlayer != null ? mPlayer.getSurfaceView() : null;
+        android.util.Log.d("PhoneMiniPlayer", "frame copy from " + (surface != null ? surface.getClass().getSimpleName()
+                + " " + surface.getWidth() + "x" + surface.getHeight() : "nothing"));
         try {
             if (surface instanceof android.view.TextureView) {
                 done.accept(((android.view.TextureView) surface).getBitmap());
@@ -1066,8 +1069,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 }, mHandler);
                 return;
             }
-        } catch (RuntimeException ignored) {
-            // no copy: the card is black until the video draws there
+        } catch (RuntimeException e) {
+            android.util.Log.d("PhoneMiniPlayer", "frame copy failed: " + e);
         }
         done.accept(null);
     }
