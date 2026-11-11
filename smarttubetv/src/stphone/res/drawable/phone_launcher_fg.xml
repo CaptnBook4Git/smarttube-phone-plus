@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- StreamTube mark on white, a slightly taller badge than the Home logo (like the reference icon) -->
+<!-- StreamTube mark on white, a fuller, softer badge than the Home logo (about 1.4 wide to 1 tall) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:scaleX="1.02"
-        android:scaleY="1.02"
-        android:translateX="29.52"
-        android:translateY="29.52">
+        android:scaleX="1.06"
+        android:scaleY="1.06"
+        android:translateX="28.56"
+        android:translateY="28.56">
         <path
             android:fillColor="#FFFF0033"
-            android:pathData="M11,9h26a9,9 0,0 1,9 9v12a9,9 0,0 1,-9 9h-26a9,9 0,0 1,-9 -9v-12a9,9 0,0 1,9 -9z" />
+            android:pathData="M12,8.5h24a10.5,10.5 0,0 1,10.5 10.5v10a10.5,10.5 0,0 1,-10.5 10.5h-24a10.5,10.5 0,0 1,-10.5 -10.5v-10a10.5,10.5 0,0 1,10.5 -10.5z" />
         <group
             android:pivotX="23.9"
             android:pivotY="20.25"
-            android:scaleX="1.12"
-            android:scaleY="1.12"
+            android:scaleX="1.08"
+            android:scaleY="1.08"
             android:translateX="0.2"
             android:translateY="3.75">
             <path
