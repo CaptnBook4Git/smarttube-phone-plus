@@ -146,9 +146,11 @@
     <string name="phone_list_name_hint">List name (e.g. Linux Docs)</string>
     <string name="phone_list_query_hint">Search query (e.g. linux tutorial)</string>
     <string name="phone_list_choose_filters">Configure search filters…</string>
-    <string name="phone_list_save_permanent">Save permanently</string>
-    <string name="phone_list_apply_temp">Apply temporarily only</string>
-    <string name="phone_list_delete">Delete list</string>
+    <string name="phone_list_save_permanent">Dauerhaft speichern</string>
+    <string name="phone_list_apply_temp">Nur temporär anwenden</string>
+    <string name="phone_list_delete">Liste löschen</string>
+    <string name="phone_list_name_label">Listenname</string>
+    <string name="phone_list_query_label">Suchbegriff</string>
     <string name="phone_list_saved_toast">List saved to Home screen</string>
     <string name="phone_list_updated_toast">List updated permanently</string>
     <string name="phone_list_temp_toast">Applied temporarily</string>

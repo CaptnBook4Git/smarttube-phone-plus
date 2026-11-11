@@ -444,7 +444,7 @@ public final class PhoneSearchFilters {
     }
 
     /**
-     * Dialog to create or edit an "Eigene Liste" (name, search query, search filters, save permanently or apply temporarily).
+     * Dialog to create or edit an "Eigene Liste" as a native SmartTube bottom sheet in the same design as all dialogs.
      */
     public static void showSaveOrEditListDialog(
             Context context,
@@ -452,74 +452,33 @@ public final class PhoneSearchFilters {
             String initialQuery,
             int initialOptions,
             ListDialogCallback callback) {
-        int dp16 = dp(context, 16);
-        int dp12 = dp(context, 12);
-        int dp8 = dp(context, 8);
-
         final int[] workingOptions = {existing != null && initialOptions == existing.options ? existing.options : initialOptions};
 
-        LinearLayout root = new LinearLayout(context);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp16, dp16, dp16, dp8);
-        root.setBackgroundColor(context.getResources().getColor(R.color.phone_surface));
+        android.app.Dialog dialog = new android.app.Dialog(context, R.style.PhoneSheetTheme);
+        android.view.View sheet = android.view.LayoutInflater.from(context).inflate(R.layout.phone_sheet_saved_list, null);
+        dialog.setContentView(sheet);
 
-        TextView titleView = new TextView(context);
+        TextView titleView = sheet.findViewById(R.id.phone_sheet_title);
         titleView.setText(existing != null ? R.string.phone_list_dialog_edit_title : R.string.phone_list_dialog_new_title);
-        titleView.setTextColor(context.getResources().getColor(R.color.phone_text));
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        root.addView(titleView, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        EditText nameInput = new EditText(context);
-        nameInput.setHint(R.string.phone_list_name_hint);
+        EditText nameInput = sheet.findViewById(R.id.phone_list_name_input);
         nameInput.setText(existing != null ? existing.name : (initialQuery != null ? initialQuery : ""));
-        nameInput.setSingleLine(true);
-        nameInput.setTextColor(context.getResources().getColor(R.color.phone_text));
-        nameInput.setHintTextColor(context.getResources().getColor(R.color.phone_text_2));
-        nameInput.setBackgroundResource(R.drawable.phone_field_bg);
-        nameInput.setPadding(dp12, dp12, dp12, dp12);
-        LinearLayout.LayoutParams nameLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        nameLp.topMargin = dp12;
-        root.addView(nameInput, nameLp);
 
-        EditText queryInput = new EditText(context);
-        queryInput.setHint(R.string.phone_list_query_hint);
+        EditText queryInput = sheet.findViewById(R.id.phone_list_query_input);
         queryInput.setText(initialQuery != null && !initialQuery.isEmpty() ? initialQuery : (existing != null ? existing.query : ""));
-        queryInput.setSingleLine(true);
-        queryInput.setTextColor(context.getResources().getColor(R.color.phone_text));
-        queryInput.setHintTextColor(context.getResources().getColor(R.color.phone_text_2));
-        queryInput.setBackgroundResource(R.drawable.phone_field_bg);
-        queryInput.setPadding(dp12, dp12, dp12, dp12);
-        LinearLayout.LayoutParams queryLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        queryLp.topMargin = dp8;
-        root.addView(queryInput, queryLp);
 
-        TextView filterBtn = new TextView(context);
-        filterBtn.setTextColor(context.getResources().getColor(R.color.phone_text));
-        filterBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        filterBtn.setBackgroundResource(R.drawable.phone_pill_bg);
-        filterBtn.setPadding(dp12, dp12, dp12, dp12);
-        filterBtn.setGravity(Gravity.CENTER_VERTICAL);
-        Runnable updateFilterLabel = () -> {
-            String summary = formatSummary(context, workingOptions[0]);
-            filterBtn.setText(context.getString(R.string.phone_list_choose_filters) + "\n" + summary);
-        };
+        TextView filterSummary = sheet.findViewById(R.id.phone_list_filter_summary);
+        Runnable updateFilterLabel = () -> filterSummary.setText(formatSummary(context, workingOptions[0]));
         updateFilterLabel.run();
-        filterBtn.setOnClickListener(v -> showFilterDialog(context, workingOptions[0], newOpts -> {
+
+        android.view.View filterRow = sheet.findViewById(R.id.phone_list_filter_btn_row);
+        filterRow.setOnClickListener(v -> showFilterDialog(context, workingOptions[0], newOpts -> {
             workingOptions[0] = newOpts;
             updateFilterLabel.run();
         }));
-        LinearLayout.LayoutParams filterLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        filterLp.topMargin = dp12;
-        root.addView(filterBtn, filterLp);
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert);
-        builder.setView(root);
-        builder.setPositiveButton(R.string.phone_list_save_permanent, (d, which) -> {
+        TextView saveBtn = sheet.findViewById(R.id.phone_list_btn_save);
+        saveBtn.setOnClickListener(v -> {
             String q = queryInput.getText().toString().trim();
             if (q.isEmpty()) {
                 com.liskovsoft.sharedutils.helpers.MessageHelpers.showMessage(context, R.string.phone_list_empty_query);
@@ -531,35 +490,43 @@ public final class PhoneSearchFilters {
                     context,
                     existing != null ? R.string.phone_list_updated_toast : R.string.phone_list_saved_toast
             );
+            dialog.dismiss();
             if (callback != null) {
                 callback.onSavedPermanently(saved);
             }
         });
-        builder.setNeutralButton(R.string.phone_list_apply_temp, (d, which) -> {
+
+        TextView tempBtn = sheet.findViewById(R.id.phone_list_btn_temp);
+        tempBtn.setOnClickListener(v -> {
             String q = queryInput.getText().toString().trim();
             if (q.isEmpty()) {
                 com.liskovsoft.sharedutils.helpers.MessageHelpers.showMessage(context, R.string.phone_list_empty_query);
                 return;
             }
             com.liskovsoft.sharedutils.helpers.MessageHelpers.showMessage(context, R.string.phone_list_temp_toast);
+            dialog.dismiss();
             if (callback != null) {
                 callback.onAppliedTemporarily(q, workingOptions[0]);
             }
         });
+
+        TextView deleteBtn = sheet.findViewById(R.id.phone_list_btn_delete);
         if (existing != null) {
-            builder.setNegativeButton(R.string.phone_list_delete, (d, which) -> {
+            deleteBtn.setVisibility(android.view.View.VISIBLE);
+            deleteBtn.setOnClickListener(v -> {
                 deleteList(context, existing.id);
                 com.liskovsoft.sharedutils.helpers.MessageHelpers.showMessage(context, R.string.phone_list_deleted_toast);
+                dialog.dismiss();
                 if (callback != null) {
                     callback.onDeleted(existing);
                 }
             });
         } else {
-            builder.setNegativeButton(android.R.string.cancel, null);
+            deleteBtn.setVisibility(android.view.View.GONE);
         }
 
-        AlertDialog alert = builder.create();
-        alert.show();
+        sheet.findViewById(R.id.phone_dialog_root).setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
     }
 
     public static TextView createPillChip(Context context, String text, boolean highlighted, boolean accent) {
@@ -568,20 +535,32 @@ public final class PhoneSearchFilters {
         chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         chip.setSingleLine(true);
         chip.setGravity(Gravity.CENTER);
-        int hPad = dp(context, 12);
+        int hPad = dp(context, 14);
         chip.setPadding(hPad, 0, hPad, 0);
         chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         if (accent) {
-            GradientDrawable bg = new GradientDrawable();
-            bg.setCornerRadius(dp(context, 18));
-            bg.setColor(context.getResources().getColor(R.color.phone_accent));
-            chip.setBackground(bg);
-            chip.setTextColor(Color.WHITE);
+            chip.setBackgroundResource(R.drawable.phone_pill_bg);
+            chip.setTextColor(context.getResources().getColor(R.color.phone_link));
         } else {
             chip.setBackgroundResource(R.drawable.phone_chip_bg);
             chip.setSelected(highlighted);
             chip.setTextColor(context.getResources().getColor(highlighted ? R.color.phone_bg : R.color.phone_text));
         }
+        return chip;
+    }
+
+    public static TextView createCustomListChip(Context context, String text, boolean selected) {
+        TextView chip = new TextView(context);
+        chip.setText(text);
+        chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        chip.setSingleLine(true);
+        chip.setGravity(Gravity.CENTER);
+        int hPad = dp(context, 14);
+        chip.setPadding(hPad, 0, hPad, 0);
+        chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        chip.setBackgroundResource(R.drawable.phone_custom_chip_bg);
+        chip.setSelected(selected);
+        chip.setTextColor(context.getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
         return chip;
     }
 

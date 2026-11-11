@@ -65,6 +65,8 @@
     <string name="phone_list_save_permanent">Dauerhaft speichern</string>
     <string name="phone_list_apply_temp">Nur temporär anwenden</string>
     <string name="phone_list_delete">Liste löschen</string>
+    <string name="phone_list_name_label">Listenname</string>
+    <string name="phone_list_query_label">Suchbegriff</string>
     <string name="phone_list_saved_toast">Eigene Liste auf der Startseite gespeichert</string>
     <string name="phone_list_updated_toast">Eigene Liste dauerhaft aktualisiert</string>
     <string name="phone_list_temp_toast">Nur temporär angewendet</string>

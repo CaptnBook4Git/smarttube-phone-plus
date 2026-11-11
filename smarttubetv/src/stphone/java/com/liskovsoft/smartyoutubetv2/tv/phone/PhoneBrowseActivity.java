@@ -477,59 +477,56 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
         mChipsScroll.setVisibility(View.VISIBLE);
 
-        for (BrowseSection section : sections) {
-            TextView chip = new TextView(this);
-            chip.setText(section.getTitle());
-            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-            chip.setGravity(Gravity.CENTER);
-            chip.setPadding(dp(14), 0, dp(14), 0);
-            chip.setBackgroundResource(R.drawable.phone_chip_bg);
-            boolean selected = mActiveSavedList == null
-                    && mCurrentSection != null
-                    && mCurrentSection.getId() == section.getId();
-            chip.setSelected(selected);
-            chip.setTextColor(getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
-            chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-            chip.setOnClickListener(v -> {
-                if (mActiveSavedList != null) {
-                    showSavedSearchList(null);
-                    if (mCurrentSection == null || mCurrentSection.getId() != section.getId()) {
-                        focusSection(section);
-                    }
-                } else if (mCurrentSection == null || mCurrentSection.getId() != section.getId()) {
-                    focusSection(section);
-                } else {
-                    scrollToTopOrRefresh();
-                }
-            });
-            chip.setOnLongClickListener(v -> {
-                mPresenter.onSectionLongPressed(section.getId());
-                return true;
-            });
-
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
-            params.setMarginStart(dp(4));
-            params.setMarginEnd(dp(4));
-            mChips.addView(chip, params);
-
-            if (selected) {
-                chip.post(() -> mChipsScroll.smoothScrollTo(Math.max(0, chip.getLeft() - dp(16)), 0));
-            }
-        }
-
         if (mCurrentTab == TAB_HOME) {
-            List<PhoneSearchFilters.SavedSearchList> savedLists = PhoneSearchFilters.getSavedLists(this);
-            for (PhoneSearchFilters.SavedSearchList saved : savedLists) {
+            // First: Home section chip ("Start" / "Alle")
+            BrowseSection homeSection = sectionById(MediaGroup.TYPE_HOME);
+            if (homeSection == null && !sections.isEmpty()) {
+                homeSection = sections.get(0);
+            }
+            if (homeSection != null) {
+                BrowseSection finalHomeSection = homeSection;
                 TextView chip = new TextView(this);
-                chip.setText(saved.displayTitle());
+                chip.setText(homeSection.getTitle());
                 chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
                 chip.setGravity(Gravity.CENTER);
                 chip.setPadding(dp(14), 0, dp(14), 0);
                 chip.setBackgroundResource(R.drawable.phone_chip_bg);
-                boolean selected = mActiveSavedList != null && saved.id.equals(mActiveSavedList.id);
+                boolean selected = mActiveSavedList == null
+                        && mCurrentSection != null
+                        && mCurrentSection.getId() == homeSection.getId();
                 chip.setSelected(selected);
                 chip.setTextColor(getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
                 chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                chip.setOnClickListener(v -> {
+                    if (mActiveSavedList != null) {
+                        showSavedSearchList(null);
+                        focusSection(finalHomeSection);
+                    } else if (mCurrentSection == null || mCurrentSection.getId() != finalHomeSection.getId()) {
+                        focusSection(finalHomeSection);
+                    } else {
+                        scrollToTopOrRefresh();
+                    }
+                });
+                chip.setOnLongClickListener(v -> {
+                    mPresenter.onSectionLongPressed(finalHomeSection.getId());
+                    return true;
+                });
+
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
+                params.setMarginStart(dp(4));
+                params.setMarginEnd(dp(4));
+                mChips.addView(chip, params);
+
+                if (selected) {
+                    chip.post(() -> mChipsScroll.smoothScrollTo(Math.max(0, chip.getLeft() - dp(16)), 0));
+                }
+            }
+
+            // Immediately after Start: custom saved search lists with subtle highlight
+            List<PhoneSearchFilters.SavedSearchList> savedLists = PhoneSearchFilters.getSavedLists(this);
+            for (PhoneSearchFilters.SavedSearchList saved : savedLists) {
+                boolean selected = mActiveSavedList != null && saved.id.equals(mActiveSavedList.id);
+                TextView chip = PhoneSearchFilters.createCustomListChip(this, saved.displayTitle(), selected);
                 chip.setOnClickListener(v -> {
                     if (!selected) {
                         showSavedSearchList(saved);
@@ -552,19 +549,96 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 }
             }
 
+            // + Eigene Liste button
             TextView addChip = new TextView(this);
             addChip.setText(R.string.phone_list_add_btn);
             addChip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
             addChip.setGravity(Gravity.CENTER);
             addChip.setPadding(dp(14), 0, dp(14), 0);
             addChip.setBackgroundResource(R.drawable.phone_pill_bg);
-            addChip.setTextColor(getResources().getColor(R.color.phone_text_2));
+            addChip.setTextColor(getResources().getColor(R.color.phone_link));
             addChip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             addChip.setOnClickListener(v -> openEditSavedListDialog(null));
             LinearLayout.LayoutParams addParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
             addParams.setMarginStart(dp(4));
             addParams.setMarginEnd(dp(4));
             mChips.addView(addChip, addParams);
+
+            // Other Home categories (Gaming, News, etc.) after the custom lists
+            for (BrowseSection section : sections) {
+                if (homeSection != null && section.getId() == homeSection.getId()) {
+                    continue;
+                }
+                TextView chip = new TextView(this);
+                chip.setText(section.getTitle());
+                chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+                chip.setGravity(Gravity.CENTER);
+                chip.setPadding(dp(14), 0, dp(14), 0);
+                chip.setBackgroundResource(R.drawable.phone_chip_bg);
+                boolean selected = mActiveSavedList == null
+                        && mCurrentSection != null
+                        && mCurrentSection.getId() == section.getId();
+                chip.setSelected(selected);
+                chip.setTextColor(getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
+                chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                chip.setOnClickListener(v -> {
+                    if (mActiveSavedList != null) {
+                        showSavedSearchList(null);
+                        focusSection(section);
+                    } else if (mCurrentSection == null || mCurrentSection.getId() != section.getId()) {
+                        focusSection(section);
+                    } else {
+                        scrollToTopOrRefresh();
+                    }
+                });
+                chip.setOnLongClickListener(v -> {
+                    mPresenter.onSectionLongPressed(section.getId());
+                    return true;
+                });
+
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
+                params.setMarginStart(dp(4));
+                params.setMarginEnd(dp(4));
+                mChips.addView(chip, params);
+
+                if (selected) {
+                    chip.post(() -> mChipsScroll.smoothScrollTo(Math.max(0, chip.getLeft() - dp(16)), 0));
+                }
+            }
+        } else {
+            // Other tabs (You, etc.)
+            for (BrowseSection section : sections) {
+                TextView chip = new TextView(this);
+                chip.setText(section.getTitle());
+                chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+                chip.setGravity(Gravity.CENTER);
+                chip.setPadding(dp(14), 0, dp(14), 0);
+                chip.setBackgroundResource(R.drawable.phone_chip_bg);
+                boolean selected = mCurrentSection != null && mCurrentSection.getId() == section.getId();
+                chip.setSelected(selected);
+                chip.setTextColor(getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
+                chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                chip.setOnClickListener(v -> {
+                    if (mCurrentSection == null || mCurrentSection.getId() != section.getId()) {
+                        focusSection(section);
+                    } else {
+                        scrollToTopOrRefresh();
+                    }
+                });
+                chip.setOnLongClickListener(v -> {
+                    mPresenter.onSectionLongPressed(section.getId());
+                    return true;
+                });
+
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
+                params.setMarginStart(dp(4));
+                params.setMarginEnd(dp(4));
+                mChips.addView(chip, params);
+
+                if (selected) {
+                    chip.post(() -> mChipsScroll.smoothScrollTo(Math.max(0, chip.getLeft() - dp(16)), 0));
+                }
+            }
         }
 
         updateSavedListFilterBar();
@@ -950,8 +1024,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mListFilterRow.removeAllViews();
 
         List<PhoneSearchFilters.ActiveChip> active = PhoneSearchFilters.getActiveChips(this, mActiveSavedListOptions);
-        int dp6 = dp(6);
-        int dp32 = dp(32);
+        int dp8 = dp(8);
+        int dp36 = dp(36);
 
         String filterLabel = active.isEmpty()
                 ? getString(R.string.phone_search_filter_btn)
@@ -963,8 +1037,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             loadActiveSavedSearchList();
         }));
         LinearLayout.LayoutParams filterLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, dp32);
-        filterLp.setMarginEnd(dp6);
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp36);
+        filterLp.setMarginEnd(dp8);
         mListFilterRow.addView(filterChip, filterLp);
 
         for (PhoneSearchFilters.ActiveChip item : active) {
@@ -975,8 +1049,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 loadActiveSavedSearchList();
             });
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, dp32);
-            lp.setMarginEnd(dp6);
+                    LinearLayout.LayoutParams.WRAP_CONTENT, dp36);
+            lp.setMarginEnd(dp8);
             mListFilterRow.addView(chip, lp);
         }
 
@@ -993,8 +1067,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 updateChips();
             });
             LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, dp32);
-            saveLp.setMarginEnd(dp6);
+                    LinearLayout.LayoutParams.WRAP_CONTENT, dp36);
+            saveLp.setMarginEnd(dp8);
             mListFilterRow.addView(savePermChip, saveLp);
 
             TextView resetChip = PhoneSearchFilters.createPillChip(
@@ -1006,8 +1080,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 loadActiveSavedSearchList();
             });
             LinearLayout.LayoutParams resetLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, dp32);
-            resetLp.setMarginEnd(dp6);
+                    LinearLayout.LayoutParams.WRAP_CONTENT, dp36);
+            resetLp.setMarginEnd(dp8);
             mListFilterRow.addView(resetChip, resetLp);
         }
 
@@ -1015,7 +1089,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 this, getString(R.string.phone_list_edit_btn), false, false);
         editChip.setOnClickListener(v -> openEditSavedListDialog(mActiveSavedList));
         LinearLayout.LayoutParams editLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, dp32);
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp36);
         mListFilterRow.addView(editChip, editLp);
     }
 

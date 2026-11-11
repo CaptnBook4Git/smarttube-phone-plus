@@ -211,8 +211,8 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
         mFilterRow.removeAllViews();
         int options = mPresenter.getSearchOptions();
         List<PhoneSearchFilters.ActiveChip> active = PhoneSearchFilters.getActiveChips(this, options);
-        int dp6 = (int) (getResources().getDisplayMetrics().density * 6);
-        int dp32 = (int) (getResources().getDisplayMetrics().density * 32);
+        int dp8 = (int) (getResources().getDisplayMetrics().density * 8);
+        int dp36 = (int) (getResources().getDisplayMetrics().density * 36);
 
         String filterLabel = active.isEmpty()
                 ? getString(R.string.phone_search_filter_btn)
@@ -220,8 +220,8 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
         TextView filterChip = PhoneSearchFilters.createPillChip(this, filterLabel, !active.isEmpty(), false);
         filterChip.setOnClickListener(v -> openFilterDialog());
         LinearLayout.LayoutParams filterLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, dp32);
-        filterLp.setMarginEnd(dp6);
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp36);
+        filterLp.setMarginEnd(dp8);
         mFilterRow.addView(filterChip, filterLp);
 
         for (PhoneSearchFilters.ActiveChip item : active) {
@@ -236,15 +236,15 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
                 }
             });
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, dp32);
-            lp.setMarginEnd(dp6);
+                    ViewGroup.LayoutParams.WRAP_CONTENT, dp36);
+            lp.setMarginEnd(dp8);
             mFilterRow.addView(chip, lp);
         }
 
         TextView saveChip = PhoneSearchFilters.createPillChip(this, "+ " + getString(R.string.phone_list_save_btn), false, true);
         saveChip.setOnClickListener(v -> openSaveListDialog());
         LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, dp32);
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp36);
         mFilterRow.addView(saveChip, saveLp);
     }
 
