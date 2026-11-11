@@ -389,8 +389,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             if (tab == null) {
                 continue;
             }
-            // Notifications need an account: the tab shows when signed in
-            boolean visible = i == TAB_YOU || (hasTab(i) && (i != TAB_NOTIFICATIONS || isSignedIn()));
+            // No Notifications tab for now (YouTube doesn't give SmartTube the notification inbox)
+            boolean visible = i == TAB_YOU || (hasTab(i) && i != TAB_NOTIFICATIONS);
             tab.setVisibility(visible ? View.VISIBLE : View.GONE);
             boolean selected = i == mCurrentTab;
             int color = getResources().getColor(selected ? R.color.phone_text : R.color.phone_icon_inactive);

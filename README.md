@@ -77,7 +77,7 @@ It installs as its own app (`org.smarttube.phone`), so it can sit next to the of
 ## Features
 
 **Feels like YouTube**
-- Bottom tabs: Home, Shorts, Subscriptions, Notifications (when signed in) and You
+- Bottom tabs: Home, Shorts, Subscriptions and You
 - Topic chips on Home (Kids, Sports, LIVE, Gaming, News and more)
 - Full-width video cards with channel pictures, and horizontal shelves
 - Videos open with a smooth expand-from-thumbnail animation
@@ -199,7 +199,7 @@ The app retries a few times on its own. If it still shows "Can't reach YouTube r
 - Tap a chip at the top (Kids, Sports, LIVE, Gaming, News) to switch topics.
 - Tap a channel picture to open that channel.
 - Tap the three dots next to a video for more options, such as adding it to a playlist or opening its channel.
-- Top right: the search button. Your YouTube notifications are in the **Notifications** tab at the bottom (when signed in). YouTube no longer gives SmartTube its notification inbox, so the tab shows the latest uploads from your subscriptions.
+- Top right: the search button.
 
 ### Watching a video
 
