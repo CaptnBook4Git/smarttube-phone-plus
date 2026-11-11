@@ -96,6 +96,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private Video mLastScrollEndVideo;
     private ImageView mPoster;
     private ImageView mIncomingPoster; // the next Short's picture while swiping
+    private android.widget.ProgressBar mLoading;
     private boolean mAwaitingNewVideo;
     private String mExpectedVideoId; // the Short a swipe is opening
     private Video mSwipedTo; // the Short a swipe opened, until SmartTube's presenter reports it too
@@ -166,6 +167,14 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mIncomingPoster.setVisibility(View.GONE);
         mVideoBox.addView(mIncomingPoster, 2, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // Spinning circle over the thumbnail while the video loads, and while it buffers
+        mLoading = new android.widget.ProgressBar(this);
+        mLoading.setIndeterminate(true);
+        mLoading.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
+        mLoading.setVisibility(View.GONE);
+        mLoading.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        int spinner = dp(44);
+        mVideoBox.addView(mLoading, 3, new FrameLayout.LayoutParams(spinner, spinner, Gravity.CENTER));
         showPoster(presenter().getVideo());
 
         setupNotification();
@@ -926,6 +935,34 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mPosterSince = android.os.SystemClock.uptimeMillis();
         mPosterUntilFrame = false; // a new video: its thumbnail until it plays
         PhoneUi.loadThumb(mPoster, video, isShort(video));
+        updateLoading();
+    }
+
+    /**
+     * The spinner shows while the video should play but can't yet: its thumbnail still covers it (loading) or it ran out
+     * of data (buffering). Not over the controls (their play button sits in the middle), nor in the floating window.
+     */
+    private void updateLoading() {
+        if (mLoading == null) {
+            return;
+        }
+        com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+        boolean wantsToPlay = exo == null || exo.getPlayWhenReady();
+        boolean buffering = exo != null && exo.getPlaybackState() == com.google.android.exoplayer2.Player.STATE_BUFFERING;
+        boolean covered = mPoster != null && mPoster.getVisibility() == View.VISIBLE;
+        boolean show = wantsToPlay && (covered || buffering) && !isPip() && !mMinimizing && !mMinimized
+                && (mControls == null || mControls.getVisibility() != View.VISIBLE);
+        if (show == (mLoading.getVisibility() == View.VISIBLE)) {
+            return;
+        }
+        mLoading.animate().cancel();
+        if (show) {
+            mLoading.setAlpha(0f);
+            mLoading.setVisibility(View.VISIBLE);
+            mLoading.animate().alpha(1f).setDuration(150).start();
+        } else {
+            mLoading.setVisibility(View.GONE);
+        }
     }
 
     private void showHint(int textResId) {
@@ -1162,7 +1199,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             return;
         }
         mPosterUntilFrame = false;
-        mPoster.animate().alpha(0f).setDuration(120).withEndAction(() -> mPoster.setVisibility(View.GONE)).start();
+        mPoster.animate().alpha(0f).setDuration(120).withEndAction(() -> {
+                mPoster.setVisibility(View.GONE);
+                updateLoading();
+            }).start();
     }
 
     // endregion
@@ -1423,6 +1463,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         } else {
             mHandler.removeCallbacks(mAutoHide);
         }
+        updateLoading();
     }
 
     private void scheduleAutoHide() {
@@ -1450,10 +1491,14 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         int progress = duration > 0 ? (int) Math.max(0, Math.min(1000, position * 1000 / duration)) : 0;
 
         mMiniProgress.setProgress(progress);
+        updateLoading();
 
         if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mPosterUntilFrame && !mAwaitingNewVideo && !mPaging && !mPageAnimating && position > 350
                 && mPlayer.getPlayWhenReady() && (!mShortsMode || newShortIsPlaying(position))) {
-            mPoster.animate().alpha(0f).setDuration(220).withEndAction(() -> mPoster.setVisibility(View.GONE)).start();
+            mPoster.animate().alpha(0f).setDuration(220).withEndAction(() -> {
+                mPoster.setVisibility(View.GONE);
+                updateLoading();
+            }).start();
         }
 
         if (mControls.getVisibility() == View.VISIBLE && !mIsSeeking) {
