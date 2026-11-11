@@ -44,17 +44,70 @@
                 android:tint="@color/phone_text"
                 android:visibility="gone" />
 
-            <TextView
-                android:id="@+id/phone_sheet_title"
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:layout_weight="1"
-                android:ellipsize="end"
-                android:fontFamily="sans-serif-medium"
-                android:maxLines="2"
-                android:textColor="@color/phone_text"
-                android:textSize="18sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/phone_sheet_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="2"
+                    android:textColor="@color/phone_text"
+                    android:textSize="18sp" />
+
+                <!-- Comments: the total next to the title -->
+                <TextView
+                    android:id="@+id/phone_sheet_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:maxLines="1"
+                    android:textColor="@color/phone_text_2"
+                    android:textSize="16sp"
+                    android:visibility="gone" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+            <!-- Comments: Top / Newest -->
+            <LinearLayout
+                android:id="@+id/phone_sheet_sort"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="10dp"
+                android:paddingEnd="6dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/phone_sheet_sort_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/phone_text_2"
+                    android:textSize="15sp" />
+
+                <ImageView
+                    android:id="@+id/phone_sheet_sort_chevron"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="4dp"
+                    android:importantForAccessibility="no"
+                    android:rotation="90"
+                    android:src="@drawable/ic_phone_chevron"
+                    android:tint="@color/phone_text_2" />
+            </LinearLayout>
         </LinearLayout>
 
         <View
@@ -75,5 +128,66 @@
                 android:paddingTop="4dp"
                 android:scrollbars="none" />
         </com.liskovsoft.smartyoutubetv2.tv.phone.widget.MaxHeightFrameLayout>
+
+        <!-- Comments: write a comment or a reply (the sheet rises with the keyboard) -->
+        <LinearLayout
+            android:id="@+id/phone_sheet_composer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0.5dp"
+                android:background="@color/phone_divider" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="6dp"
+                android:paddingBottom="8dp">
+
+                <ImageView
+                    android:id="@+id/phone_sheet_composer_avatar"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:importantForAccessibility="no" />
+
+                <EditText
+                    android:id="@+id/phone_sheet_composer_input"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/phone_field_bg"
+                    android:gravity="center_vertical"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:maxLength="10000"
+                    android:maxLines="5"
+                    android:minHeight="42dp"
+                    android:paddingStart="16dp"
+                    android:paddingTop="9dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="9dp"
+                    android:textColor="@color/phone_text"
+                    android:textColorHint="@color/phone_text_2"
+                    android:textSize="15sp" />
+
+                <ImageView
+                    android:id="@+id/phone_sheet_composer_send"
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/phone_comment_send"
+                    android:padding="11dp"
+                    android:src="@drawable/ic_phone_send"
+                    android:tint="@color/phone_text" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
 </FrameLayout>

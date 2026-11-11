@@ -16,37 +16,27 @@ import android.widget.TextView;
 import com.liskovsoft.smartyoutubetv2.tv.R;
 
 /**
- * One-time card on Home for people who had the app before it was renamed: "Meet StreamTube". Shown until they tap
- * Got it; new installs never see it.
+ * "Meet StreamTube" card on Home: shown once per app start until the user taps Don't show again. Got it hides it
+ * until the next start.
  */
 final class PhoneRebrandBanner {
     private static final String PREFS = "phone_defaults";
-    private static final String KEY_PENDING = "rebrand_streamtube_pending";
-    private static final String KEY_DONE = "rebrand_streamtube_done";
-    /** Set by builds before the rename on their first start: tells an update from a new install */
-    private static final String KEY_EXISTING_INSTALL = "background_playback_v1";
+    private static final String KEY_NEVER = "rebrand_streamtube_never"; // Don't show again
+    /** Shown (or dismissed with Got it) in this run of the app */
+    private static boolean sDoneThisRun;
 
     private static java.lang.ref.WeakReference<View> sCard;
 
     private PhoneRebrandBanner() {
     }
 
-    /** Application start, before the phone defaults are written: remember whether this is an update from SmartTube */
+    /** Application start (kept for the call site; nothing to remember any more) */
     static void init(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        if (prefs.getBoolean(KEY_DONE, false) || prefs.getBoolean(KEY_PENDING, false)) {
-            return;
-        }
-        if (prefs.getBoolean(KEY_EXISTING_INSTALL, false)) {
-            prefs.edit().putBoolean(KEY_PENDING, true).apply();
-        } else {
-            prefs.edit().putBoolean(KEY_DONE, true).apply(); // new install: it was always StreamTube
-        }
     }
 
     static boolean isPending(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        return prefs.getBoolean(KEY_PENDING, false) && !prefs.getBoolean(KEY_DONE, false);
+        return !sDoneThisRun && !prefs.getBoolean(KEY_NEVER, false);
     }
 
     static boolean isShowing() {
@@ -122,10 +112,27 @@ final class PhoneRebrandBanner {
         button.setTextColor(0xFFFFFFFF);
         button.setGravity(Gravity.CENTER);
         button.setBackgroundResource(R.drawable.phone_primary_button_bg);
-        LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, (int) (44 * density));
-        buttonParams.topMargin = (int) (16 * density);
-        card.addView(button, buttonParams);
+        TextView never = new TextView(activity);
+        never.setText(R.string.phone_rebrand_never);
+        never.setTextSize(15);
+        never.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        never.setTextColor(activity.getResources().getColor(R.color.phone_text));
+        never.setGravity(Gravity.CENTER);
+        never.setBackgroundResource(R.drawable.phone_pill_bg);
+
+        // Don't show again | Got it
+        LinearLayout buttons = new LinearLayout(activity);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams neverParams = new LinearLayout.LayoutParams(0, (int) (44 * density), 1f);
+        neverParams.rightMargin = (int) (6 * density);
+        buttons.addView(never, neverParams);
+        LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(0, (int) (44 * density), 1f);
+        buttonParams.leftMargin = (int) (6 * density);
+        buttons.addView(button, buttonParams);
+        LinearLayout.LayoutParams buttonsParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        buttonsParams.topMargin = (int) (16 * density);
+        card.addView(buttons, buttonsParams);
 
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
@@ -136,17 +143,19 @@ final class PhoneRebrandBanner {
         params.bottomMargin = (bottomBar != null ? bottomBar.getHeight() : 0) + side;
         content.addView(card, params);
         sCard = new java.lang.ref.WeakReference<>(card);
+        sDoneThisRun = true; // once per run of the app
 
-        button.setOnClickListener(v -> {
-            activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                    .putBoolean(KEY_DONE, true).putBoolean(KEY_PENDING, false).apply();
-            card.animate().alpha(0f).translationY(24 * density).setDuration(200)
-                    .withEndAction(() -> {
-                        content.removeView(card);
-                        if (sCard != null && sCard.get() == card) {
-                            sCard = null;
-                        }
-                    }).start();
+        Runnable hide = () -> card.animate().alpha(0f).translationY(24 * density).setDuration(200)
+                .withEndAction(() -> {
+                    content.removeView(card);
+                    if (sCard != null && sCard.get() == card) {
+                        sCard = null;
+                    }
+                }).start();
+        button.setOnClickListener(v -> hide.run()); // Got it: until the next start
+        never.setOnClickListener(v -> {
+            activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_NEVER, true).apply();
+            hide.run();
         });
 
         card.setAlpha(0f);

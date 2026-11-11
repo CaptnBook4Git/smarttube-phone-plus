@@ -363,12 +363,53 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         super.onPictureInPictureModeChanged(isInPictureInPictureMode);
         if (isInPictureInPictureMode) {
             showPhoneControls(false);
-            resetShrink(); // the floating window shows the plain video
-            setSeeThrough(false);
+            // Android animates the floating window out of the video exactly where the drag left it. Moving the video
+            // back (or relaying out, or turning the window opaque, which recreates its surface) during that animation
+            // shows black inside the window: tidy up only once the window has its floating size.
+            afterPipResize(() -> {
+                if (isPip()) {
+                    resetShrink(); // the floating window shows the plain video
+                    applyLayoutMode();
+                }
+            });
         } else {
             mLeftPip = true; // expanded (onResume follows) or closed (onStop follows)
+            setSeeThrough(false); // opaque again for the full player (stayed translucent in the floating window)
+            resetShrink();
+            applyLayoutMode();
         }
-        applyLayoutMode();
+    }
+
+    /**
+     * Runs the action once the player window has been resized into the floating window (its size changes), or after
+     * the enter animation at the latest.
+     */
+    private void afterPipResize(Runnable action) {
+        View root = getWindow().getDecorView();
+        int startWidth = root.getWidth();
+        int startHeight = root.getHeight();
+        boolean[] done = {false};
+        Runnable once = () -> {
+            if (!done[0]) {
+                done[0] = true;
+                action.run();
+            }
+        };
+        View.OnLayoutChangeListener listener = new View.OnLayoutChangeListener() {
+            @Override
+            public void onLayoutChange(View v, int l, int t, int r, int b, int ol, int ot, int or, int ob) {
+                if (r - l != startWidth || b - t != startHeight) {
+                    root.removeOnLayoutChangeListener(this);
+                    // A frame later: the floating window shows its first frame at the new size before we move things
+                    root.post(once);
+                }
+            }
+        };
+        root.addOnLayoutChangeListener(listener);
+        mHandler.postDelayed(() -> {
+            root.removeOnLayoutChangeListener(listener);
+            once.run();
+        }, 700);
     }
 
     // region One task with Home
@@ -851,6 +892,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             Rect hint = videoRectOnScreen();
             if (hint != null && !hint.isEmpty()) {
                 builder.setSourceRectHint(hint);
+            }
+            if (Build.VERSION.SDK_INT >= 31) {
+                // Video doesn't resize seamlessly: Android cross-fades instead of showing half-drawn (black) frames
+                builder.setSeamlessResizeEnabled(false);
             }
             android.app.PictureInPictureParams params = builder.build();
             showPhoneControls(false);

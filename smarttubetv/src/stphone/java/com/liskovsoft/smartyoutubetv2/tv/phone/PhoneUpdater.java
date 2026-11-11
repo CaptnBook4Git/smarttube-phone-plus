@@ -45,7 +45,8 @@ final class PhoneUpdater {
     static final String REPO = "shreyas-bangera/smarttube-phone";
     private static final String TAG = "PhoneUpdater";
     private static final String LATEST_URL = "https://api.github.com/repos/" + REPO + "/releases/latest";
-    // Releases also carry the old name (SmartTube-Phone-arm64.apk) for builds from before the rename
+    // Each release carries the versioned file (StreamTube-Phone-<version>-arm64.apk) and the same APK under fixed
+    // names: StreamTube-arm64.apk (this one, the direct download link) and SmartTube-Phone-arm64.apk (old builds)
     private static final String APK_NAME = "StreamTube-arm64.apk";
     private static final int BASE_VERSION_CODE = 2462;
     private static final String ACTION_INSTALL_STATUS = "org.smarttube.phone.INSTALL_STATUS";
@@ -435,7 +436,10 @@ final class PhoneUpdater {
         if (assets != null) {
             for (int i = 0; i < assets.length(); i++) {
                 JSONObject asset = assets.getJSONObject(i);
-                if (APK_NAME.equals(asset.optString("name"))) {
+                String name = asset.optString("name");
+                // The versioned file (StreamTube-Phone-32.72.81-arm64.apk); the fixed name is the same APK
+                boolean versioned = name.startsWith("StreamTube-Phone-") && name.endsWith("-arm64.apk");
+                if (versioned || (APK_NAME.equals(name) && TextUtils.isEmpty(release.apkUrl))) {
                     release.apkUrl = asset.optString("browser_download_url");
                     release.size = asset.optLong("size", 0);
                 }

@@ -89,9 +89,21 @@
     <string name="phone_rebrand_message">SmartTube for phones has a new name, to make clear it\'s its own app, separate from SmartTube for TV.</string>
     <string name="phone_rebrand_details">Same app, same features, nothing to set up. Your account, history, settings and downloads are right where you left them.</string>
     <string name="phone_rebrand_button">Got it</string>
+    <string name="phone_rebrand_never">Don\'t show again</string>
     <string name="phone_about_title">About StreamTube</string>
     <string name="phone_about_build">Build %1$d</string>
     <string name="phone_about_built_on">Built on SmartTube by Yuriy Liskov</string>
     <string name="phone_about_license">MIT License</string>
     <string name="phone_about_source">Source code on GitHub</string>
+    <string name="phone_comments_top">Top</string>
+    <string name="phone_comments_top_hint">Most liked first</string>
+    <string name="phone_comments_newest">Newest</string>
+    <string name="phone_comments_newest_hint">Includes possible spam</string>
+    <string name="phone_comment_add">Add a comment…</string>
+    <string name="phone_comment_reply">Add a reply…</string>
+    <string name="phone_comment_sign_in">Sign in to comment</string>
+    <string name="phone_comment_send">Post</string>
+    <string name="phone_comment_posted">Comment posted</string>
+    <string name="phone_comment_reply_posted">Reply posted</string>
+    <string name="phone_comment_failed">Couldn\'t post: %1$s</string>
 </resources>
