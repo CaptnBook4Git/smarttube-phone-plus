@@ -60,8 +60,9 @@ import okhttp3.ResponseBody;
  * Download button under the video: a sheet with the files that can be saved as they are, then a background download
  * with a progress notification into Download/SmartTube.
  * <ul>
- *     <li>Video: the 360p MP4 with sound that YouTube still serves as one file (higher qualities come as separate
- *     video and audio files that would have to be joined: not done here)</li>
+ *     <li>Video 360p: the MP4 with sound that YouTube still serves as one file</li>
+ *     <li>Video 480p to 1080p: YouTube serves the picture (H.264) and the sound (AAC) as separate files; both are
+ *     downloaded and joined into one MP4 on the phone (MediaExtractor + MediaMuxer, no re-encoding)</li>
  *     <li>Audio: the AAC (M4A) track, rewritten from YouTube's streaming layout into a plain M4A file</li>
  * </ul>
  * Files are fetched in pieces with the player's user agent: YouTube cuts off or slows down one long request.
@@ -83,6 +84,9 @@ final class PhoneDownloads {
         final String url;
         final long size; // bytes, -1 when unknown
         final String label;
+        /** Higher qualities: the sound, joined to the picture in {@link #url} after both are downloaded */
+        String audioUrl;
+        long audioSize = -1;
 
         Option(boolean audio, String url, long size, String label) {
             this.audio = audio;
@@ -90,7 +94,21 @@ final class PhoneDownloads {
             this.size = size;
             this.label = label;
         }
+
+        boolean isMerged() {
+            return audioUrl != null;
+        }
+
+        long totalSize() {
+            if (!isMerged()) {
+                return size;
+            }
+            return size > 0 && audioSize > 0 ? size + audioSize : -1;
+        }
     }
+
+    /** Highest first; above 1080p YouTube has no H.264, which is what MP4 files on phones play */
+    private static final int MAX_HEIGHT = 1080;
 
     private PhoneDownloads() {
     }
@@ -133,19 +151,31 @@ final class PhoneDownloads {
         }
 
         Option video = videoOption(activity, formatInfo);
-        Option audio = audioOption(activity, formatInfo);
-        if (video == null && audio == null) {
+        MediaFormat audioFormat = audioFormat(formatInfo);
+        Option audio = audioFormat != null
+                ? new Option(true, audioFormat.getUrl(), parseSize(audioFormat.getClen()), activity.getString(R.string.phone_download_audio))
+                : null;
+
+        java.util.List<Option> options = new java.util.ArrayList<>();
+        if (audioFormat != null) {
+            options.addAll(mergedOptions(activity, formatInfo, audioFormat));
+        }
+        if (video != null) {
+            options.add(video);
+        }
+        if (audio != null) {
+            options.add(audio);
+        }
+        if (options.isEmpty()) {
             Toast.makeText(activity, R.string.phone_download_unavailable, Toast.LENGTH_LONG).show();
             return;
         }
 
         Context app = activity.getApplicationContext();
         AppDialogPresenter dialog = AppDialogPresenter.instance(activity);
-        for (Option option : new Option[]{video, audio}) {
-            if (option == null) {
-                continue;
-            }
-            String description = option.size > 0 ? sizeText(option.size) : null;
+        for (Option option : options) {
+            long total = option.totalSize();
+            String description = total > 0 ? sizeText(total) : null;
             dialog.appendSingleButton(UiOptionItem.from(option.label, description, item -> {
                 AppDialogPresenter.instance(activity).closeDialog();
                 enqueue(app, option, title);
@@ -178,8 +208,40 @@ final class PhoneDownloads {
                 context.getString(R.string.phone_download_video, quality));
     }
 
+    /**
+     * 480p to 1080p: the H.264 picture of each height (the highest frame rate, then bitrate), to join with the sound.
+     * Heights the single 360p file already covers are left out.
+     */
+    private static java.util.List<Option> mergedOptions(Context context, MediaItemFormatInfo formatInfo, MediaFormat audio) {
+        java.util.List<Option> result = new java.util.ArrayList<>();
+        if (formatInfo.getAdaptiveFormats() == null) {
+            return result;
+        }
+        java.util.Map<Integer, MediaFormat> byHeight = new java.util.TreeMap<>(java.util.Collections.reverseOrder());
+        for (MediaFormat format : formatInfo.getAdaptiveFormats()) {
+            String mime = format != null ? format.getMimeType() : null;
+            if (mime == null || TextUtils.isEmpty(format.getUrl()) || !mime.startsWith("video/mp4") || !mime.contains("avc1")
+                    || format.isOtf() || lines(format) <= 360 || lines(format) > MAX_HEIGHT) {
+                continue;
+            }
+            MediaFormat current = byHeight.get(lines(format));
+            if (current == null || fps(format) > fps(current) || (fps(format) == fps(current) && bitrate(format) > bitrate(current))) {
+                byHeight.put(lines(format), format);
+            }
+        }
+        for (MediaFormat format : byHeight.values()) {
+            String quality = !TextUtils.isEmpty(format.getQualityLabel()) ? format.getQualityLabel() : lines(format) + "p";
+            Option option = new Option(false, format.getUrl(), parseSize(format.getClen()),
+                    context.getString(R.string.phone_download_video, quality));
+            option.audioUrl = audio.getUrl();
+            option.audioSize = parseSize(audio.getClen());
+            result.add(option);
+        }
+        return result;
+    }
+
     /** The AAC audio track (M4A), the original language when the video has several */
-    private static Option audioOption(Context context, MediaItemFormatInfo formatInfo) {
+    private static MediaFormat audioFormat(MediaItemFormatInfo formatInfo) {
         if (formatInfo.getAdaptiveFormats() == null) {
             return null;
         }
@@ -198,10 +260,7 @@ final class PhoneDownloads {
                 best = format;
             }
         }
-        if (best == null) {
-            return null;
-        }
-        return new Option(true, best.getUrl(), parseSize(best.getClen()), context.getString(R.string.phone_download_audio));
+        return best;
     }
 
     // endregion
@@ -224,13 +283,23 @@ final class PhoneDownloads {
 
         QUEUE.execute(() -> {
             File temp = null;
+            File soundTemp = null;
             File remuxed = null;
             try {
                 temp = new File(app.getCacheDir(), "download_" + id + ".part");
-                fetch(app, option, temp, id, progress);
+                long grandTotal = option.totalSize();
+                long downloaded = fetch(app, option.url, option.size, temp, id, progress, 0, grandTotal);
 
                 File result = temp;
-                if (option.audio) {
+                if (option.isMerged()) {
+                    soundTemp = new File(app.getCacheDir(), "download_" + id + ".audio.part");
+                    fetch(app, option.audioUrl, option.audioSize, soundTemp, id, progress, downloaded, grandTotal);
+                    progress.setProgress(0, 0, true).setContentText(app.getString(R.string.phone_download_joining));
+                    notify(app, id, progress);
+                    remuxed = new File(app.getCacheDir(), "download_" + id + ".mp4");
+                    merge(temp, soundTemp, remuxed);
+                    result = remuxed;
+                } else if (option.audio) {
                     remuxed = new File(app.getCacheDir(), "download_" + id + ".m4a");
                     if (remuxAudio(temp, remuxed)) {
                         result = remuxed;
@@ -248,6 +317,9 @@ final class PhoneDownloads {
                 if (temp != null) {
                     temp.delete();
                 }
+                if (soundTemp != null) {
+                    soundTemp.delete();
+                }
                 if (remuxed != null) {
                     remuxed.delete();
                 }
@@ -255,10 +327,14 @@ final class PhoneDownloads {
         });
     }
 
-    /** The file in pieces (ranged requests), a few retries per piece */
-    private static void fetch(Context app, Option option, File target, int id, NotificationCompat.Builder progress) throws IOException {
+    /**
+     * The file in pieces (ranged requests), a few retries per piece. The progress counts from offset of grandTotal
+     * (picture then sound for the joined qualities). Returns the bytes downloaded.
+     */
+    private static long fetch(Context app, String url, long size, File target, int id, NotificationCompat.Builder progress,
+                              long offset, long grandTotal) throws IOException {
         OkHttpClient client = OkHttpManager.instance().getClient();
-        long total = option.size;
+        long total = size;
         long position = 0;
         long lastUpdate = 0;
         byte[] buffer = new byte[64 * 1024];
@@ -270,7 +346,7 @@ final class PhoneDownloads {
                     end = Math.min(end, total - 1);
                 }
                 Request request = new Request.Builder()
-                        .url(option.url)
+                        .url(url)
                         .header("User-Agent", DefaultHeaders.APP_USER_AGENT)
                         .header("Range", "bytes=" + position + "-" + end)
                         .build();
@@ -281,7 +357,7 @@ final class PhoneDownloads {
                 for (int attempt = 0; attempt < RETRIES; attempt++) {
                     try (Response response = client.newCall(request).execute()) {
                         if (response.code() == 416) {
-                            return; // past the end: the size was unknown and the file is complete
+                            return position; // past the end: the size was unknown and the file is complete
                         }
                         if (!response.isSuccessful() || response.body() == null) {
                             throw new IOException("HTTP " + response.code());
@@ -299,7 +375,7 @@ final class PhoneDownloads {
                                 long now = SystemClock.uptimeMillis();
                                 if (now - lastUpdate > 700) {
                                     lastUpdate = now;
-                                    showProgress(app, id, progress, position + received, total);
+                                    showProgress(app, id, progress, offset + position + received, grandTotal > 0 ? grandTotal : -1);
                                 }
                             }
                         }
@@ -325,6 +401,108 @@ final class PhoneDownloads {
         if (total > 0 && position < total) {
             throw new IOException("Incomplete: " + position + " of " + total);
         }
+        return position;
+    }
+
+    /**
+     * Picture and sound into one MP4, samples copied as they are (no re-encoding), written in time order so players
+     * can stream the file.
+     */
+    private static void merge(File video, File audio, File target) throws IOException {
+        MediaExtractor videoExtractor = new MediaExtractor();
+        MediaExtractor audioExtractor = new MediaExtractor();
+        MediaMuxer muxer = null;
+        boolean started = false;
+        try {
+            videoExtractor.setDataSource(video.getPath());
+            audioExtractor.setDataSource(audio.getPath());
+            int videoTrack = findTrack(videoExtractor, "video/");
+            int audioTrack = findTrack(audioExtractor, "audio/");
+            if (videoTrack == -1 || audioTrack == -1) {
+                throw new IOException("Missing track: video " + videoTrack + ", audio " + audioTrack);
+            }
+            videoExtractor.selectTrack(videoTrack);
+            audioExtractor.selectTrack(audioTrack);
+
+            muxer = new MediaMuxer(target.getPath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            int videoOut = muxer.addTrack(videoExtractor.getTrackFormat(videoTrack));
+            int audioOut = muxer.addTrack(audioExtractor.getTrackFormat(audioTrack));
+            muxer.start();
+            started = true;
+
+            ByteBuffer videoBuffer = ByteBuffer.allocate(bufferSize(videoExtractor.getTrackFormat(videoTrack), 4 * 1024 * 1024));
+            ByteBuffer audioBuffer = ByteBuffer.allocate(bufferSize(audioExtractor.getTrackFormat(audioTrack), 256 * 1024));
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            boolean videoDone = false;
+            boolean audioDone = false;
+            while (!videoDone || !audioDone) {
+                long videoTime = videoDone ? Long.MAX_VALUE : videoExtractor.getSampleTime();
+                long audioTime = audioDone ? Long.MAX_VALUE : audioExtractor.getSampleTime();
+                if (videoTime < 0) {
+                    videoDone = true;
+                    continue;
+                }
+                if (audioTime < 0) {
+                    audioDone = true;
+                    continue;
+                }
+                boolean takeVideo = videoTime <= audioTime;
+                MediaExtractor extractor = takeVideo ? videoExtractor : audioExtractor;
+                ByteBuffer buffer = takeVideo ? videoBuffer : audioBuffer;
+                int sampleSize = extractor.readSampleData(buffer, 0);
+                if (sampleSize < 0) {
+                    if (takeVideo) {
+                        videoDone = true;
+                    } else {
+                        audioDone = true;
+                    }
+                    continue;
+                }
+                int flags = (extractor.getSampleFlags() & MediaExtractor.SAMPLE_FLAG_SYNC) != 0 ? MediaCodec.BUFFER_FLAG_KEY_FRAME : 0;
+                info.set(0, sampleSize, extractor.getSampleTime(), flags);
+                muxer.writeSampleData(takeVideo ? videoOut : audioOut, buffer, info);
+                extractor.advance();
+            }
+            muxer.stop();
+            started = false;
+        } catch (RuntimeException e) {
+            throw new IOException("Join failed: " + e, e);
+        } finally {
+            videoExtractor.release();
+            audioExtractor.release();
+            if (muxer != null) {
+                try {
+                    if (started) {
+                        muxer.stop();
+                    }
+                } catch (RuntimeException ignored) {
+                    // already failed
+                }
+                try {
+                    muxer.release();
+                } catch (RuntimeException ignored) {
+                    // not started
+                }
+            }
+        }
+        if (target.length() == 0) {
+            throw new IOException("Join produced an empty file");
+        }
+    }
+
+    private static int findTrack(MediaExtractor extractor, String mimePrefix) {
+        for (int i = 0; i < extractor.getTrackCount(); i++) {
+            String mime = extractor.getTrackFormat(i).getString(android.media.MediaFormat.KEY_MIME);
+            if (mime != null && mime.startsWith(mimePrefix)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static int bufferSize(android.media.MediaFormat format, int fallback) {
+        return format.containsKey(android.media.MediaFormat.KEY_MAX_INPUT_SIZE)
+                ? Math.max(format.getInteger(android.media.MediaFormat.KEY_MAX_INPUT_SIZE), fallback) : fallback;
     }
 
     /**
@@ -523,6 +701,17 @@ final class PhoneDownloads {
 
     private static long bitrate(MediaFormat format) {
         return parseSize(format.getBitrate());
+    }
+
+    /** The "p" of the quality: the shorter side, so a portrait 1080x1920 video counts as 1080p */
+    private static int lines(MediaFormat format) {
+        int width = format.getWidth();
+        int height = format.getHeight();
+        return width > 0 && height > 0 ? Math.min(width, height) : height;
+    }
+
+    private static long fps(MediaFormat format) {
+        return parseSize(format.getFps());
     }
 
     private static String sizeText(long bytes) {
