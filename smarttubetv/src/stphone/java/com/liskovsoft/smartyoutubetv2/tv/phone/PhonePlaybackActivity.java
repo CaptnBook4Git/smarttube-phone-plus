@@ -950,6 +950,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private String mMinimizedVideoId;
     private com.google.android.exoplayer2.video.VideoListener mFirstFrameListener;
 
+    /** The video in the mini player (its thumbnail when there's no frame to show) */
+    Video miniVideo() {
+        return currentVideo();
+    }
+
     com.google.android.exoplayer2.SimpleExoPlayer exoPlayer() {
         return mPlayer != null ? mPlayer.getExoPlayer() : null;
     }
@@ -1055,8 +1060,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 float shrink = Math.min(1f, 640f / surface.getWidth());
                 android.graphics.Bitmap frame = android.graphics.Bitmap.createBitmap(Math.max(1, Math.round(surface.getWidth() * shrink)),
                         Math.max(1, Math.round(surface.getHeight() * shrink)), android.graphics.Bitmap.Config.ARGB_8888);
-                android.view.PixelCopy.request((android.view.SurfaceView) surface, frame,
-                        result -> done.accept(result == android.view.PixelCopy.SUCCESS ? frame : null), mHandler);
+                android.view.PixelCopy.request((android.view.SurfaceView) surface, frame, result -> {
+                    android.util.Log.d("PhoneMiniPlayer", "frame copy: " + result);
+                    done.accept(result == android.view.PixelCopy.SUCCESS ? frame : null);
+                }, mHandler);
                 return;
             }
         } catch (RuntimeException ignored) {

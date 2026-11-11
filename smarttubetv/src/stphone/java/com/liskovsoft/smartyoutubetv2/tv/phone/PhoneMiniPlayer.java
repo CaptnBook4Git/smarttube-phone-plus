@@ -36,6 +36,7 @@ import java.lang.ref.WeakReference;
  * Android's picture in picture is only used when leaving the app.
  */
 final class PhoneMiniPlayer {
+    private static final String TAG = "PhoneMiniPlayer";
     private static WeakReference<PhonePlaybackActivity> sPlayer = new WeakReference<>(null);
     private static WeakReference<PhoneActivity> sHost = new WeakReference<>(null);
     private static WeakReference<Card> sCard = new WeakReference<>(null);
@@ -267,7 +268,7 @@ final class PhoneMiniPlayer {
             mHost = host;
             mDensity = host.getResources().getDisplayMetrics().density;
             setBackgroundColor(Color.BLACK);
-            setElevation(10 * mDensity);
+            setElevation(24 * mDensity); // above Home's cards and banners
             setOutlineProvider(new ViewOutlineProvider() {
                 @Override
                 public void getOutline(View view, Outline outline) {
@@ -286,7 +287,16 @@ final class PhoneMiniPlayer {
             Bitmap still = sStill;
             if (still != null) {
                 mStill.setImageBitmap(still);
+            } else {
+                // No copy of the last frame: the video's thumbnail until the video draws here
+                PhonePlaybackActivity player = sPlayer.get();
+                com.liskovsoft.smartyoutubetv2.common.app.models.data.Video video = player != null ? player.miniVideo() : null;
+                if (video != null) {
+                    mStill.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                    PhoneUi.loadThumb(mStill, video, false);
+                }
             }
+            android.util.Log.d(TAG, "card: still " + (still != null));
             addView(mStill, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
             int button = Math.round(30 * mDensity);
@@ -382,6 +392,14 @@ final class PhoneMiniPlayer {
                 return;
             }
             mPlay.setImageResource(exo.getPlayWhenReady() ? R.drawable.ic_phone_pause : R.drawable.ic_phone_play);
+            ViewGroup parent = (ViewGroup) getParent();
+            if (parent != null && parent.getChildAt(parent.getChildCount() - 1) != this) {
+                bringToFront(); // a banner added later stays under the card
+            }
+            if (mSurface != null && exo != mAttachedTo && mHost.hasWindowFocus()) {
+                attach(); // the player restarted its engine (e.g. after a network error): a new player to draw here
+                return;
+            }
             if (getWidth() > 0) {
                 fitVideo(getWidth(), getHeight()); // the next video may have another shape
             }
@@ -399,6 +417,7 @@ final class PhoneMiniPlayer {
             sSurface = mSurface;
             mAttachedTo = exo;
             exo.setVideoSurface(mSurface);
+            android.util.Log.d(TAG, "attached");
         }
 
         /** Remember the frame on screen for whatever shows the video next */
@@ -468,6 +487,7 @@ final class PhoneMiniPlayer {
         public void onSurfaceTextureUpdated(SurfaceTexture texture) {
             if (!mGotFrame) {
                 mGotFrame = true;
+                android.util.Log.d(TAG, "first frame");
                 mStill.animate().alpha(0f).setDuration(120).withEndAction(() -> mStill.setVisibility(View.GONE)).start();
             }
         }

@@ -36,11 +36,9 @@ shot 1_player
 tasks 1_player
 
 # 2. Drag the video down: it lands on the card, Home in front, the player still alive behind it
-record 2_minimize 6
-sleep 1
-adb shell input motionevent DOWN 540 350
-for y in 420 520 640 780 940 1100 1300; do adb shell input motionevent MOVE 540 $y; done
-adb shell input motionevent UP 540 1300
+record 2_minimize 8
+sleep 2
+adb shell input swipe 540 350 540 1400 450
 sleep 5
 pull_record 2_minimize
 shot 2_card
@@ -51,8 +49,8 @@ shot 2b_card_later
 # 3. Tap the card: the player opens again
 XY=$(center_of "Open the player")
 echo "card at: $XY"
-record 3_expand 5
-sleep 1
+record 3_expand 6
+sleep 2
 if [ -n "$XY" ]; then adb shell input tap $XY; else adb shell input tap 800 1850; fi
 sleep 4
 pull_record 3_expand
@@ -60,8 +58,8 @@ shot 3_expanded
 tasks 3_expanded
 
 # 4. Back: into the card again
-record 4_back 5
-sleep 1
+record 4_back 6
+sleep 2
 adb shell input keyevent KEYCODE_BACK
 sleep 4
 pull_record 4_back
@@ -85,7 +83,7 @@ tasks 6_closed
 
 adb logcat -d -b crash > $OUT/crash.txt
 adb logcat -d | grep -E "ActivityTaskManager: (START|Displayed)|wm_finish|wm_destroy" | grep -i smarttube > $OUT/activity_log.txt
-adb logcat -d | grep -iE "exoplayer|MediaCodec.*(error|Exception)|surface.*abandon|PlaybackFragment" | tail -80 > $OUT/player_log.txt
+adb logcat -d | grep -iE "PhoneMiniPlayer|exoplayer|MediaCodec.*(error|Exception)|surface.*abandon|PlaybackFragment|AndroidRuntime" | grep -v SabrStream | tail -120 > $OUT/player_log.txt
 
 echo "== crash"; cat $OUT/crash.txt
 echo "== activities"; cat $OUT/activity_log.txt
@@ -95,7 +93,7 @@ echo "== player"; cat $OUT/player_log.txt
 img() { echo "==IMG $2=="; convert "$1" -resize "$3" -quality 70 jpg:- | base64 -w0; echo; echo "==END=="; }
 for f in $OUT/*.png; do img "$f" "$(basename "$f" .png)" 270x; done
 for v in 2_minimize 3_expand 4_back; do
-  if [ -f "$OUT/$v.mp4" ]; then
+  if [ -s "$OUT/$v.mp4" ]; then
     mkdir -p "$OUT/$v"
     ffmpeg -v error -i "$OUT/$v.mp4" -vf "fps=10,scale=180:-1" "$OUT/$v/f%03d.png"
     montage "$OUT/$v"/f*.png -tile 10x -geometry +1+1 "$OUT/${v}_strip.jpg"
