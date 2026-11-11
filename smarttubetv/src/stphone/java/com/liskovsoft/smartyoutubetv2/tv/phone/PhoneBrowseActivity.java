@@ -66,6 +66,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private BrowseSection mLoadedSection; // what the presenter actually loads (Home falls back when signed out)
     private View mSignInCard;
     private ImageView mTopAvatar;
+    private SettingsGroup mSettingsGroup; // last Settings content, rebuilt when the notification setting changes
 
     /** The task Home lives in: the player belongs in the same one (one card in recents) */
     static int sTaskId = -1;
@@ -113,6 +114,22 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         mIsFirstResume = false;
         updateAccountViews();
+        refreshSettingsRows(); // back from Android's notification settings
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PhoneNotifications.REQUEST_FROM_SETTINGS) {
+            PhoneNotifications.onPermissionResult(this);
+        }
+        refreshSettingsRows();
+    }
+
+    private void refreshSettingsRows() {
+        if (mSettingsGroup != null && mCurrentSection != null && mCurrentSection.getId() == MediaGroup.TYPE_SETTINGS) {
+            updateSection(mSettingsGroup);
+        }
     }
 
     @Override
@@ -240,6 +257,13 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private void syncBarPadding() {
         View topBar = findViewById(R.id.phone_top_bar);
         int top = topBar.getHeight();
+        // The status bar area stays covered while the top bar slides away underneath
+        View scrim = findViewById(R.id.phone_status_scrim);
+        android.view.ViewGroup.LayoutParams scrimParams = scrim.getLayoutParams();
+        if (scrimParams.height != topBar.getPaddingTop()) {
+            scrimParams.height = topBar.getPaddingTop();
+            scrim.setLayoutParams(scrimParams);
+        }
         if (mRefresh != null && mRefresh.getProgressViewEndOffset() != top + dp(24)) {
             mRefresh.setProgressViewOffset(false, top - dp(40), top + dp(24)); // the spinner comes out under the top bar
         }
@@ -257,6 +281,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     private void setupTopBar() {
         findViewById(R.id.phone_search).setOnClickListener(v -> SearchPresenter.instance(this).startSearch(null));
+        // Notifications live behind the bell (like the YouTube app), not in the bottom bar
+        findViewById(R.id.phone_notifications).setOnClickListener(v -> {
+            if (mCurrentTab == TAB_NOTIFICATIONS) {
+                scrollToTopOrRefresh();
+            } else {
+                selectTab(TAB_NOTIFICATIONS);
+            }
+        });
         mTopAvatar = findViewById(R.id.phone_top_avatar);
         mTopAvatar.setOnClickListener(v -> selectTab(TAB_YOU));
         mSignInCard = getLayoutInflater().inflate(R.layout.phone_signin_card, mList, false);
@@ -325,7 +357,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             if (tab == null) {
                 continue;
             }
-            tab.setVisibility(i == TAB_YOU || hasTab(i) ? View.VISIBLE : View.GONE);
+            // Notifications open from the bell in the top bar
+            tab.setVisibility(i != TAB_NOTIFICATIONS && (i == TAB_YOU || hasTab(i)) ? View.VISIBLE : View.GONE);
             boolean selected = i == mCurrentTab;
             int color = getResources().getColor(selected ? R.color.phone_text : R.color.phone_icon_inactive);
             LinearLayout layout = (LinearLayout) tab;
@@ -335,6 +368,12 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             TextView label = (TextView) layout.getChildAt(1);
             label.setTextColor(color);
             label.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
+        }
+
+        View bell = findViewById(R.id.phone_notifications);
+        if (bell != null) {
+            bell.setVisibility(hasTab(TAB_NOTIFICATIONS) && isSignedIn() ? View.VISIBLE : View.GONE);
+            bell.setSelected(mCurrentTab == TAB_NOTIFICATIONS);
         }
     }
 
@@ -735,6 +774,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             return;
         }
         hideMessage();
+        mSettingsGroup = group;
         // Phone only setting on top of SmartTube's settings
         java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items = new ArrayList<>();
         int appearance = PhoneTheme.get(this);
@@ -743,6 +783,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                     PhoneTheme.set(this, PhoneTheme.next(appearance));
                     recreate();
                 }, R.drawable.ic_phone_brightness));
+        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
+                PhoneNotifications.settingsTitle(this), () -> PhoneNotifications.open(this), R.drawable.ic_phone_bell));
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
                 PhoneUpdater.settingsTitle(this), () -> PhoneUpdater.open(this), R.drawable.ic_phone_update));
         if (group.getItems() != null) {

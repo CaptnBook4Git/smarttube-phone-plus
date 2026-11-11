@@ -125,7 +125,7 @@ It installs as its own app (`org.smarttube.phone`), so it can sit next to the of
 4. Tap **Install**. If Google Play Protect warns about an unknown app, tap **More details** and then **Install anyway**. This warning appears for every app that is not from the Play Store.
 5. Open **SmartTube** from your app drawer. Home shows popular videos straight away; you can sign in whenever you like.
 
-When Android asks to allow notifications, tap **Allow**. The app uses the notification only for the background playback controls.
+When Android asks to allow notifications, tap **Allow**. The app uses the notification only for the background playback controls (also shown on the lock screen). If you tapped **Don't allow**, turn them on later in **You**, **Settings**, **Notifications**.
 
 ## Update to a new build
 
@@ -199,7 +199,7 @@ The app retries a few times on its own. If it still shows "Can't reach YouTube r
 - Tap a chip at the top (Kids, Sports, LIVE, Gaming, News) to switch topics.
 - Tap a channel picture to open that channel.
 - Tap the three dots next to a video for more options, such as adding it to a playlist or opening its channel.
-- Top right: the search button.
+- Top right: the bell (your YouTube notifications, when signed in) and the search button.
 
 ### Watching a video
 
@@ -235,7 +235,7 @@ Rotate back to portrait, or press back, to leave full screen.
 - **Drag the video down** (or press back) while a video plays: it shrinks into a small floating window and you are back on Home. Keep browsing while it plays.
 - **Tap the floating window** for its controls; tap the expand button to open the player again, or the close button (or drag it to the bottom of the screen) to stop.
 - **Open another video** while the mini player is showing: the new video replaces it.
-- **Background play:** press the home button or lock the screen while a regular video plays and the sound keeps going. Use the media notification (or the lock screen) to play, pause or skip. Shorts don't play in the background.
+- **Background play:** press the home button or lock the screen while a regular video plays and the sound keeps going. Locking the phone locks it as usual; the lock screen shows the video with play and pause controls. Use the media notification (or the lock screen) to play, pause or skip. Shorts don't play in the background.
 
 ### Shorts
 
@@ -286,7 +286,8 @@ Rotate back to portrait, or press back, to leave full screen.
 Open the **You** tab and tap the **Settings** chip.
 
 - **Appearance** is the first setting. Tap it to cycle between **Dark**, **Light** and **Same as device**. The app switches immediately.
-- **Check for updates** is the second setting. It opens the Software update screen (see [Update to a new build](#update-to-a-new-build)).
+- **Notifications** is the second setting. It shows whether the app's notifications are on; tap it to allow them (the lock screen and notification shade controls for background play need them).
+- **Check for updates** is the third setting. It opens the Software update screen (see [Update to a new build](#update-to-a-new-build)).
 - Everything else is SmartTube's own settings, for example:
   - **Player**: default quality, playback speed, captions style, autoplay
   - **SponsorBlock**: choose which segment types are skipped
@@ -310,8 +311,8 @@ YouTube sometimes asks this on shared or busy networks, and with VPNs. Signing i
 **Videos buffer a lot**
 Open the player settings and pick a lower quality, or turn off high frame rate. A different video format (codec) in the player settings can also help on older phones.
 
-**No sound in the background**
-Allow the app's notification, and check your phone's battery settings. On OnePlus, Xiaomi, Samsung and similar phones, set SmartTube's battery usage to **Unrestricted** so Android doesn't stop it.
+**No sound in the background, or no controls on the lock screen**
+Turn on notifications (**You**, **Settings**, **Notifications**), and check your phone's battery settings. On OnePlus, Xiaomi, Samsung and similar phones, set SmartTube's battery usage to **Unrestricted** so Android doesn't stop it.
 
 **The app crashed**
 When it opens again it offers a crash report. Please [open an issue](https://github.com/shreyas-bangera/smarttube-phone/issues) with the report and the steps that led to it.

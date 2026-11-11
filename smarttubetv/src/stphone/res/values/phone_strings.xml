@@ -60,4 +60,7 @@
     <string name="phone_autoplay_on">Autoplay is on</string>
     <string name="phone_autoplay_off">Autoplay is off</string>
     <string name="phone_playback_mode">Playback mode</string>
+    <string name="phone_notifications_on">Notifications: On</string>
+    <string name="phone_notifications_off">Notifications: Off (tap to turn on)</string>
+    <string name="phone_notifications_hint">Turn on notifications in Android settings to see playback controls on the lock screen</string>
 </resources>

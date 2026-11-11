@@ -52,6 +52,17 @@ public class PhoneApplication extends MainApplication {
             }
             prefs.edit().putBoolean("background_playback_v1", true).apply();
         }
+
+        // YouTube notifications (new uploads from subscriptions, replies...) behind the bell in Home's top bar.
+        // SmartTube for TV hides this section by default.
+        if (!prefs.getBoolean("notifications_section_v1", false)) {
+            com.liskovsoft.smartyoutubetv2.common.app.presenters.service.SidebarService sidebar =
+                    com.liskovsoft.smartyoutubetv2.common.app.presenters.service.SidebarService.instance(this);
+            if (sidebar != null) {
+                sidebar.enableSection(com.liskovsoft.mediaserviceinterfaces.data.MediaGroup.TYPE_NOTIFICATIONS, true);
+            }
+            prefs.edit().putBoolean("notifications_section_v1", true).apply();
+        }
     }
 
     private void setupPhoneViews() {

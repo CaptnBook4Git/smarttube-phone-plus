@@ -169,6 +169,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         showPoster(presenter().getVideo());
 
         setupNotification();
+        allowLockScreen();
 
         mPinchDetector = new android.view.ScaleGestureDetector(this, new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
             @Override
@@ -229,6 +230,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     protected void onResume() {
         super.onResume();
         moveBackToHomeTaskIfNeeded();
+        allowLockScreen();
         PhoneTheme.apply(this);
         PhoneUi.applyPhoneDensity(this);
         cancelPlaybackNotification();
@@ -251,22 +253,57 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     protected void onStart() {
         super.onStart();
         mStopped = false;
+        boolean keptForLock = mKeptForLock;
+        mKeptForLock = false;
+        if (isPip()) {
+            // Phone unlocked with the floating window still open: the window has the controls again, and closing it
+            // stops the video as before
+            cancelPlaybackNotification();
+            if (keptForLock && mPlayer != null) {
+                mPlayer.blockEngine(false);
+            }
+        }
     }
 
     @Override
     protected void onStop() {
+        boolean screenOff = com.liskovsoft.smartyoutubetv2.common.utils.Utils.isHardScreenOff(this);
+        if (screenOff && !mShortsMode && mPlayer != null && mPlayer.getPlayWhenReady() && !isChangingConfigurations()
+                && com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData.instance(this).getBackgroundMode() != PlayerConstants.BACKGROUND_MODE_DEFAULT) {
+            // Phone locked: keep the player alive so the video goes on playing (also from the floating window, which
+            // otherwise releases the player when it stops)
+            mKeptForLock = !mPlayer.isEngineBlocked();
+            mPlayer.blockEngine(true);
+        }
         super.onStop();
         mStopped = true;
         mLeftPip = false;
-        if (isPip() || isChangingConfigurations() || mPlayer == null) {
+        if ((isPip() && !screenOff) || isChangingConfigurations() || mPlayer == null) {
             return;
         }
         if (mShortsMode) {
             // No background playback for Shorts
             mPlayer.setPlayWhenReady(false);
         } else if (mPlayer.getPlayWhenReady() && !isFinishing()) {
+            // Home pressed or phone locked: media controls in the notification shade and on the lock screen
             showPlaybackNotification();
         }
+    }
+
+    /**
+     * Locking the phone must lock it: the player never shows over the lock screen or wakes the screen up (SmartTube
+     * for TV turns those on to come to the front for casting). The video keeps playing in the background and the lock
+     * screen shows its media controls.
+     */
+    @SuppressWarnings("deprecation")
+    private void allowLockScreen() {
+        if (Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(false);
+            setTurnScreenOn(false);
+        }
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
     }
 
     @Override
@@ -395,6 +432,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     // endregion
 
     private boolean mStopped;
+    private boolean mKeptForLock; // the player was kept alive only because the phone was locked
 
     /**
      * Where a bottom sheet opened over the player may start (the bottom of the video, in screen pixels), so menus and
