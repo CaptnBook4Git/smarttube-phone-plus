@@ -223,10 +223,10 @@ index 29e7de1..5b57538 100644
          if (videoId == null) {
              return null;
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java
-index c7b67ef..f89d2a1 100644
+index 2568d1c..c9e691c 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java
 +++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java
-@@ -88,13 +88,108 @@ final class SearchFilterHelper {
+@@ -97,14 +97,123 @@ final class SearchFilterHelper {
          sParams[UPLOAD_DATE_THIS_WEEK][DURATION_OVER_20][TYPE_ANY][FEATURE_ANY][SORT_BY_RATING] = "CAESBBABGAI%3D";
      }
  
