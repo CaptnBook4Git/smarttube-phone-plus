@@ -87,6 +87,8 @@ final class PhoneDownloads {
         /** Higher qualities: the sound, joined to the picture in {@link #url} after both are downloaded */
         String audioUrl;
         long audioSize = -1;
+        /** Audio taken out of the 360p video file (when YouTube gives no separate audio file to download) */
+        boolean fromVideo;
 
         Option(boolean audio, String url, long size, String label) {
             this.audio = audio;
@@ -152,9 +154,14 @@ final class PhoneDownloads {
 
         Option video = videoOption(activity, formatInfo);
         MediaFormat audioFormat = audioFormat(formatInfo);
-        Option audio = audioFormat != null
-                ? new Option(true, audioFormat.getUrl(), parseSize(audioFormat.getClen()), activity.getString(R.string.phone_download_audio))
-                : null;
+        Option audio = null;
+        if (audioFormat != null) {
+            audio = new Option(true, audioFormat.getUrl(), parseSize(audioFormat.getClen()), activity.getString(R.string.phone_download_audio));
+        } else if (video != null) {
+            // No separate audio file with a link: the sound of the 360p file (same AAC sound, a bit lower bitrate)
+            audio = new Option(true, video.url, -1, activity.getString(R.string.phone_download_audio));
+            audio.fromVideo = true;
+        }
 
         java.util.List<Option> options = new java.util.ArrayList<>();
         if (audioFormat != null) {
@@ -173,15 +180,43 @@ final class PhoneDownloads {
 
         Context app = activity.getApplicationContext();
         AppDialogPresenter dialog = AppDialogPresenter.instance(activity);
+        if (!hasMergedOptions(options) && hasHigherQualities(formatInfo)) {
+            // Higher qualities exist, but YouTube streams them without a file link (SABR): say so instead of hiding them
+            dialog.appendSingleButton(UiOptionItem.from(activity.getString(R.string.phone_download_no_hd),
+                    activity.getString(R.string.phone_download_no_hd_reason), item -> AppDialogPresenter.instance(activity).closeDialog()));
+        }
         for (Option option : options) {
             long total = option.totalSize();
-            String description = total > 0 ? sizeText(total) : null;
+            String description = option.fromVideo ? activity.getString(R.string.phone_download_audio_from_video)
+                    : total > 0 ? sizeText(total) : null;
             dialog.appendSingleButton(UiOptionItem.from(option.label, description, item -> {
                 AppDialogPresenter.instance(activity).closeDialog();
                 enqueue(app, option, title);
             }));
         }
         dialog.showDialog(activity.getString(R.string.phone_download));
+    }
+
+    private static boolean hasMergedOptions(java.util.List<Option> options) {
+        for (Option option : options) {
+            if (option.isMerged()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The video has qualities above 360p, with or without a file link */
+    private static boolean hasHigherQualities(MediaItemFormatInfo formatInfo) {
+        if (formatInfo.getAdaptiveFormats() == null) {
+            return false;
+        }
+        for (MediaFormat format : formatInfo.getAdaptiveFormats()) {
+            if (format != null && format.getMimeType() != null && format.getMimeType().startsWith("video/") && lines(format) > 360) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The video with sound in one file: 360p (YouTube's only remaining one) */
@@ -303,6 +338,8 @@ final class PhoneDownloads {
                     remuxed = new File(app.getCacheDir(), "download_" + id + ".m4a");
                     if (remuxAudio(temp, remuxed)) {
                         result = remuxed;
+                    } else if (option.fromVideo) {
+                        throw new IOException("Couldn't take the sound out of the video file");
                     }
                 }
 
