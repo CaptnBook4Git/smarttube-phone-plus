@@ -5,7 +5,9 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.widget.FrameLayout;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -139,6 +141,13 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         mBack.setOnClickListener(v -> goBack());
 
         View sheet = findViewById(R.id.phone_sheet);
+        if (PhoneUi.isTablet(this)) {
+            int maxSheetWidth = (int) (560 * getResources().getDisplayMetrics().density);
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) sheet.getLayoutParams();
+            lp.width = Math.min(getResources().getDisplayMetrics().widthPixels, maxSheetWidth);
+            lp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            sheet.setLayoutParams(lp);
+        }
 
         final int sheetBottom = sheet.getPaddingBottom();
         findViewById(R.id.phone_dialog_root).setOnApplyWindowInsetsListener((v, insets) -> {

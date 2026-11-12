@@ -46,6 +46,39 @@ final class PhoneUi {
         metrics.ydpi = system.ydpi;
     }
 
+    public static boolean isTablet(Context context) {
+        if (context == null) {
+            return false;
+        }
+        return context.getResources().getConfiguration().smallestScreenWidthDp >= 600;
+    }
+
+    public static int calculateVideoColumns(Context context) {
+        if (context == null) {
+            return 1;
+        }
+        int widthDp = context.getResources().getConfiguration().screenWidthDp;
+        int smallestWidthDp = context.getResources().getConfiguration().smallestScreenWidthDp;
+
+        // Tablet (sw >= 600) or wide landscape screen:
+        if (smallestWidthDp >= 600 || widthDp >= 600) {
+            if (widthDp >= 1300) {
+                return 4; // Extra-large tablet / desktop monitor
+            } else if (widthDp >= 840) {
+                return 3; // 10"-12" tablet landscape
+            } else {
+                return 2; // Tablet in portrait or 7"-8" tablet or foldable
+            }
+        }
+
+        // Standard phone: 1 column in portrait, 2 columns in landscape
+        int orientation = context.getResources().getConfiguration().orientation;
+        if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            return 2;
+        }
+        return 1;
+    }
+
     private static java.lang.ref.WeakReference<View> sLastClickedThumb;
 
     /**

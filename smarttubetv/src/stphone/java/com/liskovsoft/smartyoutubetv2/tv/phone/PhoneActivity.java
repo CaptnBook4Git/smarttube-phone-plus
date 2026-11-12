@@ -51,6 +51,7 @@ public abstract class PhoneActivity extends MotherActivity {
         super.onConfigurationChanged(newConfig);
         PhoneTheme.apply(this);
         PhoneUi.applyPhoneDensity(this);
+        updateLayoutColumns();
     }
 
     @Override
@@ -60,6 +61,7 @@ public abstract class PhoneActivity extends MotherActivity {
         PhoneUi.applyPhoneDensity(this); // MotherActivity re-applies the TV density on resume
         // MotherActivity may switch to immersive mode (TV fullscreen setting). Phones keep their bars.
         setupSystemBars();
+        updateLayoutColumns();
         getViewManager().addTop(this);
         if (mAdapter != null) {
             mAdapter.refreshQuickActions();
@@ -138,6 +140,26 @@ public abstract class PhoneActivity extends MotherActivity {
         root.requestApplyInsets();
     }
 
+    protected int getSpanCount() {
+        return PhoneUi.calculateVideoColumns(this) * 2;
+    }
+
+    public void updateLayoutColumns() {
+        if (mList == null || mAdapter == null) {
+            return;
+        }
+        RecyclerView.LayoutManager lm = mList.getLayoutManager();
+        if (lm instanceof GridLayoutManager) {
+            GridLayoutManager gm = (GridLayoutManager) lm;
+            int newSpan = getSpanCount();
+            if (gm.getSpanCount() != newSpan) {
+                gm.setSpanCount(newSpan);
+                gm.setSpanSizeLookup(mAdapter.getSpanSizeLookup(newSpan));
+                mAdapter.notifyItemRangeChanged(0, mAdapter.getItemCount());
+            }
+        }
+    }
+
     // region Shared list plumbing
 
     protected void setupList(FeedAdapter.Listener listener) {
@@ -148,8 +170,9 @@ public abstract class PhoneActivity extends MotherActivity {
         mEmptyAction = findViewById(R.id.phone_empty_action);
 
         mAdapter = new FeedAdapter(listener);
-        GridLayoutManager manager = new GridLayoutManager(this, 2);
-        manager.setSpanSizeLookup(mAdapter.getSpanSizeLookup());
+        int spanCount = getSpanCount();
+        GridLayoutManager manager = new GridLayoutManager(this, spanCount);
+        manager.setSpanSizeLookup(mAdapter.getSpanSizeLookup(spanCount));
         mList.setLayoutManager(manager);
         mList.setAdapter(mAdapter);
         mList.setItemAnimator(null);
@@ -171,15 +194,22 @@ public abstract class PhoneActivity extends MotherActivity {
         mList.addItemDecoration(new RecyclerView.ItemDecoration() {
             @Override
             public void getItemOffsets(android.graphics.Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
-                // Shorts tiles: line the 2 column grid up with the screen edges
+                // Shorts tiles: line the grid up with the screen edges and distribute spacing evenly
                 int position = parent.getChildAdapterPosition(view);
                 if (!mAdapter.isShortTile(position) || !(view.getLayoutParams() instanceof GridLayoutManager.LayoutParams)) {
                     return;
                 }
-                if (((GridLayoutManager.LayoutParams) view.getLayoutParams()).getSpanIndex() == 0) {
+                int spanIndex = ((GridLayoutManager.LayoutParams) view.getLayoutParams()).getSpanIndex();
+                int currentSpanCount = getSpanCount();
+                if (spanIndex == 0) {
                     outRect.left = edge;
-                } else {
+                    outRect.right = edge / 2;
+                } else if (spanIndex == currentSpanCount - 1) {
+                    outRect.left = edge / 2;
                     outRect.right = edge;
+                } else {
+                    outRect.left = edge / 2;
+                    outRect.right = edge / 2;
                 }
             }
         });

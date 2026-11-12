@@ -433,10 +433,21 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public GridLayoutManager.SpanSizeLookup getSpanSizeLookup() {
+        return getSpanSizeLookup(2);
+    }
+
+    public GridLayoutManager.SpanSizeLookup getSpanSizeLookup(int spanCount) {
         return new GridLayoutManager.SpanSizeLookup() {
             @Override
             public int getSpanSize(int position) {
-                return getItemViewType(position) == VT_SHORT ? 1 : 2;
+                int type = getItemViewType(position);
+                if (type == VT_SHORT) {
+                    return 1;
+                } else if (type == VT_VIDEO || type == VT_ROW) {
+                    return 2;
+                } else {
+                    return spanCount;
+                }
             }
         };
     }

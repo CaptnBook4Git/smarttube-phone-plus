@@ -498,6 +498,16 @@ public final class PhoneSearchFilters {
 
         android.app.Dialog dialog = new android.app.Dialog(context, R.style.PhoneSheetTheme);
         android.view.View sheet = android.view.LayoutInflater.from(context).inflate(R.layout.phone_sheet_saved_list, null);
+        if (PhoneUi.isTablet(context)) {
+            android.view.View inner = sheet.findViewById(R.id.phone_sheet);
+            if (inner != null) {
+                int maxSheetWidth = (int) (560 * context.getResources().getDisplayMetrics().density);
+                android.widget.FrameLayout.LayoutParams lp = (android.widget.FrameLayout.LayoutParams) inner.getLayoutParams();
+                lp.width = Math.min(context.getResources().getDisplayMetrics().widthPixels, maxSheetWidth);
+                lp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL;
+                inner.setLayoutParams(lp);
+            }
+        }
         dialog.setContentView(sheet);
 
         TextView titleView = sheet.findViewById(R.id.phone_sheet_title);

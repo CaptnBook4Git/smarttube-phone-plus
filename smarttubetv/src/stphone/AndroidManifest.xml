@@ -23,13 +23,13 @@
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneBrowseActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleTask"
-            android:screenOrientation="portrait"
+            android:screenOrientation="user"
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneSearchActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleTop"
-            android:screenOrientation="portrait"
+            android:screenOrientation="user"
             android:windowSoftInputMode="adjustResize|stateHidden" />
         <!-- Menus as phone bottom sheets -->
         <activity
@@ -58,19 +58,19 @@
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneSignInActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleTop"
-            android:screenOrientation="portrait" />
+            android:screenOrientation="user" />
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneChannelActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleTop"
-            android:screenOrientation="portrait" />
+            android:screenOrientation="user" />
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneChannelUploadsActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleTop"
-            android:screenOrientation="portrait" />
+            android:screenOrientation="user" />
 
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.main.SplashActivity" android:screenOrientation="portrait" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.main.SplashActivity" android:screenOrientation="user" tools:replace="android:screenOrientation"/>
         <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.browse.BrowseActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
         <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.channel.ChannelActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
         <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.channeluploads.ChannelUploadsActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
@@ -95,7 +95,7 @@
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneUpdateActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleTop"
-            android:screenOrientation="portrait" />
+            android:screenOrientation="user" />
         <receiver
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneUpdater$InstallReceiver"
             android:exported="false" />

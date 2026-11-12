@@ -61,7 +61,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private PhonePlaybackFragment mPlayer;
-    private View mRoot;
+    private LinearLayout mRoot;
+    private boolean mTabletFullscreen;
     private RatioFrameLayout mVideoBox;
     private RecyclerView mDetails;
     private FeedAdapter mAdapter;
@@ -358,6 +359,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         boolean portrait = newConfig.orientation != Configuration.ORIENTATION_LANDSCAPE;
         if (portrait != mPortrait) {
             mPortrait = portrait;
+            if (mPortrait) {
+                mTabletFullscreen = false;
+            }
             applyLayoutMode();
             applySystemBars();
         }
@@ -365,6 +369,20 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     @Override
     public void onBackPressed() {
+        if (PhoneUi.isTablet(this) && !mPortrait) {
+            if (mTabletFullscreen) {
+                mTabletFullscreen = false;
+                applyLayoutMode();
+                applySystemBars();
+                return;
+            }
+            if (!isPip() && !mShortsMode && mPlayer != null && mPlayer.getPlayWhenReady()) {
+                enterMiniPlayer();
+                return;
+            }
+            super.onBackPressed();
+            return;
+        }
         if (!mPortrait && !isPip()) {
             // Leave full screen first, like the YouTube app
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
@@ -462,8 +480,12 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
      */
     static int sheetTopLimit() {
         PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
-        if (activity == null || activity.isFinishing() || activity.mStopped || activity.isPip() || !activity.mPortrait
+        if (activity == null || activity.isFinishing() || activity.mStopped || activity.isPip()
+                || (!activity.mPortrait && !PhoneUi.isTablet(activity))
                 || activity.mShortsMode || activity.mVideoBox == null || activity.mVideoBox.getHeight() == 0) {
+            return 0;
+        }
+        if (PhoneUi.isTablet(activity) && !activity.mPortrait) {
             return 0;
         }
         int[] location = new int[2];
@@ -482,24 +504,47 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     // region Layout modes
 
     private void applyLayoutMode() {
-        if (mVideoBox == null) {
+        if (mVideoBox == null || mRoot == null) {
             return;
         }
 
         boolean pip = isPip();
         boolean shorts = mShortsMode && !pip;
-        boolean withDetails = mPortrait && !shorts && !pip;
+        boolean tablet = PhoneUi.isTablet(this);
+        boolean isLandscapeTablet = tablet && !mPortrait;
+        boolean isTabletSplit = isLandscapeTablet && !mTabletFullscreen && !shorts && !pip;
+        boolean withDetails = (mPortrait || isTabletSplit) && !shorts && !pip;
+        boolean isTrueFullscreen = !withDetails && !shorts && !pip;
 
-        mVideoBox.setRatioEnabled(withDetails);
-        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) mVideoBox.getLayoutParams();
-        params.height = withDetails ? ViewGroup.LayoutParams.WRAP_CONTENT : 0;
-        params.weight = withDetails ? 0 : 1;
-        mVideoBox.setLayoutParams(params);
+        if (isTabletSplit) {
+            mRoot.setOrientation(LinearLayout.HORIZONTAL);
+            mVideoBox.setRatioEnabled(false);
+            LinearLayout.LayoutParams vParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 64f);
+            mVideoBox.setLayoutParams(vParams);
 
-        mDetails.setVisibility(withDetails ? View.VISIBLE : View.GONE);
+            LinearLayout.LayoutParams dParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 36f);
+            mDetails.setLayoutParams(dParams);
+            mDetails.setVisibility(View.VISIBLE);
+        } else {
+            mRoot.setOrientation(LinearLayout.VERTICAL);
+            mVideoBox.setRatioEnabled(withDetails);
+            LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) mVideoBox.getLayoutParams();
+            params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            params.height = withDetails ? ViewGroup.LayoutParams.WRAP_CONTENT : 0;
+            params.weight = withDetails ? 0 : 1;
+            mVideoBox.setLayoutParams(params);
+
+            LinearLayout.LayoutParams dParams = (LinearLayout.LayoutParams) mDetails.getLayoutParams();
+            dParams.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            dParams.height = 0;
+            dParams.weight = 1;
+            mDetails.setLayoutParams(dParams);
+            mDetails.setVisibility(withDetails ? View.VISIBLE : View.GONE);
+        }
+
         boolean controlsVisible = mControls != null && mControls.getVisibility() == View.VISIBLE;
         if (mMiniProgress != null) {
-            mMiniProgress.setVisibility(!controlsVisible && mPortrait && !pip ? View.VISIBLE : View.GONE);
+            mMiniProgress.setVisibility(!controlsVisible && !isTrueFullscreen && !pip ? View.VISIBLE : View.GONE);
         }
         mRoot.setPadding(0, withDetails ? mStatusInset : 0, 0, 0);
 
@@ -509,15 +554,15 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         backParams.topMargin = dp(6) + mStatusInset;
         back.setLayoutParams(backParams);
 
-        mControlsTitle.setVisibility(mPortrait ? View.GONE : View.VISIBLE);
+        mControlsTitle.setVisibility((mPortrait && !tablet) ? View.GONE : View.VISIBLE);
         if (mPortrait && mPlayer != null) {
             mPlayer.setResizeMode(com.google.android.exoplayer2.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT);
         }
         // Full screen: keep the seek bar and time clear of the screen edges
         View bottom = findViewById(R.id.phone_ctl_bottom);
-        int side = mPortrait ? 0 : dp(28);
-        bottom.setPadding(side, 0, side, mPortrait ? 0 : dp(48));
-        mFullscreenButton.setImageResource(mPortrait ? R.drawable.ic_phone_fullscreen : R.drawable.ic_phone_fullscreen_exit);
+        int side = isTrueFullscreen ? dp(28) : 0;
+        bottom.setPadding(side, 0, side, isTrueFullscreen ? dp(48) : 0);
+        mFullscreenButton.setImageResource(isTrueFullscreen ? R.drawable.ic_phone_fullscreen_exit : R.drawable.ic_phone_fullscreen);
 
         if (shorts || pip) {
             showPhoneControls(false);
@@ -531,7 +576,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @SuppressWarnings("deprecation")
     private void applySystemBars() {
         Window window = getWindow();
-        boolean fullscreen = !mPortrait;
+        boolean fullscreen = PhoneUi.isTablet(this) ? mTabletFullscreen : !mPortrait;
 
         if (!fullscreen) {
             window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS
@@ -575,6 +620,12 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     private void toggleFullscreen() {
         showPhoneControls(false);
+        if (PhoneUi.isTablet(this) && !mPortrait) {
+            mTabletFullscreen = !mTabletFullscreen;
+            applyLayoutMode();
+            applySystemBars();
+            return;
+        }
         setRequestedOrientation(mPortrait
                 ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                 : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
@@ -594,8 +645,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             return super.dispatchTouchEvent(event);
         }
 
+        boolean allowFullscreenGestures = (!mPortrait && !PhoneUi.isTablet(this)) || mTabletFullscreen;
+
         // Full screen: pinch to fill the screen or fit the whole video
-        if (!mPortrait && !mShortsMode && mPinchDetector != null) {
+        if (allowFullscreenGestures && !mShortsMode && mPinchDetector != null) {
             mPinchDetector.onTouchEvent(event);
             if (event.getPointerCount() > 1 || mPinchDetector.isInProgress()) {
                 if (!mPinching) {
@@ -617,7 +670,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
 
         // Full screen: swipe up/down on the left for brightness, on the right for volume
-        if (!mPortrait && !mShortsMode && handleLevelGesture(event)) {
+        if (allowFullscreenGestures && !mShortsMode && handleLevelGesture(event)) {
             return true;
         }
 
