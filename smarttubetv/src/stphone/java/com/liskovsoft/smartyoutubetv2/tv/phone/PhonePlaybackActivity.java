@@ -619,6 +619,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     // region Layout modes
 
     private void applyLayoutMode() {
+        mLevelMode = LEVEL_NONE;
+        mHandler.removeCallbacks(mSpeedBoostRunnable);
         if (mVideoBox == null || mRoot == null) {
             return;
         }
@@ -758,6 +760,15 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     private void toggleFullscreen() {
         showPhoneControls(false);
+        mLevelMode = LEVEL_NONE;
+        mHandler.removeCallbacks(mSpeedBoostRunnable);
+        if (mIsSpeedBoostActive) {
+            mIsSpeedBoostActive = false;
+            if (mPlayer != null) {
+                mPlayer.setSpeedTemporary(mOriginalPlaybackSpeed > 0 ? mOriginalPlaybackSpeed : 1.0f);
+            }
+            hideSpeedBoostHud();
+        }
         if (PhoneUi.isTablet(this) && !mPortrait) {
             mTabletFullscreen = !mTabletFullscreen;
             applyLayoutMode();
@@ -786,7 +797,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             return super.dispatchTouchEvent(event);
         }
 
-        boolean allowFullscreenGestures = (!mPortrait && !PhoneUi.isTablet(this)) || mTabletFullscreen;
+        boolean allowFullscreenGestures = (!mPortrait && !PhoneUi.isTablet(this)) || mTabletFullscreen || mLevelMode != LEVEL_NONE;
 
         // Full screen: pinch to fill the screen or fit the whole video
         if (allowFullscreenGestures && !mShortsMode && mPinchDetector != null) {
@@ -1063,6 +1074,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private boolean routeTouch(MotionEvent event) {
 
         if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            mLevelMode = LEVEL_NONE;
             if (mIsSpeedBoostActive) {
                 mIsSpeedBoostActive = false;
                 if (mPlayer != null) {
@@ -1128,10 +1140,6 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     return true;
                 }
             }
-        }
-
-        if (mLevelMode == LEVEL_EXIT_FULLSCREEN) {
-            return true;
         }
 
         // Swipe the video down to shrink the player: the video follows the finger into the mini player
@@ -1209,7 +1217,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             float dy = Math.abs(event.getRawY() - mDragStartY);
             int slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop();
             long dt = event.getEventTime() - mDragStartTime;
-            if (action == MotionEvent.ACTION_UP && mTouchStartedOnVideo && !mShrinkDragging && dx <= slop && dy <= slop && dt < 450) {
+            if (action == MotionEvent.ACTION_UP && mTouchStartedOnVideo && !mShrinkDragging && dx <= slop * 1.5f && dy <= slop * 1.5f && dt < SPEED_BOOST_TIMEOUT_MS) {
                 if (mControls != null && mControls.getVisibility() != View.VISIBLE) {
                     showPhoneControls(true);
                 }
@@ -1615,6 +1623,19 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                             mTouchStartedOnVideo = false;
                             mShrinkDragging = false;
                             mRouteTouchToPlayer = null;
+                            mHandler.removeCallbacks(mSpeedBoostRunnable);
+                            if (mIsSpeedBoostActive) {
+                                mIsSpeedBoostActive = false;
+                                if (mPlayer != null) {
+                                    mPlayer.setSpeedTemporary(mOriginalPlaybackSpeed > 0 ? mOriginalPlaybackSpeed : 1.0f);
+                                }
+                                hideSpeedBoostHud();
+                            }
+                            MotionEvent cancel = MotionEvent.obtain(event);
+                            cancel.setAction(MotionEvent.ACTION_CANCEL);
+                            routeTouch(cancel);
+                            cancel.recycle();
+
                             resetShrink();
                             showPhoneControls(false);
                             if (PhoneUi.isTablet(this) && !mPortrait) {
@@ -1652,6 +1673,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             }
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
+                mHandler.removeCallbacks(mSpeedBoostRunnable);
                 if (mLevelMode != LEVEL_NONE) {
                     boolean wasLevel = mLevelMode == LEVEL_BRIGHTNESS || mLevelMode == LEVEL_VOLUME;
                     mLevelMode = LEVEL_NONE;
