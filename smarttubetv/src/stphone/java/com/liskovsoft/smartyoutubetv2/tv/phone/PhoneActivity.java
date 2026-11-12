@@ -91,7 +91,6 @@ public abstract class PhoneActivity extends MotherActivity {
     protected int miniPlayerBottomOffset() {
         return PhoneMiniPlayer.navigationInset(getWindow().getDecorView());
     }
-    }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {

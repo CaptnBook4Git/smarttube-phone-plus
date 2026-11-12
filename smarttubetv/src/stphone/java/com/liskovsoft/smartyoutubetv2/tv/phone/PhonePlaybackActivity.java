@@ -668,7 +668,6 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 mMiniProgress.setLayoutParams(progressParams);
             }
         }
-        }
         mRoot.setPadding(0, withDetails ? mStatusInset : 0, 0, 0);
 
         mShorts.setVisibility(shorts ? View.VISIBLE : View.GONE);

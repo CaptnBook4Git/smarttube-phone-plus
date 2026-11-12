@@ -217,7 +217,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                     android.net.Uri.fromParts("package", getPackageName(), null)));
         }
     }
-    }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
@@ -567,7 +566,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         layer.setLayerSize(0, dp(8), dp(8));
         layer.setLayerGravity(0, Gravity.TOP | Gravity.END);
         return layer;
-    }
     }
 
     private void setupTabs() {
