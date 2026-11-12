@@ -1477,7 +1477,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         dialog.showDialog("Plus");
     }
-    }
 
     @Override
     public void clearSection(BrowseSection section) {
