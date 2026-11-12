@@ -84,6 +84,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private static final int LEVEL_NONE = 0;
     private static final int LEVEL_BRIGHTNESS = 1;
     private static final int LEVEL_VOLUME = 2;
+    private static final int LEVEL_EXIT_FULLSCREEN = 3;
     private int mLevelMode = LEVEL_NONE;
     private float mLevelStartX;
     private float mLevelStartY;
@@ -970,6 +971,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             }
         }
 
+        if (mLevelMode == LEVEL_EXIT_FULLSCREEN) {
+            return true;
+        }
+
         // Swipe the video down to shrink the player: the video follows the finger into the mini player
         if ((mShrinkDragging || mTouchStartedOnVideo) && allowShrink && handleShrinkDrag(event)) {
             return true;
@@ -982,7 +987,16 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             if (dy > dp(60) && dy > dx * 1.3f) {
                 mRouteTouchToPlayer = null;
                 mTouchStartedOnVideo = false;
-                toggleFullscreen();
+                mShrinkDragging = false;
+                resetShrink();
+                showPhoneControls(false);
+                if (PhoneUi.isTablet(this) && !mPortrait) {
+                    mTabletFullscreen = false;
+                    applyLayoutMode();
+                    applySystemBars();
+                } else if (!mPortrait) {
+                    setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+                }
                 return true;
             }
         }
@@ -1163,9 +1177,21 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     } else if (mLevelStartX >= rightZone) {
                         mLevelMode = LEVEL_VOLUME;
                     } else {
-                        // Middle 60%: not brightness or volume. Downward swipe exits fullscreen
+                        // Middle 60%: not brightness or volume. Downward swipe exits fullscreen (like back button)
                         if (dy > slop && dy > Math.abs(dx) * 1.3f) {
-                            toggleFullscreen();
+                            mLevelMode = LEVEL_EXIT_FULLSCREEN;
+                            mTouchStartedOnVideo = false;
+                            mShrinkDragging = false;
+                            mRouteTouchToPlayer = null;
+                            resetShrink();
+                            showPhoneControls(false);
+                            if (PhoneUi.isTablet(this) && !mPortrait) {
+                                mTabletFullscreen = false;
+                                applyLayoutMode();
+                                applySystemBars();
+                            } else if (!mPortrait) {
+                                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+                            }
                             return true;
                         }
                         return false;
@@ -1178,6 +1204,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     cancel.setAction(MotionEvent.ACTION_CANCEL);
                     routeTouch(cancel);
                     cancel.recycle();
+                }
+                if (mLevelMode == LEVEL_EXIT_FULLSCREEN) {
+                    return true;
                 }
                 float height = Math.max(1, mVideoBox.getHeight() * 0.7f);
                 float value = Math.max(0f, Math.min(1f, mLevelStartValue + (mLevelStartY - event.getRawY()) / height));
@@ -1192,9 +1221,15 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 if (mLevelMode != LEVEL_NONE) {
+                    boolean wasLevel = mLevelMode == LEVEL_BRIGHTNESS || mLevelMode == LEVEL_VOLUME;
                     mLevelMode = LEVEL_NONE;
-                    mHandler.removeCallbacks(mHideLevel);
-                    mHandler.postDelayed(mHideLevel, 700);
+                    mTouchStartedOnVideo = false;
+                    mShrinkDragging = false;
+                    mRouteTouchToPlayer = null;
+                    if (wasLevel) {
+                        mHandler.removeCallbacks(mHideLevel);
+                        mHandler.postDelayed(mHideLevel, 700);
+                    }
                     return true;
                 }
                 return false;

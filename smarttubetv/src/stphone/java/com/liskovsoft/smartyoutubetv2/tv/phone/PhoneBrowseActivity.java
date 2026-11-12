@@ -160,6 +160,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     @Override
     protected void onPause() {
         super.onPause();
+        PhoneCardPreviewManager.stopActivePreview(this, true);
         mPresenter.onViewPaused();
     }
 
@@ -1413,11 +1414,13 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         hideMessage();
         mSettingsGroup = group;
-        // Phone only setting on top of SmartTube's settings
         java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items = new ArrayList<>();
-        int appearance = PhoneTheme.get(this);
+        // Check for updates shown directly at the very top of settings
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                "Plus", this::openPlusSettings, R.drawable.ic_phone_settings));
+                PhoneUpdater.settingsTitle(this), () -> PhoneUpdater.open(this), R.drawable.ic_phone_update));
+        // Plus settings bundle with plus icon
+        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
+                "Plus", this::openPlusSettings, R.drawable.ic_phone_plus));
         if (group.getItems() != null) {
             items.addAll(group.getItems());
         }
@@ -1448,6 +1451,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 item -> PhoneUi.openLongPressSpeedSettings(this, null)
         ));
 
+        options.add(UiOptionItem.from(
+                PhoneUi.getCardPreviewRandomStartTitle(this),
+                item -> PhoneUi.openCardPreviewRandomStartSettings(this, null)
+        ));
+
         int appearance = PhoneTheme.get(this);
         options.add(UiOptionItem.from(
                 getString(PhoneTheme.titleRes(appearance)),
@@ -1460,11 +1468,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         options.add(UiOptionItem.from(
                 PhoneNotifications.settingsTitle(this),
                 item -> PhoneNotifications.open(this)
-        ));
-
-        options.add(UiOptionItem.from(
-                PhoneUpdater.settingsTitle(this),
-                item -> PhoneUpdater.open(this)
         ));
 
         for (OptionItem opt : options) {

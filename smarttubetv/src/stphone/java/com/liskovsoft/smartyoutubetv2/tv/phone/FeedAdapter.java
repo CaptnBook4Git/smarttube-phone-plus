@@ -824,21 +824,13 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private void bindClicks(View view, Video video) {
         view.setOnClickListener(v -> {
+            PhoneCardPreviewManager.stopActivePreview(view.getContext(), false);
             PhoneUi.rememberClick(view);
             mListener.onVideoClicked(video);
         });
-        view.setOnLongClickListener(v -> {
-            int previewType = com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.instance(view.getContext()).getCardPreviewType();
-            if (previewType == com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.CARD_PREVIEW_DISABLED) {
-                return true; // Deaktiviert: einfach gar nichts tun
-            }
-            android.widget.ImageView thumb = view.findViewById(R.id.phone_thumb);
-            if (thumb != null && video.previewUrl != null) {
-                com.bumptech.glide.Glide.with(view.getContext())
-                        .load(video.previewUrl)
-                        .into(thumb);
-            }
-            return true;
+        PhoneCardPreviewManager.bind(view, video, () -> {
+            PhoneUi.rememberClick(view);
+            mListener.onVideoClicked(video);
         });
         View more = view.findViewById(R.id.phone_more);
         if (more != null) {
