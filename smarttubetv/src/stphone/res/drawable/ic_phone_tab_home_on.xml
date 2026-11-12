@@ -1,3 +1,4 @@
+<!-- Bottom tabs: the YouTube app's icons (2px lines, round corners; the chosen tab filled) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -6,5 +7,9 @@
     <path
         android:fillColor="#FFFFFFFF"
         android:fillType="evenOdd"
-        android:pathData="M4,21V10l8,-7 8,7v11h-6v-6h-4v6z" />
+        android:pathData="M11.3,2.9a1.2,1.2 0,0 1,1.4 0l9.2,6.6a0.9,0.9 0,0 1,-0.5 1.6H2.6a0.9,0.9 0,0 1,-0.5 -1.6z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M4,11h16v8.6a1.5,1.5 0,0 1,-1.5 1.5H14.2V13.8H9.8v7.3H5.5A1.5,1.5 0,0 1,4 19.6z" />
 </vector>

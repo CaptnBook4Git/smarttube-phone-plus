@@ -404,7 +404,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         findViewById(R.id.phone_logo).setOnClickListener(v -> scrollToTopOrRefresh());
     }
 
-    // Bottom tabs as in the YouTube app: line icons, the chosen tab's icon filled, everything in the text colour
+    // Bottom tabs as in the YouTube app: its icons (2px lines), the chosen tab's icon filled, all in the text colour
     private static final int[] TAB_ICONS = {R.drawable.ic_phone_tab_home, R.drawable.ic_phone_tab_shorts,
             R.drawable.ic_phone_tab_subs, R.drawable.ic_phone_bell, R.drawable.ic_phone_account};
     private static final int[] TAB_ICONS_ON = {R.drawable.ic_phone_tab_home_on, R.drawable.ic_phone_tab_shorts_on,
@@ -434,7 +434,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
             ImageView icon = new ImageView(this);
             icon.setImageResource(icons[i]);
-            tab.addView(icon, new LinearLayout.LayoutParams(dp(26), dp(26)));
+            tab.addView(icon, new LinearLayout.LayoutParams(dp(24), dp(24)));
 
             TextView label = new TextView(this);
             label.setText(labels[i]);
@@ -487,7 +487,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             icon.setImageTintList(picture ? null : ColorStateList.valueOf(color));
             TextView label = (TextView) layout.getChildAt(1);
             label.setTextColor(color);
-            label.setTypeface(Typeface.create(selected ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
+            label.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL)); // the filled icon marks the chosen tab
         }
     }
 
