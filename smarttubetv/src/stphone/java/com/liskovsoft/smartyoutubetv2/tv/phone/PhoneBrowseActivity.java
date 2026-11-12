@@ -158,9 +158,10 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             mPresenter.onViewResumed();
         }
         mIsFirstResume = false;
-        updateAccountViews();
+        updateAccountViews(); // also the tabs: the bell's dot for new videos
         refreshSettingsRows(); // back from Android's notification settings
         refreshIncognito();
+        PhoneNewVideos.schedule(this); // the background look at the Subscriptions feed (kept if already planned)
     }
 
     /** The incognito glasses next to search while watch history is paused; tap them to turn incognito off */
@@ -406,9 +407,21 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     // Bottom tabs as in the YouTube app: its icons (2px lines), the chosen tab's icon filled, all in the text colour
     private static final int[] TAB_ICONS = {R.drawable.ic_phone_tab_home, R.drawable.ic_phone_tab_shorts,
-            R.drawable.ic_phone_tab_subs, R.drawable.ic_phone_bell, R.drawable.ic_phone_account};
+            R.drawable.ic_phone_tab_subs, R.drawable.ic_phone_tab_bell, R.drawable.ic_phone_account};
     private static final int[] TAB_ICONS_ON = {R.drawable.ic_phone_tab_home_on, R.drawable.ic_phone_tab_shorts_on,
-            R.drawable.ic_phone_tab_subs_on, R.drawable.ic_phone_bell, R.drawable.ic_phone_account};
+            R.drawable.ic_phone_tab_subs_on, R.drawable.ic_phone_tab_bell, R.drawable.ic_phone_account};
+
+    /** A red dot at the bell's top right: new videos nobody has looked at yet */
+    private android.graphics.drawable.Drawable unreadDot() {
+        android.graphics.drawable.GradientDrawable dot = new android.graphics.drawable.GradientDrawable();
+        dot.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        dot.setColor(getResources().getColor(R.color.phone_accent));
+        android.graphics.drawable.LayerDrawable layer =
+                new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[] {dot});
+        layer.setLayerSize(0, dp(8), dp(8));
+        layer.setLayerGravity(0, Gravity.TOP | Gravity.END);
+        return layer;
+    }
 
     private void setupTabs() {
         int[] icons = TAB_ICONS;
@@ -438,7 +451,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
             TextView label = new TextView(this);
             label.setText(labels[i]);
-            label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
+            label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f); // five tabs: "Subscriptions" and "Notifications" fit
             label.setMaxLines(1);
             label.setEllipsize(TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
@@ -450,6 +463,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             tab.setOnClickListener(v -> {
                 if (index == TAB_SHORTS) {
                     playShorts();
+                } else if (index == TAB_NOTIFICATIONS) {
+                    PhoneNotificationsActivity.open(this); // its own screen, like Shorts
                 } else if (index == TAB_SUBS && mCurrentTab == TAB_SUBS && !isSubscriptionsFeed()) {
                     selectTab(TAB_SUBS); // from All channels back to the feed
                 } else if (index == mCurrentTab) {
@@ -472,8 +487,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             if (tab == null) {
                 continue;
             }
-            // No Notifications tab for now (YouTube doesn't give SmartTube the notification inbox)
-            boolean visible = i == TAB_YOU || (hasTab(i) && i != TAB_NOTIFICATIONS);
+            // Notifications is the app's own list of new videos (PhoneNewVideos), not a SmartTube section
+            boolean visible = i == TAB_YOU || i == TAB_NOTIFICATIONS || hasTab(i);
             tab.setVisibility(visible ? View.VISIBLE : View.GONE);
             boolean selected = i == mCurrentTab;
             int color = getResources().getColor(R.color.phone_text);
@@ -485,6 +500,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 icon.setImageResource(selected ? TAB_ICONS_ON[i] : TAB_ICONS[i]);
             }
             icon.setImageTintList(picture ? null : ColorStateList.valueOf(color));
+            if (i == TAB_NOTIFICATIONS) {
+                icon.setForeground(PhoneNewVideos.unread(this) > 0 ? unreadDot() : null);
+            }
             TextView label = (TextView) layout.getChildAt(1);
             label.setTextColor(color);
             label.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL)); // the filled icon marks the chosen tab
@@ -1056,6 +1074,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         items.add(PhoneSetting.value(getString(R.string.phone_notifications),
                 getString(PhoneNotifications.isEnabled(this) ? R.string.phone_value_on : R.string.phone_value_off),
                 R.drawable.ic_phone_bell, () -> PhoneNotifications.open(this)));
+
+        items.add(PhoneSetting.toggle(getString(R.string.phone_new_videos), PhoneNewVideos.isEnabled(this), R.drawable.ic_phone_bell, () -> {
+            PhoneNewVideos.setEnabled(this, !PhoneNewVideos.isEnabled(this));
+            refreshSettingsRows();
+        }));
 
         items.add(PhoneSetting.header(getString(R.string.phone_settings_backup)));
         addEngineSetting(items, engine, R.string.app_backup_restore);

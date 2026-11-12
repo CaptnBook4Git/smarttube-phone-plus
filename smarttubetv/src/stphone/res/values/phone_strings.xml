@@ -122,6 +122,16 @@
     <string name="phone_shortcut_shorts">Shorts</string>
     <string name="phone_shortcut_history">History</string>
     <string name="phone_incognito">Incognito</string>
+    <string name="phone_new_videos">New video notifications</string>
+    <string name="phone_new_videos_channel">New videos from subscriptions</string>
+    <string name="phone_new_videos_empty">No new videos yet.\nNew videos from the channels you\'re subscribed to show up here.</string>
+    <string name="phone_new_videos_sign_in">Sign in to see new videos from the channels you\'re subscribed to.</string>
+    <string name="phone_new_videos_off">New video notifications are switched off in Settings.</string>
+    <string name="phone_new_videos_clear">Clear</string>
+    <plurals name="phone_new_videos_count">
+        <item quantity="one">%d new video</item>
+        <item quantity="other">%d new videos</item>
+    </plurals>
     <string name="phone_settings_account">Account</string>
     <string name="phone_settings_appearance">Appearance</string>
     <string name="phone_settings_playback">Playback</string>

@@ -130,6 +130,12 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleTop"
             android:screenOrientation="portrait" />
+        <!-- Notifications tab: new videos from subscribed channels -->
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneNotificationsActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait" />
         <!-- You > Downloads, and the in-app player for downloaded files -->
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneDownloadsActivity"
