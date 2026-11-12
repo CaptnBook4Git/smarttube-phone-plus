@@ -5,15 +5,15 @@
 <h1 align="center">SmartTube+ (Phone & Tablet Edition)</h1>
 
 <p align="center">
-  <b>Inoffizieller Android Phone & Tablet Port von <a href="https://github.com/yuliskov/SmartTube">SmartTube</a> mit erweiterten Touch- & Tablet-Features.</b><br>
-  Werbefreies YouTube mit Gestensteuerung, 3-Zonen-Vollbild, Kartenvorschau, Split-View für Tablets,<br>
-  Shorts, Bild-in-Bild, Hintergrundwiedergabe, SponsorBlock und optimierter Touch-Bedienung.
+  <b>An enhanced Android phone and tablet port of <a href="https://github.com/yuliskov/SmartTube">SmartTube</a> with dedicated touch and tablet features.</b><br>
+  Ad-free YouTube with rich touch gestures, 3-zone fullscreen, card previews, tablet split-view,<br>
+  swipeable Shorts, picture-in-picture, background play, SponsorBlock and an optimized UI.
 </p>
 
 <p align="center">
-  <a href="https://github.com/CaptnBook4Git/smarttube-phone-plus/releases/latest/download/SmartTube-Phone-arm64.apk"><b>Download der neuesten APK (SmartTube+)</b></a>
+  <a href="https://github.com/CaptnBook4Git/smarttube-phone-plus/releases/latest/download/SmartTube-Phone-arm64.apk"><b>Download latest APK (SmartTube+)</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/CaptnBook4Git/smarttube-phone-plus/releases">Alle Releases</a>
+  <a href="https://github.com/CaptnBook4Git/smarttube-phone-plus/releases">All releases</a>
   &nbsp;·&nbsp;
   <a href="#credits">Credits</a>
 </p>
@@ -26,66 +26,66 @@
 </p>
 
 > [!NOTE]
-> **SmartTube+** ist ein Fork des [SmartTube for phones](https://github.com/shreyas-bangera/smarttube-phone)-Ports (ursprünglich von [Yuriy Liskov](https://github.com/yuliskov) für Android TV entwickelt).
-> Diese Plus-Edition erweitert den Phone-Port um umfassende Tablet-Optimierungen, intuitive Gestensteuerung, interaktive Kartenvorschau, Schnellaktionen und ein eigenes Plus-Einstellungsmenü.
+> **SmartTube+** is a fork of the [SmartTube for phones](https://github.com/shreyas-bangera/smarttube-phone) port (originally created by [Yuriy Liskov](https://github.com/yuliskov) for Android TV).
+> This Plus edition enriches the phone port with comprehensive tablet optimizations, intuitive player gestures, interactive card previews, quick curation actions, and a unified Plus settings menu.
 
 ---
 
-## ✨ Was ist neu in SmartTube+? (Features & Gesten)
+## ✨ What's new in SmartTube+? (Features & Gestures)
 
-Die **Plus-Version** erweitert das SmartTube-Erlebnis um zahlreiche Komfortfunktionen und Gesten, die speziell für die Bedienung auf Touchscreens (Smartphones, Foldables und Tablets) entwickelt wurden:
+The **Plus version** expands SmartTube with numerous quality-of-life enhancements and gestures tailored specifically for modern touch devices (phones, foldables, and tablets):
 
-### 👆 Gestensteuerung im Player
+### 👆 Player Touch Gestures
 
-| Geste | Wo & Wie | Funktion |
+| Gesture | Where & How | Action |
 |---|---|---|
-| **Helligkeit regeln** | **Linke 20%** im Vollbild nach oben/unten wischen | Stufenlose Regelung der Display-Helligkeit. |
-| **Lautstärke regeln** | **Rechte 20%** im Vollbild nach oben/unten wischen | Stufenlose Regelung der Medien-Lautstärke. |
-| **Vollbild beenden** | **Mittlere 60%** im Vollbild nach unten wischen | Beendet den Vollbildmodus zurück zur normalen Player-/Split-Ansicht (ohne das Video in den Mini-Player zu minimieren). |
-| **Vollbild starten** | Im normalen Player nach oben wischen | Wechselt direkt in den Vollbildmodus. |
-| **Mini-Player (PiP)** | Im normalen Player nach unten wischen (oder Zurück-Taste) | Verkleinert das Video in das schwebende Bild-in-Bild-Fenster für nahtloses Multitasking. |
-| **⚡ Tap & Hold Speed-Boost** | Video berühren und gedrückt halten (> 600&nbsp;ms) | Spielt das Video sofort temporär mit z.&nbsp;B. **2.0x** (oder der in den Einstellungen gewählten Geschwindigkeit) ab. Beim Loslassen wird sofort zur vorherigen Normalgeschwindigkeit zurückgekehrt. |
-| **Player-Steuerung einblenden** | Einfacher Fingertipp auf das Video | Blendet zuverlässig und ohne Verzögerung die Play/Pause- und Stop-Buttons ein. |
+| **Brightness control** | Swipe up / down on the **left 20%** in fullscreen | Smooth stepless display brightness adjustment. |
+| **Volume control** | Swipe up / down on the **right 20%** in fullscreen | Smooth stepless media volume adjustment. |
+| **Exit fullscreen** | Swipe down on the **middle 60%** in fullscreen | Exits fullscreen back to portrait / split-view player (without accidentally minimizing to mini-player). |
+| **Enter fullscreen** | Swipe up on the normal player | Instantly transitions into fullscreen mode. |
+| **Mini-player (PiP)** | Swipe down on the normal player (or press Back) | Shrinks the video into a floating picture-in-picture window for seamless multitasking. |
+| **⚡ Tap & Hold Speed Boost** | Touch and hold the bare video area (> 600&nbsp;ms) | Temporarily accelerates playback to e.g. **2.0x** (or your preferred speed chosen in settings). Releasing immediately restores the previous normal playback speed. |
+| **Show player controls** | Single tap on the video | Instantly and reliably reveals the play/pause and stop controls without lag. |
 
 ---
 
-### 🎬 Interaktive Kartenvorschau (Feeds & Listen)
+### 🎬 Interactive Card Preview (Feeds & Lists)
 
-- **Touch & Hold auf ein Video-Thumbnail:** Startet die Videovorschau direkt auf der Karte in Home, Abonnements oder Suchergebnissen.
-- **Wisch nach oben während der Vorschau:** Öffnet das Video nahtlos im Hauptplayer und setzt die Wiedergabe an genau dieser Stelle fort.
-- **Einfaches Loslassen:** Stoppt die Vorschau sofort. Das Video wird automatisch als **ungesehen** markiert – der YouTube-Verlauf wird durch schnelles Reinschnuppern nicht verfälscht!
-- **Konfigurierbar:** In den Einstellungen kann festgelegt werden, ob die Vorschau mit oder ohne Ton startet und ob sie am Anfang oder an einer zufälligen Stelle im Video beginnt.
-
----
-
-### ⏹️ Erweiterte Player-Bedienelemente
-
-- **Wiedergabe stoppen-Button (`■`):** Direkt neben dem Play/Pause-Button im Zentrum des Players. Beendet die Wiedergabe sofort vollständig und schließt den Player, sodass man direkt zum Homescreen zurückkehrt.
-- **SponsorBlock auf der Zeitleiste:** Gesponserte Segmente, Intros und Outros werden farbig auf der Timeline visualisiert.
-- **Quick-Action-Buttons:** Schneller Zugriff auf *Like*, *Dislike*, *Kein Interesse* und *Kanal nicht empfehlen* direkt unter dem Video.
+- **Touch & hold a video card:** Starts video playback directly inside the card's thumbnail across Home, Subscriptions, or Search.
+- **Swipe up while holding:** Seamlessly transitions into the main player, continuing playback right from where the preview was.
+- **Simply release:** Stops the preview immediately. The video is automatically reset to **unwatched** — preventing quick feed browsing from cluttering your YouTube watch history!
+- **Configurable in Settings:** Choose whether previews play muted or with audio, and whether they start from the beginning or from a random timestamp.
 
 ---
 
-### 📱 Tablet- & Großbildschirm-Optimierungen
+### ⏹️ Enhanced Player Controls
 
-- **Konfigurierbares Video-Grid:** Wählbare Anzahl von Spalten für Video-Listen (z.&nbsp;B. 2, 3 oder 4 Spalten auf Tablets und im Querformat).
-- **Split-View im Querformat:** Auf großen Bildschirmen wird das Video links und die Empfehlungen bzw. Kommentare rechts nebeneinander angezeigt.
-- **Kommentar-Seitenpanel:** Kommentare öffnen sich als flaches rechtes Seitenpanel mit eigenem Schließen-Button – **ohne das laufende Video abzudunkeln**.
-- **Dropdown-Profilwechsler:** Auf Tablets öffnet das Profil-Icon oben rechts ein kompaktes Dropdown direkt am Berührungspunkt, anstatt ein unhandliches Bottom-Sheet über den ganzen Bildschirm zu legen.
-- **Aufgeräumte „Du“-Ansicht:** Redundante Einstellungs-Buttons entfernt, direkter Zugriff auf Einstellungen oben rechts.
+- **Dedicated Stop Button (`■`):** Located right next to Play/Pause in the center of the player. Instantly stops playback and closes the player, returning you straight to your feed.
+- **SponsorBlock on Timeline:** Sponsor segments, intros, and outros are visually highlighted in distinct colors along the scrub bar.
+- **Quick Action Buttons:** Direct access to *Like*, *Dislike*, *Not interested*, and *Don't recommend channel* right beneath the player.
 
 ---
 
-### ⚙️ Gebündelte Einstellungen („Plus“)
+### 📱 Tablet & Large Screen Optimizations
 
-- **Zentraler Menüpunkt „Plus“ (mit `+`-Icon):** Alle neuen Einstellungen (Speed-Boost-Faktor, Grid-Spaltenanzahl, Vorschau-Optionen etc.) sind übersichtlich an einem Ort gebündelt.
-- **„Auf Updates prüfen“ ganz oben:** Direkt an oberster Stelle der Haupteinstellungen für schnellen Zugriff auf neue Releases.
+- **Configurable Feed Grid:** Choose the number of grid columns (e.g. 2, 3, or 4 columns) for video lists on tablets and landscape orientations.
+- **Landscape Split-View:** On tablets, watch the video on the left while browsing recommendations and details on the right.
+- **Side Comments Panel:** Comments slide in as a dedicated right-hand side panel with an explicit close button — **without dimming the playing video**.
+- **Top-Right Account Switcher Dropdown:** On tablets, tapping the profile avatar opens a compact popup dropdown right under your finger rather than an oversized bottom sheet across the entire screen.
+- **Decluttered You Tab:** Removed redundant settings chips, keeping quick access via the top-right settings icon.
+
+---
+
+### ⚙️ Dedicated "Plus" Settings
+
+- **Unified "Plus" Menu (with `+` icon):** All Plus features (speed boost multiplier, grid column counts, preview settings, etc.) are gathered in one convenient settings section.
+- **"Check for updates" pinned to top:** Placed right at the very top of the main settings screen for immediate one-tap update checks.
 
 ---
 
 ## Contents
 
-- [✨ Was ist neu in SmartTube+? (Features & Gesten)](#-was-ist-neu-in-smarttube-features--gesten)
+- [✨ What's new in SmartTube+? (Features & Gestures)](#-whats-new-in-smarttube-features--gestures)
 - [What it is](#what-it-is)
 - [Features](#features)
 - [Requirements](#requirements)
