@@ -269,4 +269,9 @@
     <string name="phone_downloads_delete_title">Delete this download?</string>
     <string name="phone_downloads_deleted">Download deleted</string>
     <string name="phone_downloads_delete_failed">Couldn\'t delete it. Delete it from the Files app (Download/SmartTube).</string>
+    <!-- Comment filtering by chapter -->
+    <string name="phone_comments_filter_all">All comments</string>
+    <string name="phone_comments_filter_live">Live: Current chapter</string>
+    <string name="phone_comments_filter_live_prefix">Live: %s</string>
+    <string name="phone_comments_no_chapter_comments">No comments found for this chapter</string>
 </resources>

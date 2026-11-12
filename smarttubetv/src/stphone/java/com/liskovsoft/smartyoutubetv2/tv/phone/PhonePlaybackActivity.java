@@ -539,6 +539,24 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         activity.closePlayer();
     }
 
+    public static List<Video> getActiveChapters() {
+        PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
+        return activity != null ? activity.mChapters : null;
+    }
+
+    public static long getActivePositionMs() {
+        PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
+        if (activity != null && activity.mPlayer != null) {
+            return activity.mPlayer.getPositionMs();
+        }
+        return 0;
+    }
+
+    public static Video getActiveVideo() {
+        PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
+        return activity != null ? activity.currentVideo() : null;
+    }
+
     private boolean isInOwnTask() {
         return PhoneBrowseActivity.sTaskId != -1 && getTaskId() != PhoneBrowseActivity.sTaskId;
     }

@@ -126,6 +126,79 @@
             android:layout_height="0.5dp"
             android:background="@color/phone_divider" />
 
+        <!-- Comments: Chapter filter bar -->
+        <LinearLayout
+            android:id="@+id/phone_sheet_chapter_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/phone_sheet_chapter_filter"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:background="@drawable/phone_pill_bg"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="12dp"
+                android:paddingEnd="10dp">
+
+                <ImageView
+                    android:id="@+id/phone_sheet_chapter_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_phone_chapters"
+                    android:tint="@color/phone_text" />
+
+                <TextView
+                    android:id="@+id/phone_sheet_chapter_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:textColor="@color/phone_text"
+                    android:textSize="13sp" />
+
+                <ImageView
+                    android:id="@+id/phone_sheet_chapter_chevron"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_marginStart="4dp"
+                    android:importantForAccessibility="no"
+                    android:rotation="90"
+                    android:src="@drawable/ic_phone_chevron"
+                    android:tint="@color/phone_text_2" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/phone_sheet_chapter_stats"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/phone_text_2"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <View
+            android:id="@+id/phone_sheet_chapter_divider"
+            android:layout_width="match_parent"
+            android:layout_height="0.5dp"
+            android:background="@color/phone_divider"
+            android:visibility="gone" />
+
         <com.liskovsoft.smartyoutubetv2.tv.phone.widget.MaxHeightFrameLayout
             android:id="@+id/phone_sheet_list_frame"
             android:layout_width="match_parent"

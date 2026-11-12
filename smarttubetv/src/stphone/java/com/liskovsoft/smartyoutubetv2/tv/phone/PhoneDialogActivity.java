@@ -1,11 +1,16 @@
 package com.liskovsoft.smartyoutubetv2.tv.phone;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.widget.FrameLayout;
@@ -17,6 +22,7 @@ import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 
@@ -29,6 +35,7 @@ import com.liskovsoft.mediaserviceinterfaces.data.CommentGroup;
 import com.liskovsoft.mediaserviceinterfaces.data.CommentItem;
 import com.liskovsoft.sharedutils.helpers.Helpers;
 import com.liskovsoft.sharedutils.helpers.MessageHelpers;
+import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.AbstractCommentsReceiver;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.CommentsReceiver;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionCategory;
@@ -40,7 +47,10 @@ import com.liskovsoft.smartyoutubetv2.tv.R;
 import com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivity;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * All of SmartTube's menus (video menu, quality, speed, accounts, settings...) as a phone bottom sheet.
@@ -98,6 +108,24 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     private ImageView mComposerSend;
     private ImageView mComposerAvatar;
     private boolean mPosting;
+
+    public static final int FILTER_ALL = 0;
+    public static final int FILTER_LIVE = 1;
+    public static final int FILTER_CHAPTER = 2;
+
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private int mChapterFilterMode = FILTER_ALL;
+    private int mSelectedChapterIndex = -1;
+    private int mLiveChapterIndex = -1;
+    private int mAutoLoadCount = 0;
+
+    private View mChapterBar;
+    private View mChapterFilterBtn;
+    private ImageView mChapterIcon;
+    private TextView mChapterLabel;
+    private ImageView mChapterChevron;
+    private TextView mChapterStats;
+    private View mChapterDivider;
     private RecyclerView mList;
     private com.liskovsoft.smartyoutubetv2.tv.phone.widget.MaxHeightFrameLayout mListFrame;
     private int mVideoLimit;
@@ -132,6 +160,16 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         mComposerSend = findViewById(R.id.phone_sheet_composer_send);
         mComposerAvatar = findViewById(R.id.phone_sheet_composer_avatar);
         mComposerSend.setOnClickListener(v -> postComment());
+        mChapterBar = findViewById(R.id.phone_sheet_chapter_bar);
+        mChapterFilterBtn = findViewById(R.id.phone_sheet_chapter_filter);
+        mChapterIcon = findViewById(R.id.phone_sheet_chapter_icon);
+        mChapterLabel = findViewById(R.id.phone_sheet_chapter_label);
+        mChapterChevron = findViewById(R.id.phone_sheet_chapter_chevron);
+        mChapterStats = findViewById(R.id.phone_sheet_chapter_stats);
+        mChapterDivider = findViewById(R.id.phone_sheet_chapter_divider);
+        if (mChapterFilterBtn != null) {
+            mChapterFilterBtn.setOnClickListener(v -> showChapterFilterMenu());
+        }
         RecyclerView list = findViewById(R.id.phone_sheet_list);
         mList = list;
         mListFrame = findViewById(R.id.phone_sheet_list_frame);
@@ -223,17 +261,21 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         PhoneUi.applyPhoneDensity(this);
         mIsPaused = false;
         showSystemBars();
+        mHandler.removeCallbacks(mChapterLiveTicker);
+        mHandler.post(mChapterLiveTicker);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         mIsPaused = true;
+        mHandler.removeCallbacks(mChapterLiveTicker);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        mHandler.removeCallbacks(mChapterLiveTicker);
         if (!mIsDelegated && mPresenter.getView() == this) {
             mPresenter.onViewDestroyed();
         }
@@ -512,6 +554,23 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         if (sortable) {
             mSortLabel.setText(receiver.isSortedByNewest() ? R.string.phone_comments_newest : R.string.phone_comments_top);
         }
+
+        boolean hasChapters = commentsOfPlayingVideo()
+                && PhonePlaybackActivity.getActiveChapters() != null
+                && !PhonePlaybackActivity.getActiveChapters().isEmpty();
+        boolean isTopLevelComments = page.comments != null && !isNestedReplies(page);
+        boolean showChapterBar = hasChapters && isTopLevelComments;
+        if (mChapterBar != null) {
+            mChapterBar.setVisibility(showChapterBar ? View.VISIBLE : View.GONE);
+        }
+        if (mChapterDivider != null) {
+            mChapterDivider.setVisibility(showChapterBar ? View.VISIBLE : View.GONE);
+        }
+        if (showChapterBar) {
+            updateChapterFilterLabel(mChapterFilterMode,
+                    mChapterFilterMode == FILTER_LIVE ? mLiveChapterIndex : mSelectedChapterIndex);
+            updateChapterBarStats(page.comments);
+        }
     }
 
     // region Writing comments
@@ -595,7 +654,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                         sPostedIds.add(comment.getId()); // long press offers Delete
                     }
                     page.comments.items.add(0, comment);
-                    page.comments.adapter.notifyItemInserted(0);
+                    page.comments.refilter();
                     mList.scrollToPosition(0);
                 } else {
                     page.comments.restart(); // posted, but YouTube didn't describe it: load the list again
@@ -863,6 +922,272 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         return row;
     }
 
+    // region Chapter Comments Filtering
+
+    private final Runnable mChapterLiveTicker = new Runnable() {
+        @Override
+        public void run() {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            Page page = currentPage();
+            if (page != null && page.comments != null && mChapterFilterMode == FILTER_LIVE) {
+                checkAndUpdateLiveChapter(page, false);
+            }
+            mHandler.postDelayed(this, 500);
+        }
+    };
+
+    private void checkAndUpdateLiveChapter(Page page, boolean force) {
+        if (page == null || page.comments == null || mChapterFilterMode != FILTER_LIVE) {
+            return;
+        }
+        List<Video> chapters = PhonePlaybackActivity.getActiveChapters();
+        if (chapters == null || chapters.isEmpty()) {
+            return;
+        }
+        long posMs = PhonePlaybackActivity.getActivePositionMs();
+        int activeIdx = 0;
+        for (int i = 0; i < chapters.size(); i++) {
+            if (chapters.get(i).startTimeMs <= posMs) {
+                activeIdx = i;
+            } else {
+                break;
+            }
+        }
+
+        if (activeIdx != mLiveChapterIndex || force) {
+            mLiveChapterIndex = activeIdx;
+            updateChapterFilterLabel(FILTER_LIVE, activeIdx);
+            page.comments.refilter();
+        }
+    }
+
+    private void setChapterFilterMode(int mode, int index) {
+        mChapterFilterMode = mode;
+        mSelectedChapterIndex = index;
+        mAutoLoadCount = 0;
+        Page page = currentPage();
+        if (page != null && page.comments != null) {
+            if (mode == FILTER_LIVE) {
+                checkAndUpdateLiveChapter(page, true);
+            } else {
+                updateChapterFilterLabel(mode, index);
+                page.comments.refilter();
+                mList.scrollToPosition(0);
+            }
+        }
+    }
+
+    private void updateChapterFilterLabel(int mode, int index) {
+        if (mChapterLabel == null) {
+            return;
+        }
+        List<Video> chapters = PhonePlaybackActivity.getActiveChapters();
+        if (mode == FILTER_ALL || chapters == null || chapters.isEmpty()) {
+            mChapterLabel.setText(R.string.phone_comments_filter_all);
+            mChapterIcon.setImageTintList(ColorStateList.valueOf(getResources().getColor(R.color.phone_text)));
+            mChapterFilterBtn.setBackgroundResource(R.drawable.phone_pill_bg);
+        } else if (mode == FILTER_LIVE) {
+            if (index >= 0 && index < chapters.size()) {
+                Video ch = chapters.get(index);
+                String name = (index + 1) + ". " + (!TextUtils.isEmpty(ch.getTitle()) ? ch.getTitle() : getString(R.string.chapters));
+                mChapterLabel.setText(String.format(getString(R.string.phone_comments_filter_live_prefix), name));
+            } else {
+                mChapterLabel.setText(R.string.phone_comments_filter_live);
+            }
+            mChapterIcon.setImageTintList(ColorStateList.valueOf(getResources().getColor(R.color.phone_accent)));
+            mChapterFilterBtn.setBackgroundResource(R.drawable.phone_pill_bg);
+        } else {
+            if (index >= 0 && index < chapters.size()) {
+                Video ch = chapters.get(index);
+                String name = (index + 1) + ". " + (!TextUtils.isEmpty(ch.getTitle()) ? ch.getTitle() : getString(R.string.chapters));
+                mChapterLabel.setText(name);
+            } else {
+                mChapterLabel.setText(R.string.chapters);
+            }
+            mChapterIcon.setImageTintList(ColorStateList.valueOf(getResources().getColor(R.color.phone_accent)));
+            mChapterFilterBtn.setBackgroundResource(R.drawable.phone_pill_bg);
+        }
+    }
+
+    private void updateChapterBarStats(CommentsState state) {
+        if (mChapterStats == null || state == null) {
+            return;
+        }
+        if (mChapterFilterMode != FILTER_ALL) {
+            mChapterStats.setVisibility(View.VISIBLE);
+            mChapterStats.setText("(" + state.filteredItems.size() + ")");
+        } else {
+            mChapterStats.setVisibility(View.GONE);
+        }
+    }
+
+    private void showChapterFilterMenu() {
+        Page page = currentPage();
+        if (page == null || page.comments == null) {
+            return;
+        }
+        List<Video> chapters = PhonePlaybackActivity.getActiveChapters();
+        if (chapters == null || chapters.isEmpty()) {
+            return;
+        }
+        float density = getResources().getDisplayMetrics().density;
+
+        LinearLayout menu = new LinearLayout(this);
+        menu.setOrientation(LinearLayout.VERTICAL);
+        menu.setPadding(0, (int) (6 * density), 0, (int) (6 * density));
+        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+        background.setColor(getResources().getColor(R.color.phone_surface_2));
+        background.setCornerRadius(14 * density);
+        menu.setBackground(background);
+
+        com.liskovsoft.smartyoutubetv2.tv.phone.widget.MaxHeightFrameLayout frame =
+                new com.liskovsoft.smartyoutubetv2.tv.phone.widget.MaxHeightFrameLayout(this);
+        frame.setMaxHeight((int) (380 * density));
+
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setVerticalScrollBarEnabled(false);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        scrollView.addView(content, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        frame.addView(scrollView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        menu.addView(frame, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        int width = (int) (290 * density);
+        android.widget.PopupWindow popup = new android.widget.PopupWindow(menu,
+                width, ViewGroup.LayoutParams.WRAP_CONTENT, true);
+        popup.setElevation(14 * density);
+        popup.setOutsideTouchable(true);
+
+        // 1. All comments option
+        content.addView(chapterRow(getString(R.string.phone_comments_filter_all), null, mChapterFilterMode == FILTER_ALL, () -> {
+            popup.dismiss();
+            setChapterFilterMode(FILTER_ALL, -1);
+        }));
+
+        // 2. Live tracking option
+        content.addView(chapterRow(getString(R.string.phone_comments_filter_live), null, mChapterFilterMode == FILTER_LIVE, () -> {
+            popup.dismiss();
+            setChapterFilterMode(FILTER_LIVE, -1);
+        }));
+
+        // Divider
+        View div = new View(this);
+        div.setBackgroundColor(getResources().getColor(R.color.phone_divider));
+        LinearLayout.LayoutParams divParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, (int) (1 * density));
+        divParams.setMargins(0, (int) (4 * density), 0, (int) (4 * density));
+        content.addView(div, divParams);
+
+        // 3. Each individual chapter
+        for (int i = 0; i < chapters.size(); i++) {
+            final int chapterIdx = i;
+            Video ch = chapters.get(i);
+            String title = (i + 1) + ". " + (!TextUtils.isEmpty(ch.getTitle()) ? ch.getTitle() : getString(R.string.chapters));
+            String timeBadge = ch.badge != null ? ch.badge : formatTime(ch.startTimeMs);
+            boolean isChecked = (mChapterFilterMode == FILTER_CHAPTER && mSelectedChapterIndex == i);
+
+            content.addView(chapterRow(title, timeBadge, isChecked, () -> {
+                popup.dismiss();
+                setChapterFilterMode(FILTER_CHAPTER, chapterIdx);
+            }));
+        }
+
+        mChapterChevron.setRotation(-90);
+        popup.setOnDismissListener(() -> mChapterChevron.setRotation(90));
+        popup.showAsDropDown(mChapterFilterBtn, 0, (int) (4 * density), Gravity.START);
+    }
+
+    private View chapterRow(String title, String hint, boolean checked, Runnable onClick) {
+        float density = getResources().getDisplayMetrics().density;
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding((int) (16 * density), (int) (10 * density), (int) (16 * density), (int) (10 * density));
+        TypedValue ripple = new TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackground, ripple, true);
+        if (ripple.resourceId != 0) {
+            row.setBackgroundResource(ripple.resourceId);
+        }
+
+        ImageView check = new ImageView(this);
+        check.setImageResource(R.drawable.ic_phone_check);
+        check.setImageTintList(ColorStateList.valueOf(getResources().getColor(R.color.phone_accent)));
+        check.setVisibility(checked ? View.VISIBLE : View.INVISIBLE);
+        row.addView(check, new LinearLayout.LayoutParams((int) (20 * density), (int) (20 * density)));
+
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
+
+        TextView titleView = new TextView(this);
+        titleView.setText(title);
+        titleView.setTextColor(getResources().getColor(checked ? R.color.phone_accent : R.color.phone_text));
+        titleView.setTextSize(14);
+        titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        texts.addView(titleView);
+
+        if (!TextUtils.isEmpty(hint)) {
+            TextView hintView = new TextView(this);
+            hintView.setText(hint);
+            hintView.setTextColor(getResources().getColor(R.color.phone_text_2));
+            hintView.setTextSize(12);
+            texts.addView(hintView);
+        }
+
+        LinearLayout.LayoutParams textsParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        textsParams.setMarginStart((int) (12 * density));
+        row.addView(texts, textsParams);
+
+        row.setOnClickListener(v -> onClick.run());
+        return row;
+    }
+
+    private static List<Long> extractTimestamps(String text) {
+        if (TextUtils.isEmpty(text)) {
+            return Collections.emptyList();
+        }
+        Matcher matcher = TIMESTAMP.matcher(text);
+        List<Long> timestamps = new ArrayList<>();
+        while (matcher.find()) {
+            long hours = matcher.group(1) != null ? Long.parseLong(matcher.group(1)) : 0;
+            long minutes = Long.parseLong(matcher.group(2));
+            long seconds = Long.parseLong(matcher.group(3));
+            if (seconds > 59 || (hours > 0 && minutes > 59)) {
+                continue;
+            }
+            long positionMs = ((hours * 60 + minutes) * 60 + seconds) * 1000;
+            timestamps.add(positionMs);
+        }
+        return timestamps;
+    }
+
+    private static String formatTime(long ms) {
+        long total = Math.max(0, ms / 1000);
+        long hours = total / 3600;
+        long minutes = (total % 3600) / 60;
+        long seconds = total % 60;
+        return hours > 0
+                ? String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+                : String.format(java.util.Locale.US, "%d:%02d", minutes, seconds);
+    }
+
+    private boolean isNestedReplies(Page page) {
+        int commentsDepth = 0;
+        for (Page p : mStack) {
+            if (p.comments != null) {
+                commentsDepth++;
+            }
+        }
+        return commentsDepth > 1;
+    }
+
+    // endregion
+
     /** Top or Newest: the list starts over from the first page of that order */
     private void setCommentsOrder(Page page, boolean newest) {
         AbstractCommentsReceiver receiver = (AbstractCommentsReceiver) page.comments.receiver;
@@ -976,6 +1301,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     private final class CommentsState implements CommentsReceiver.Callback {
         final CommentsReceiver receiver;
         final List<CommentItem> items = new ArrayList<>();
+        final List<CommentItem> filteredItems = new ArrayList<>();
         final CommentsAdapter adapter;
         CommentGroup group;
         String footer;
@@ -999,6 +1325,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         /** Another order picked: empty list, loading line, first page again */
         void restart() {
             items.clear();
+            filteredItems.clear();
             group = null;
             loading = true;
             finished = false;
@@ -1007,13 +1334,64 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             start();
         }
 
+        void refilter() {
+            filteredItems.clear();
+            if (mChapterFilterMode == FILTER_ALL) {
+                filteredItems.addAll(items);
+            } else {
+                List<Video> chapters = PhonePlaybackActivity.getActiveChapters();
+                int targetIndex = (mChapterFilterMode == FILTER_LIVE) ? mLiveChapterIndex : mSelectedChapterIndex;
+                if (chapters != null && targetIndex >= 0 && targetIndex < chapters.size()) {
+                    Video targetChapter = chapters.get(targetIndex);
+                    long startMs = targetChapter.startTimeMs;
+                    long endMs = (targetIndex + 1 < chapters.size()) ? chapters.get(targetIndex + 1).startTimeMs : Long.MAX_VALUE;
+
+                    for (CommentItem item : items) {
+                        if (item == null || TextUtils.isEmpty(item.getMessage())) {
+                            continue;
+                        }
+                        List<Long> timestamps = extractTimestamps(item.getMessage());
+                        boolean match = false;
+                        for (Long ts : timestamps) {
+                            if (ts >= startMs && ts < endMs) {
+                                match = true;
+                                break;
+                            }
+                        }
+                        if (match) {
+                            filteredItems.add(item);
+                        }
+                    }
+                }
+            }
+
+            if (mChapterFilterMode != FILTER_ALL) {
+                if (filteredItems.isEmpty()) {
+                    footer = !loading ? getString(R.string.phone_comments_no_chapter_comments) : (receiver != null ? receiver.getLoadingMessage() : null);
+                } else {
+                    footer = (group != null && group.getNextCommentsKey() != null && receiver != null) ? receiver.getLoadingMessage() : null;
+                }
+            } else {
+                footer = items.isEmpty() ? (receiver != null ? receiver.getErrorMessage() : null)
+                        : (group != null && group.getNextCommentsKey() != null && receiver != null) ? receiver.getLoadingMessage() : null;
+            }
+
+            adapter.notifyDataSetChanged();
+            updateChapterBarStats(this);
+
+            if (mChapterFilterMode != FILTER_ALL && filteredItems.size() < 8 && group != null && group.getNextCommentsKey() != null && mAutoLoadCount < 6) {
+                mAutoLoadCount++;
+                loadMore();
+            }
+        }
+
         @Override
         public void onCommentGroup(CommentGroup commentGroup) {
             runOnUiThread(() -> {
                 loading = false;
                 if (commentGroup == null || commentGroup.getComments() == null) {
                     footer = items.isEmpty() ? receiver.getErrorMessage() : null;
-                    adapter.notifyDataSetChanged();
+                    refilter();
                     return;
                 }
                 for (CommentItem item : commentGroup.getComments()) {
@@ -1024,10 +1402,8 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                     }
                 }
                 group = commentGroup;
-                footer = items.isEmpty() ? receiver.getErrorMessage()
-                        : commentGroup.getNextCommentsKey() != null ? receiver.getLoadingMessage() : null;
-                adapter.notifyDataSetChanged();
-                if (items.size() <= 10 && commentGroup.getNextCommentsKey() != null) {
+                refilter();
+                if (mChapterFilterMode == FILTER_ALL && items.size() <= 10 && commentGroup.getNextCommentsKey() != null) {
                     loadMore();
                 }
             });
@@ -1041,12 +1417,8 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                     items.clear();
                     items.addAll(((PhoneCommentsBackup) backup).items);
                     group = ((PhoneCommentsBackup) backup).group;
-                    footer = items.isEmpty() ? receiver.getErrorMessage()
-                            : group != null && group.getNextCommentsKey() != null ? receiver.getLoadingMessage() : null;
-                } else {
-                    footer = receiver.getErrorMessage();
                 }
-                adapter.notifyDataSetChanged();
+                refilter();
             });
         }
 
@@ -1056,9 +1428,9 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                 for (int i = 0; i < items.size(); i++) {
                     if (Helpers.equals(items.get(i).getId(), commentItem.getId())) {
                         items.set(i, commentItem);
-                        adapter.notifyItemChanged(i);
                     }
                 }
+                refilter();
             });
         }
 
@@ -1090,12 +1462,14 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
 
         @Override
         public int getItemCount() {
-            return mState.items.size() + (TextUtils.isEmpty(mState.footer) ? 0 : 1);
+            int count = (mChapterFilterMode == FILTER_ALL ? mState.items.size() : mState.filteredItems.size());
+            return count + (TextUtils.isEmpty(mState.footer) ? 0 : 1);
         }
 
         @Override
         public int getItemViewType(int position) {
-            return position < mState.items.size() ? TYPE_COMMENT : TYPE_FOOTER;
+            int count = (mChapterFilterMode == FILTER_ALL ? mState.items.size() : mState.filteredItems.size());
+            return position < count ? TYPE_COMMENT : TYPE_FOOTER;
         }
 
         @NonNull
@@ -1125,7 +1499,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                 return;
             }
 
-            CommentItem item = mState.items.get(position);
+            CommentItem item = (mChapterFilterMode == FILTER_ALL ? mState.items : mState.filteredItems).get(position);
             View view = holder.itemView;
             android.widget.ImageView avatar = view.findViewById(R.id.phone_thumb);
             TextView meta = view.findViewById(R.id.phone_meta);

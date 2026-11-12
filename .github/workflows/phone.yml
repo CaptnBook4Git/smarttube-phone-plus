@@ -98,24 +98,28 @@ jobs:
       # "What's new" for the release (shown on the app's update screen): app changes strictly since the previous build
       - name: Release notes
         run: |
-          PREV=$(git tag -l "build-*" --sort=-v:refname | head -n 1)
-          {
-            echo "SmartTube+: a YouTube client for Android phones and tablets, built on SmartTube."
-            echo ""
-            # A table, not a list: the app's update screen shows "- " and "* " lines as changes
-            echo "| APK | For |"
-            echo "|---|---|"
-            echo "| SmartTube-Phone-arm64.apk (or StreamTube-arm64.apk) | Almost every phone (64-bit ARM) |"
-            echo "| SmartTube-Phone-arm32.apk (or StreamTube-arm32.apk) | Older or budget phones with a 32-bit processor |"
-            echo "| SmartTube-Phone-universal.apk (or StreamTube-universal.apk) | Any device, also x86 emulators and Chromebooks |"
-            echo ""
-            echo "What's new"
-            if [ -n "$PREV" ]; then
-              git log --no-merges --format='- %s' "$PREV..HEAD" | grep -viE '^- (CI|README|Smoke|Emulator)' | head -n 15 || true
-            else
-              git log -n 1 --no-merges --format='- %s' HEAD || true
-            fi
-          } > release_notes.md
+          if [ -f RELEASE_NOTES.md ]; then
+            cp RELEASE_NOTES.md release_notes.md
+          else
+            PREV=$(git tag -l "build-*" --sort=-v:refname | head -n 1)
+            {
+              echo "SmartTube+: a YouTube client for Android phones and tablets, built on SmartTube."
+              echo ""
+              # A table, not a list: the app's update screen shows "- " and "* " lines as changes
+              echo "| APK | For |"
+              echo "|---|---|"
+              echo "| SmartTube-Phone-arm64.apk (or StreamTube-arm64.apk) | Almost every phone (64-bit ARM) |"
+              echo "| SmartTube-Phone-arm32.apk (or StreamTube-arm32.apk) | Older or budget phones with a 32-bit processor |"
+              echo "| SmartTube-Phone-universal.apk (or StreamTube-universal.apk) | Any device, also x86 emulators and Chromebooks |"
+              echo ""
+              echo "What's new"
+              if [ -n "$PREV" ]; then
+                git log --no-merges --format='- %s' "$PREV..HEAD" | grep -viE '^- (CI|README|Smoke|Emulator)' | head -n 15 || true
+              else
+                git log -n 1 --no-merges --format='- %s' HEAD || true
+              fi
+            } > release_notes.md
+          fi
           cat release_notes.md
 
       # Public, sign-in free download: releases/latest/download/SmartTube-Phone-<arch>.apk and StreamTube-<arch>.apk
