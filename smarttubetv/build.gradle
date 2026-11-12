@@ -187,9 +187,10 @@ android {
             // no Firebase, and no auto-updater that would replace this build with the TV one.
             matchingFallbacks = ['stfdroid']
 
-            // Modern phones are 64-bit only
+            // Release APKs (see the splits above): arm64 (most phones), armeabi-v7a (32-bit phones) and the
+            // universal one (all three, also x86 emulators and Chromebooks)
             ndk {
-                abiFilters 'arm64-v8a'
+                abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86'
             }
         }
         stfdroid {

@@ -63,28 +63,37 @@ jobs:
         id: collect
         run: |
           mkdir -p out
-          # 32.72-phone-81 -> StreamTube-Phone-32.72.81-arm64.apk
+          # 32.72-phone-81 -> StreamTube-Phone-32.72.81-arm64.apk (also -arm32 and -universal)
           FILE_VERSION=$(echo "${{ steps.get_version.outputs.VERSION_NAME }}" | sed 's/-phone-/./')
+          SRC=./smarttubetv/build/outputs/apk/stphone/release
+          for PAIR in arm64:arm64-v8a arm32:armeabi-v7a universal:universal; do
+            ARCH=${PAIR%%:*}
+            cp $SRC/*_${PAIR#*:}.apk "out/StreamTube-Phone-${FILE_VERSION}-${ARCH}.apk"
+            # The same APK under a fixed name: the direct download link and the in-app updater (builds 80+)
+            cp "out/StreamTube-Phone-${FILE_VERSION}-${ARCH}.apk" "out/StreamTube-${ARCH}.apk"
+          done
+          # Builds from before the rename (SmartTube-Phone-arm64.apk)
+          cp out/StreamTube-arm64.apk out/SmartTube-Phone-arm64.apk
           APK="StreamTube-Phone-${FILE_VERSION}-arm64.apk"
-          cp ./smarttubetv/build/outputs/apk/stphone/release/*_arm64-v8a.apk "out/$APK"
-          # The same APK under fixed names: the direct download link and builds 80+ (StreamTube-arm64.apk),
-          # builds from before the rename (SmartTube-Phone-arm64.apk)
-          cp "out/$APK" out/StreamTube-arm64.apk
-          cp "out/$APK" out/SmartTube-Phone-arm64.apk
           echo "APK=$APK" >> $GITHUB_OUTPUT
+          echo "FILE_VERSION=$FILE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Show signer and version
         run: |
           BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
           $BT/apksigner verify --print-certs "out/${{ steps.collect.outputs.APK }}" | grep -E "SHA-256|DN"
-          $BT/aapt dump badging "out/${{ steps.collect.outputs.APK }}" | head -n 1
+          for APK in out/StreamTube-Phone-*.apk; do
+            echo "$APK"
+            $BT/aapt dump badging "$APK" | grep -E "^package|native-code"
+          done
+          ls -l out
           sha256sum out/*.apk
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StreamTube_${{ steps.get_version.outputs.VERSION_NAME }}_arm64
-          path: out/${{ steps.collect.outputs.APK }}
+          name: StreamTube_${{ steps.get_version.outputs.VERSION_NAME }}
+          path: out/StreamTube-Phone-*.apk
           if-no-files-found: error
 
       # "What's new" for the release (shown on the app's update screen): app changes since the previous build
@@ -92,8 +101,14 @@ jobs:
         run: |
           PREV=$(git describe --tags --abbrev=0 --match 'build-*' HEAD 2>/dev/null || true)
           {
-            echo "StreamTube: a YouTube client for Android phones, built on SmartTube. arm64 only."
-            echo "Direct download: https://github.com/${{ github.repository }}/releases/latest/download/StreamTube-arm64.apk"
+            echo "StreamTube: a YouTube client for Android phones, built on SmartTube."
+            echo ""
+            # A table, not a list: the app's update screen shows "- " and "* " lines as changes
+            echo "| APK | For |"
+            echo "|---|---|"
+            echo "| StreamTube-arm64.apk | Almost every phone (64-bit ARM) |"
+            echo "| StreamTube-arm32.apk | Older or budget phones with a 32-bit processor |"
+            echo "| StreamTube-universal.apk | Any device, also x86 emulators and Chromebooks (bigger download) |"
             echo ""
             echo "What's new"
             if [ -n "$PREV" ]; then
@@ -102,7 +117,7 @@ jobs:
           } > release_notes.md
           cat release_notes.md
 
-      # Public, sign-in free download: releases/latest/download/StreamTube-arm64.apk (and the old name, for old builds)
+      # Public, sign-in free download: releases/latest/download/StreamTube-<arch>.apk (and the old name, for old builds)
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
@@ -110,7 +125,9 @@ jobs:
           name: StreamTube ${{ steps.get_version.outputs.VERSION_NAME }}
           body_path: release_notes.md
           files: |
-            out/${{ steps.collect.outputs.APK }}
+            out/StreamTube-Phone-*.apk
             out/StreamTube-arm64.apk
+            out/StreamTube-arm32.apk
+            out/StreamTube-universal.apk
             out/SmartTube-Phone-arm64.apk
           make_latest: true
