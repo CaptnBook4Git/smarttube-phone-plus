@@ -1512,11 +1512,18 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         updateLoading();
 
         boolean settled = !mAwaitingNewVideo && !mPaging && !mPageAnimating;
-        if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mPosterUntilFrame && settled
+        long now = android.os.SystemClock.uptimeMillis();
+        // One fade per poster: this runs many times a second while a Short's picture is up, and starting the fade
+        // again each time would never let it finish (the picture stayed, invisible, with the loading circle on top).
+        // A fade something else stopped halfway is started again after a moment.
+        boolean fading = mPoster != null && mPoster.getAlpha() < 1f && now - mPosterFadeStart < 600;
+        if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mPosterUntilFrame && settled && !fading
                 && position > (mShortsMode ? 150 : 350)
                 && mPlayer.getPlayWhenReady() && (!mShortsMode || newShortIsPlaying(position))) {
-            mPoster.animate().alpha(0f).setDuration(mShortsMode ? 150 : 220).withEndAction(() -> {
-                mPoster.setVisibility(View.GONE);
+            mPosterFadeStart = now;
+            ImageView poster = mPoster;
+            poster.animate().alpha(0f).setDuration(mShortsMode ? 150 : 220).withEndAction(() -> {
+                poster.setVisibility(View.GONE);
                 updateLoading();
             }).start();
         }
@@ -1531,6 +1538,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         updatePlayButton();
     }
 
+    private long mPosterFadeStart;
     private android.animation.ObjectAnimator mProgressAnimator;
 
     /** Shorts are short: their line glides between updates instead of jumping twice a second */

@@ -47,10 +47,6 @@ final class PhoneNotifications {
         return true;
     }
 
-    static String settingsTitle(Context context) {
-        return context.getString(isEnabled(context) ? R.string.phone_notifications_on : R.string.phone_notifications_off);
-    }
-
     /**
      * Settings row tapped: ask for the permission when Android still shows its dialog, otherwise open the app's
      * notification settings.

@@ -23,10 +23,6 @@ final class PhoneIncognito {
         return prefs(context).getBoolean(KEY_ON, false);
     }
 
-    static String settingsTitle(Context context) {
-        return context.getString(isOn(context) ? R.string.phone_incognito_on : R.string.phone_incognito_off);
-    }
-
     static void toggle(Context context) {
         GeneralData data = GeneralData.instance(context);
         SharedPreferences prefs = prefs(context);
