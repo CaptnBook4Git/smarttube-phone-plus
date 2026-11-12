@@ -857,11 +857,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 if (selected) {
                     chip.post(() -> mChipsScroll.smoothScrollTo(Math.max(0, chip.getLeft() - dp(16)), 0));
                 }
-            }
 
-            // You: Downloads right after History (videos and audio saved by the app, played in the app)
-            if (mCurrentTab == TAB_YOU && section.getId() == MediaGroup.TYPE_HISTORY) {
-                addDownloadsChip();
+                // You: Downloads right after History (videos and audio saved by the app, played in the app)
+                if (mCurrentTab == TAB_YOU && section.getId() == MediaGroup.TYPE_HISTORY) {
+                    addDownloadsChip();
+                }
             }
         }
         if (mCurrentTab == TAB_YOU && sectionById(MediaGroup.TYPE_HISTORY) == null) {
@@ -1695,20 +1695,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         options.add(UiOptionItem.from(
                 PhoneUi.getCardPreviewRandomStartTitle(this),
                 item -> PhoneUi.openCardPreviewRandomStartSettings(this, null)
-        ));
-
-        int appearance = PhoneTheme.get(this);
-        options.add(UiOptionItem.from(
-                getString(PhoneTheme.titleRes(appearance)),
-                item -> {
-                    PhoneTheme.set(this, PhoneTheme.next(appearance));
-                    recreate();
-                }
-        ));
-
-        options.add(UiOptionItem.from(
-                PhoneNotifications.settingsTitle(this),
-                item -> PhoneNotifications.open(this)
         ));
 
         for (OptionItem opt : options) {

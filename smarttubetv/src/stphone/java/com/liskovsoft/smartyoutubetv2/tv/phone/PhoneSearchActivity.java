@@ -67,10 +67,7 @@ public class PhoneSearchActivity extends PhoneActivity implements SearchView, Fe
 
         findViewById(R.id.phone_back).setOnClickListener(v -> onBackPressed());
         findViewById(R.id.phone_mic).setOnClickListener(v -> startVoiceRecognition());
-        View filterBtn = findViewById(R.id.phone_filter_btn);
-        if (filterBtn == null) {
-            filterBtn = findViewById(R.id.phone_filter);
-        }
+        View filterBtn = findViewById(R.id.phone_filter);
         if (filterBtn != null) {
             filterBtn.setOnClickListener(v -> openFilterDialog());
         }
