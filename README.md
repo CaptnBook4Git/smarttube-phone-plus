@@ -1,19 +1,19 @@
 <p align="center">
-  <img src="images/phone/icon.svg" width="96" alt="SmartTube icon">
+  <img src="images/phone/icon.svg" width="96" alt="SmartTube+ icon">
 </p>
 
-<h1 align="center">SmartTube for phones</h1>
+<h1 align="center">SmartTube+ (Phone & Tablet Edition)</h1>
 
 <p align="center">
-  <b>An unofficial Android phone port of <a href="https://github.com/yuliskov/SmartTube">SmartTube</a>, the open-source YouTube client for Android TV.</b><br>
-  Ad-free YouTube with a touch interface that looks and feels like the official app: portrait player,<br>
-  swipeable Shorts, picture in picture, background play, and Dark or Light appearance.
+  <b>Inoffizieller Android Phone & Tablet Port von <a href="https://github.com/yuliskov/SmartTube">SmartTube</a> mit erweiterten Touch- & Tablet-Features.</b><br>
+  Werbefreies YouTube mit Gestensteuerung, 3-Zonen-Vollbild, Kartenvorschau, Split-View für Tablets,<br>
+  Shorts, Bild-in-Bild, Hintergrundwiedergabe, SponsorBlock und optimierter Touch-Bedienung.
 </p>
 
 <p align="center">
-  <a href="https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/SmartTube-Phone-arm64.apk"><b>Download the latest APK</b></a>
+  <a href="https://github.com/CaptnBook4Git/smarttube-phone-plus/releases/latest/download/SmartTube-Phone-arm64.apk"><b>Download der neuesten APK (SmartTube+)</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/shreyas-bangera/smarttube-phone/releases">All releases</a>
+  <a href="https://github.com/CaptnBook4Git/smarttube-phone-plus/releases">Alle Releases</a>
   &nbsp;·&nbsp;
   <a href="#credits">Credits</a>
 </p>
@@ -26,14 +26,66 @@
 </p>
 
 > [!NOTE]
-> **This project is a port of [SmartTube](https://github.com/yuliskov/SmartTube) by [Yuriy Liskov](https://github.com/yuliskov) from Android TV to Android phones.**
-> SmartTube was built for TVs and TV boxes and is controlled with a remote. This port keeps SmartTube's engine (the YouTube client, playback, sign in, SponsorBlock and settings) and replaces the TV interface with a touch interface designed for phones.
-> It is an independent project, not affiliated with SmartTube's developer, YouTube or Google. For the TV app, visit the [original SmartTube repository](https://github.com/yuliskov/SmartTube).
+> **SmartTube+** ist ein Fork des [SmartTube for phones](https://github.com/shreyas-bangera/smarttube-phone)-Ports (ursprünglich von [Yuriy Liskov](https://github.com/yuliskov) für Android TV entwickelt).
+> Diese Plus-Edition erweitert den Phone-Port um umfassende Tablet-Optimierungen, intuitive Gestensteuerung, interaktive Kartenvorschau, Schnellaktionen und ein eigenes Plus-Einstellungsmenü.
+
+---
+
+## ✨ Was ist neu in SmartTube+? (Features & Gesten)
+
+Die **Plus-Version** erweitert das SmartTube-Erlebnis um zahlreiche Komfortfunktionen und Gesten, die speziell für die Bedienung auf Touchscreens (Smartphones, Foldables und Tablets) entwickelt wurden:
+
+### 👆 Gestensteuerung im Player
+
+| Geste | Wo & Wie | Funktion |
+|---|---|---|
+| **Helligkeit regeln** | **Linke 20%** im Vollbild nach oben/unten wischen | Stufenlose Regelung der Display-Helligkeit. |
+| **Lautstärke regeln** | **Rechte 20%** im Vollbild nach oben/unten wischen | Stufenlose Regelung der Medien-Lautstärke. |
+| **Vollbild beenden** | **Mittlere 60%** im Vollbild nach unten wischen | Beendet den Vollbildmodus zurück zur normalen Player-/Split-Ansicht (ohne das Video in den Mini-Player zu minimieren). |
+| **Vollbild starten** | Im normalen Player nach oben wischen | Wechselt direkt in den Vollbildmodus. |
+| **Mini-Player (PiP)** | Im normalen Player nach unten wischen (oder Zurück-Taste) | Verkleinert das Video in das schwebende Bild-in-Bild-Fenster für nahtloses Multitasking. |
+| **⚡ Tap & Hold Speed-Boost** | Video berühren und gedrückt halten (> 600&nbsp;ms) | Spielt das Video sofort temporär mit z.&nbsp;B. **2.0x** (oder der in den Einstellungen gewählten Geschwindigkeit) ab. Beim Loslassen wird sofort zur vorherigen Normalgeschwindigkeit zurückgekehrt. |
+| **Player-Steuerung einblenden** | Einfacher Fingertipp auf das Video | Blendet zuverlässig und ohne Verzögerung die Play/Pause- und Stop-Buttons ein. |
+
+---
+
+### 🎬 Interaktive Kartenvorschau (Feeds & Listen)
+
+- **Touch & Hold auf ein Video-Thumbnail:** Startet die Videovorschau direkt auf der Karte in Home, Abonnements oder Suchergebnissen.
+- **Wisch nach oben während der Vorschau:** Öffnet das Video nahtlos im Hauptplayer und setzt die Wiedergabe an genau dieser Stelle fort.
+- **Einfaches Loslassen:** Stoppt die Vorschau sofort. Das Video wird automatisch als **ungesehen** markiert – der YouTube-Verlauf wird durch schnelles Reinschnuppern nicht verfälscht!
+- **Konfigurierbar:** In den Einstellungen kann festgelegt werden, ob die Vorschau mit oder ohne Ton startet und ob sie am Anfang oder an einer zufälligen Stelle im Video beginnt.
+
+---
+
+### ⏹️ Erweiterte Player-Bedienelemente
+
+- **Wiedergabe stoppen-Button (`■`):** Direkt neben dem Play/Pause-Button im Zentrum des Players. Beendet die Wiedergabe sofort vollständig und schließt den Player, sodass man direkt zum Homescreen zurückkehrt.
+- **SponsorBlock auf der Zeitleiste:** Gesponserte Segmente, Intros und Outros werden farbig auf der Timeline visualisiert.
+- **Quick-Action-Buttons:** Schneller Zugriff auf *Like*, *Dislike*, *Kein Interesse* und *Kanal nicht empfehlen* direkt unter dem Video.
+
+---
+
+### 📱 Tablet- & Großbildschirm-Optimierungen
+
+- **Konfigurierbares Video-Grid:** Wählbare Anzahl von Spalten für Video-Listen (z.&nbsp;B. 2, 3 oder 4 Spalten auf Tablets und im Querformat).
+- **Split-View im Querformat:** Auf großen Bildschirmen wird das Video links und die Empfehlungen bzw. Kommentare rechts nebeneinander angezeigt.
+- **Kommentar-Seitenpanel:** Kommentare öffnen sich als flaches rechtes Seitenpanel mit eigenem Schließen-Button – **ohne das laufende Video abzudunkeln**.
+- **Dropdown-Profilwechsler:** Auf Tablets öffnet das Profil-Icon oben rechts ein kompaktes Dropdown direkt am Berührungspunkt, anstatt ein unhandliches Bottom-Sheet über den ganzen Bildschirm zu legen.
+- **Aufgeräumte „Du“-Ansicht:** Redundante Einstellungs-Buttons entfernt, direkter Zugriff auf Einstellungen oben rechts.
+
+---
+
+### ⚙️ Gebündelte Einstellungen („Plus“)
+
+- **Zentraler Menüpunkt „Plus“ (mit `+`-Icon):** Alle neuen Einstellungen (Speed-Boost-Faktor, Grid-Spaltenanzahl, Vorschau-Optionen etc.) sind übersichtlich an einem Ort gebündelt.
+- **„Auf Updates prüfen“ ganz oben:** Direkt an oberster Stelle der Haupteinstellungen für schnellen Zugriff auf neue Releases.
 
 ---
 
 ## Contents
 
+- [✨ Was ist neu in SmartTube+? (Features & Gesten)](#-was-ist-neu-in-smarttube-features--gesten)
 - [What it is](#what-it-is)
 - [Features](#features)
 - [Requirements](#requirements)
@@ -119,17 +171,17 @@ It installs as its own app (`org.smarttube.phone`), so it can sit next to the of
 
 ## Install
 
-1. On your phone, open this link: **[SmartTube-Phone-arm64.apk](https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/SmartTube-Phone-arm64.apk)**
+1. On your phone, open this link: **[SmartTube-Phone-arm64.apk](https://github.com/CaptnBook4Git/smarttube-phone-plus/releases/latest/download/SmartTube-Phone-arm64.apk)**
 2. When the download finishes, tap the notification (or open the file from your Downloads folder).
 3. Android asks for permission to install apps from your browser the first time. Tap **Settings**, turn on **Allow from this source**, then go back.
 4. Tap **Install**. If Google Play Protect warns about an unknown app, tap **More details** and then **Install anyway**. This warning appears for every app that is not from the Play Store.
-5. Open **SmartTube** from your app drawer. Home shows popular videos straight away; you can sign in whenever you like.
+5. Open **SmartTube+** from your app drawer. Home shows popular videos straight away; you can sign in whenever you like.
 
 When Android asks to allow notifications, tap **Allow**. The app uses the notification only for the background playback controls (also shown on the lock screen). If you tapped **Don't allow**, turn them on later in **You**, **Settings**, **Notifications**.
 
 ## Update to a new build
 
-Each build is listed on the [releases page](https://github.com/shreyas-bangera/smarttube-phone/releases). The download link above always points to the newest one.
+Each build is listed on the [releases page](https://github.com/CaptnBook4Git/smarttube-phone-plus/releases). The download link above always points to the newest one.
 
 **From inside the app (recommended)**
 
@@ -316,7 +368,7 @@ Open the player settings and pick a lower quality, or turn off high frame rate. 
 Turn on notifications (**You**, **Settings**, **Notifications**), and check your phone's battery settings. On OnePlus, Xiaomi, Samsung and similar phones, set SmartTube's battery usage to **Unrestricted** so Android doesn't stop it.
 
 **The app crashed**
-When it opens again it offers a crash report. Please [open an issue](https://github.com/shreyas-bangera/smarttube-phone/issues) with the report and the steps that led to it.
+When it opens again it offers a crash report. Please [open an issue](https://github.com/CaptnBook4Git/smarttube-phone-plus/issues) with the report and the steps that led to it.
 
 ## Privacy
 
@@ -331,11 +383,11 @@ The phone app is the Gradle flavor `stphone` of the SmartTube project. The phone
 Builds run in GitHub Actions ([`.github/workflows/phone.yml`](.github/workflows/phone.yml)), which also applies the phone changes to the `MediaServiceCore` submodule from [`.github/patches/`](.github/patches/). To build locally with JDK 17 and the Android SDK:
 
 ```bash
-git clone --recursive https://github.com/shreyas-bangera/smarttube-phone.git
+git clone --recursive https://github.com/CaptnBook4Git/smarttube-phone-plus.git
 ```
 
 ```bash
-cd smarttube-phone && git -C MediaServiceCore apply --ignore-whitespace .github/patches/mediaservicecore.patch
+cd smarttube-phone-plus && git -C MediaServiceCore apply --ignore-whitespace .github/patches/mediaservicecore.patch
 ```
 
 ```bash
@@ -344,9 +396,9 @@ cd smarttube-phone && git -C MediaServiceCore apply --ignore-whitespace .github/
 
 ## Credits
 
-This app exists because of **[SmartTube](https://github.com/yuliskov/SmartTube)** by **[Yuriy Liskov (yuliskov)](https://github.com/yuliskov)** and its contributors. Everything under the hood comes from their work: the YouTube client, sign in, playback, SponsorBlock, settings and much more. This project only adds a phone interface on top.
+This app exists because of **[SmartTube](https://github.com/yuliskov/SmartTube)** by **[Yuriy Liskov (yuliskov)](https://github.com/yuliskov)** and its contributors, as well as the phone port by **[shreyas-bangera](https://github.com/shreyas-bangera)**. Everything under the hood comes from their work: the YouTube client, sign in, playback, SponsorBlock, settings and touch base. SmartTube+ adds tablet enhancements, custom gestures, speed-boost, card previews and UI refinements on top.
 
-If you enjoy this app, please support the original project:
+If you enjoy this app, please support the original projects:
 - Star [SmartTube on GitHub](https://github.com/yuliskov/SmartTube)
 - Donate to the SmartTube developer through the links in the [SmartTube README](https://github.com/yuliskov/SmartTube#donation)
 - Visit the [SmartTube website](https://smarttubeapp.github.io)
@@ -356,8 +408,8 @@ Thanks also to:
 - [ExoPlayer](https://github.com/google/ExoPlayer) for playback
 - Everyone who contributed code and translations to SmartTube
 
-SmartTube for phones is an unofficial project. It is not made by, or affiliated with, SmartTube's developer, YouTube or Google. Please report problems with this phone app [here](https://github.com/shreyas-bangera/smarttube-phone/issues), not to the SmartTube project.
+SmartTube+ is an unofficial project. It is not made by, or affiliated with, SmartTube's developer, YouTube or Google. Please report problems with this app [here](https://github.com/CaptnBook4Git/smarttube-phone-plus/issues), not to the original SmartTube project.
 
 ## License
 
-MIT, the same as SmartTube. See [LICENSE](LICENSE). Copyright (c) 2020-present yuliskov, phone edition changes by [shreyas-bangera](https://github.com/shreyas-bangera).
+MIT, the same as SmartTube. See [LICENSE](LICENSE). Copyright (c) 2020-present yuliskov, phone edition changes by [shreyas-bangera](https://github.com/shreyas-bangera), plus edition changes by [CaptnBook4Git](https://github.com/CaptnBook4Git).
