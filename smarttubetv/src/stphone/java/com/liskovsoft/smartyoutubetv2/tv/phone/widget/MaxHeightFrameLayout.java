@@ -10,6 +10,7 @@ import android.widget.FrameLayout;
  */
 public class MaxHeightFrameLayout extends FrameLayout {
     private float mMaxScreenFraction = 0.72f;
+    private int mMaxHeightPx = -1;
 
     public MaxHeightFrameLayout(Context context) {
         super(context);
@@ -28,9 +29,17 @@ public class MaxHeightFrameLayout extends FrameLayout {
         requestLayout();
     }
 
+    public void setMaxHeight(int maxHeightPx) {
+        mMaxHeightPx = maxHeightPx;
+        requestLayout();
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int maxHeight = (int) (Resources.getSystem().getDisplayMetrics().heightPixels * mMaxScreenFraction);
+        if (mMaxHeightPx > 0 && (maxHeight <= 0 || mMaxHeightPx < maxHeight)) {
+            maxHeight = mMaxHeightPx;
+        }
         int mode = MeasureSpec.getMode(heightMeasureSpec);
         int size = MeasureSpec.getSize(heightMeasureSpec);
         if (mode == MeasureSpec.UNSPECIFIED || size > maxHeight) {
