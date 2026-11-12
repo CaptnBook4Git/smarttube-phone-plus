@@ -71,9 +71,8 @@ jobs:
             cp $SRC/*_${PAIR#*:}.apk "out/StreamTube-Phone-${FILE_VERSION}-${ARCH}.apk"
             # The same APK under a fixed name: the direct download link and the in-app updater (builds 80+)
             cp "out/StreamTube-Phone-${FILE_VERSION}-${ARCH}.apk" "out/StreamTube-${ARCH}.apk"
+            cp "out/StreamTube-Phone-${FILE_VERSION}-${ARCH}.apk" "out/SmartTube-Phone-${ARCH}.apk"
           done
-          # Builds from before the rename (SmartTube-Phone-arm64.apk)
-          cp out/StreamTube-arm64.apk out/SmartTube-Phone-arm64.apk
           APK="StreamTube-Phone-${FILE_VERSION}-arm64.apk"
           echo "APK=$APK" >> $GITHUB_OUTPUT
           echo "FILE_VERSION=$FILE_VERSION" >> $GITHUB_OUTPUT
@@ -101,14 +100,14 @@ jobs:
         run: |
           PREV=$(git tag -l "build-*" --sort=-v:refname | head -n 1)
           {
-            echo "StreamTube: a YouTube client for Android phones, built on SmartTube."
+            echo "SmartTube+: a YouTube client for Android phones and tablets, built on SmartTube."
             echo ""
             # A table, not a list: the app's update screen shows "- " and "* " lines as changes
             echo "| APK | For |"
             echo "|---|---|"
-            echo "| StreamTube-arm64.apk | Almost every phone (64-bit ARM) |"
-            echo "| StreamTube-arm32.apk | Older or budget phones with a 32-bit processor |"
-            echo "| StreamTube-universal.apk | Any device, also x86 emulators and Chromebooks (bigger download) |"
+            echo "| SmartTube-Phone-arm64.apk (or StreamTube-arm64.apk) | Almost every phone (64-bit ARM) |"
+            echo "| SmartTube-Phone-arm32.apk (or StreamTube-arm32.apk) | Older or budget phones with a 32-bit processor |"
+            echo "| SmartTube-Phone-universal.apk (or StreamTube-universal.apk) | Any device, also x86 emulators and Chromebooks |"
             echo ""
             echo "What's new"
             if [ -n "$PREV" ]; then
@@ -119,17 +118,17 @@ jobs:
           } > release_notes.md
           cat release_notes.md
 
-      # Public, sign-in free download: releases/latest/download/StreamTube-<arch>.apk (and the old name, for old builds)
+      # Public, sign-in free download: releases/latest/download/SmartTube-Phone-<arch>.apk and StreamTube-<arch>.apk
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: StreamTube ${{ steps.get_version.outputs.VERSION_NAME }}
+          name: SmartTube+ ${{ steps.get_version.outputs.VERSION_NAME }}
           body_path: release_notes.md
           files: |
             out/StreamTube-Phone-*.apk
             out/StreamTube-arm64.apk
             out/StreamTube-arm32.apk
             out/StreamTube-universal.apk
-            out/SmartTube-Phone-arm64.apk
+            out/SmartTube-Phone-*.apk
           make_latest: true
