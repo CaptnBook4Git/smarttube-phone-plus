@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long press the app icon: jump straight to Search, Subscriptions, Shorts or History (PhoneBrowseActivity.handleShortcut) -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/phone_shortcut_search"
+        android:shortcutId="search"
+        android:shortcutShortLabel="@string/phone_shortcut_search">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneBrowseActivity"
+            android:targetPackage="org.smarttube.phone">
+            <extra android:name="org.smarttube.phone.SHORTCUT" android:value="search" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/phone_shortcut_subs"
+        android:shortcutId="subscriptions"
+        android:shortcutShortLabel="@string/phone_shortcut_subscriptions">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneBrowseActivity"
+            android:targetPackage="org.smarttube.phone">
+            <extra android:name="org.smarttube.phone.SHORTCUT" android:value="subscriptions" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/phone_shortcut_shorts"
+        android:shortcutId="shorts"
+        android:shortcutShortLabel="@string/phone_shortcut_shorts">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneBrowseActivity"
+            android:targetPackage="org.smarttube.phone">
+            <extra android:name="org.smarttube.phone.SHORTCUT" android:value="shorts" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/phone_shortcut_history"
+        android:shortcutId="history"
+        android:shortcutShortLabel="@string/phone_shortcut_history">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneBrowseActivity"
+            android:targetPackage="org.smarttube.phone">
+            <extra android:name="org.smarttube.phone.SHORTCUT" android:value="history" />
+        </intent>
+    </shortcut>
+</shortcuts>

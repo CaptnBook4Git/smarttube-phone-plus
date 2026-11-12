@@ -2087,6 +2087,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             if (buttonId == R.id.action_thumbs_up) {
                 ((TextView) item.getChildAt(1)).setText(
                         !TextUtils.isEmpty(video.likeCount) ? video.likeCount : getString(R.string.phone_like));
+            } else if (buttonId == R.id.action_thumbs_down) {
+                ((TextView) item.getChildAt(1)).setText(
+                        !TextUtils.isEmpty(video.dislikeCount) ? video.dislikeCount : getString(R.string.phone_dislike));
             }
         }
     }
@@ -2182,7 +2185,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
         LinearLayout actions = mHeader.findViewById(R.id.phone_player_actions);
         addAction(actions, R.id.action_thumbs_up, R.drawable.ic_phone_like, getString(R.string.phone_like));
-        addAction(actions, R.id.action_thumbs_down, R.drawable.ic_phone_dislike, null);
+        addAction(actions, R.id.action_thumbs_down, R.drawable.ic_phone_dislike, ""); // Return YouTube Dislike count
         addAction(actions, R.id.action_chat, R.drawable.ic_phone_comments, getString(R.string.phone_comments));
         addAction(actions, R.id.action_share, R.drawable.ic_phone_share, getString(R.string.phone_share));
         addAction(actions, R.id.action_playlist_add, R.drawable.ic_phone_save, getString(R.string.phone_save));
@@ -2226,6 +2229,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (label != null) {
             TextView text = new TextView(this);
             text.setText(label);
+            if (label.isEmpty()) {
+                text.setVisibility(View.GONE); // filled in later (dislike count)
+            }
             text.setTextColor(getResources().getColor(R.color.phone_text));
             text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
             text.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
@@ -2323,6 +2329,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             if (buttonId == R.id.action_thumbs_up && pill.getChildCount() > 1) {
                 ((TextView) pill.getChildAt(1)).setText(
                         !TextUtils.isEmpty(video.likeCount) ? video.likeCount : getString(R.string.phone_like));
+            } else if (buttonId == R.id.action_thumbs_down && pill.getChildCount() > 1) {
+                // Dislikes from Return YouTube Dislike (SmartTube's likes counter setting, on by default)
+                boolean count = !TextUtils.isEmpty(video.dislikeCount);
+                TextView text = (TextView) pill.getChildAt(1);
+                text.setText(video.dislikeCount);
+                text.setVisibility(count ? View.VISIBLE : View.GONE);
+                pill.setPadding(dp(14), 0, count ? dp(16) : dp(14), 0);
             }
         }
     }

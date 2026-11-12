@@ -62,6 +62,9 @@ public abstract class PhoneActivity extends MotherActivity {
         setupSystemBars();
         getViewManager().addTop(this);
         PhoneMiniPlayer.onHostResumed(this);
+        if (mAdapter != null) {
+            mAdapter.refreshProgress(); // the red bars of videos watched meanwhile
+        }
     }
 
     @Override

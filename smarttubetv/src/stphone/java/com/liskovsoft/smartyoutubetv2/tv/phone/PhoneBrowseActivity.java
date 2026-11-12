@@ -102,6 +102,46 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         CrashReport.showIfAny(this);
         mList.postDelayed(() -> PhoneRebrandBanner.showIfPending(this), 900); // once, after the rename to StreamTube
         mList.postDelayed(this::askNotificationPermission, 1500);
+        handleShortcut(getIntent(), 0);
+    }
+
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        handleShortcut(intent, 0);
+    }
+
+    /** App shortcuts (long press the app icon), see res/xml/phone_shortcuts.xml */
+    static final String EXTRA_SHORTCUT = "org.smarttube.phone.SHORTCUT";
+
+    /** Opens what an app shortcut asks for, once Home's sections are there (they load right after start) */
+    private void handleShortcut(android.content.Intent intent, int attempt) {
+        String shortcut = intent != null ? intent.getStringExtra(EXTRA_SHORTCUT) : null;
+        if (shortcut == null || isFinishing()) {
+            return;
+        }
+        if ("search".equals(shortcut)) {
+            intent.removeExtra(EXTRA_SHORTCUT);
+            com.liskovsoft.smartyoutubetv2.common.app.presenters.SearchPresenter.instance(this).startSearch(null);
+            return;
+        }
+        int sectionId = "shorts".equals(shortcut) ? MediaGroup.TYPE_SHORTS
+                : "history".equals(shortcut) ? MediaGroup.TYPE_HISTORY : MediaGroup.TYPE_SUBSCRIPTIONS;
+        BrowseSection section = sectionById(sectionId);
+        if (section == null) {
+            if (attempt < 20) {
+                mList.postDelayed(() -> handleShortcut(intent, attempt + 1), 250);
+            }
+            return;
+        }
+        intent.removeExtra(EXTRA_SHORTCUT);
+        if (sectionId == MediaGroup.TYPE_SHORTS) {
+            playShorts();
+        } else if (sectionId == MediaGroup.TYPE_SUBSCRIPTIONS) {
+            selectTab(TAB_SUBS);
+        } else {
+            focusSection(section);
+        }
     }
 
     @Override
@@ -120,6 +160,40 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mIsFirstResume = false;
         updateAccountViews();
         refreshSettingsRows(); // back from Android's notification settings
+        refreshIncognito();
+    }
+
+    /** The incognito glasses next to search while watch history is paused; tap them to turn incognito off */
+    private void refreshIncognito() {
+        View icon = findViewById(R.id.phone_incognito);
+        if (icon == null) {
+            return;
+        }
+        icon.setVisibility(PhoneIncognito.isOn(this) ? View.VISIBLE : View.GONE);
+        icon.setOnClickListener(v -> {
+            PhoneIncognito.toggle(this);
+            refreshIncognito();
+            refreshSettingsRows();
+        });
+    }
+
+    /**
+     * YouTube links open in StreamTube only once Android allows it (Android 12+ never picks an app that isn't the link's
+     * owner by itself): the app's "Open by default" settings, where "Add link" turns on youtube.com, youtu.be...
+     */
+    private void openLinkSettings() {
+        android.content.Intent intent = Build.VERSION.SDK_INT >= 31
+                ? new android.content.Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
+                        android.net.Uri.parse("package:" + getPackageName()))
+                : new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        android.net.Uri.fromParts("package", getPackageName(), null));
+        try {
+            startActivity(intent);
+            android.widget.Toast.makeText(this, R.string.phone_open_links_hint, android.widget.Toast.LENGTH_LONG).show();
+        } catch (android.content.ActivityNotFoundException e) {
+            startActivity(new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.fromParts("package", getPackageName(), null)));
+        }
     }
 
     @Override
@@ -413,7 +487,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         List<BrowseSection> sections = sectionsOfTab(mCurrentTab);
 
         // The Subscriptions feed has its own channels row and filter chips (All opens the Channels section)
-        if (sections.size() <= 1 || isSubscriptionsFeed()) {
+        if ((sections.size() <= 1 && mCurrentTab != TAB_YOU) || isSubscriptionsFeed()) { // You always has Downloads
             mChipsScroll.setVisibility(View.GONE);
             return;
         }
@@ -451,7 +525,31 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             if (selected) {
                 chip.post(() -> mChipsScroll.smoothScrollTo(Math.max(0, chip.getLeft() - dp(16)), 0));
             }
+
+            // You: Downloads right after History (videos and audio saved by the app, played in the app)
+            if (mCurrentTab == TAB_YOU && section.getId() == MediaGroup.TYPE_HISTORY) {
+                addDownloadsChip();
+            }
         }
+        if (mCurrentTab == TAB_YOU && sectionById(MediaGroup.TYPE_HISTORY) == null) {
+            addDownloadsChip();
+        }
+    }
+
+    private void addDownloadsChip() {
+        TextView chip = new TextView(this);
+        chip.setText(R.string.phone_downloads);
+        chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        chip.setGravity(Gravity.CENTER);
+        chip.setPadding(dp(14), 0, dp(14), 0);
+        chip.setBackgroundResource(R.drawable.phone_chip_bg);
+        chip.setTextColor(getResources().getColor(R.color.phone_text));
+        chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        chip.setOnClickListener(v -> PhoneDownloadsActivity.open(this));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
+        params.setMarginStart(dp(4));
+        params.setMarginEnd(dp(4));
+        mChips.addView(chip, params);
     }
 
     /**
@@ -905,6 +1003,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                     PhoneTheme.set(this, PhoneTheme.next(appearance));
                     recreate();
                 }, R.drawable.ic_phone_brightness));
+        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
+                PhoneIncognito.settingsTitle(this), () -> {
+                    PhoneIncognito.toggle(this);
+                    refreshIncognito();
+                    refreshSettingsRows();
+                }, R.drawable.ic_phone_incognito));
+        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
+                getString(R.string.phone_open_links), this::openLinkSettings, R.drawable.ic_phone_link));
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
                 PhoneNotifications.settingsTitle(this), () -> PhoneNotifications.open(this), R.drawable.ic_phone_bell));
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(

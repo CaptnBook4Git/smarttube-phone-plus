@@ -72,6 +72,18 @@
                 android:layout_height="1dp"
                 android:layout_weight="1" />
 
+            <!-- Incognito on: tap to turn it off -->
+            <ImageView
+                android:id="@+id/phone_incognito"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="10dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/phone_incognito_on"
+                android:src="@drawable/ic_phone_incognito"
+                android:tint="@color/phone_text"
+                android:visibility="gone" />
+
             <ImageView
                 android:id="@+id/phone_search"
                 android:layout_width="48dp"

@@ -118,4 +118,28 @@
     <string name="phone_comment_delete_cancel">Cancel</string>
     <string name="phone_comment_deleted">Comment deleted</string>
     <string name="phone_comment_delete_failed">Couldn\'t delete: %1$s</string>
+    <!-- Search filters, comment likes, app shortcuts, incognito, links -->
+    <string name="phone_search_filters">Search filters</string>
+    <string name="phone_comment_like">Like this comment</string>
+    <string name="phone_comment_like_sign_in">Sign in to like comments</string>
+    <string name="phone_shortcut_search">Search</string>
+    <string name="phone_shortcut_subscriptions">Subscriptions</string>
+    <string name="phone_shortcut_shorts">Shorts</string>
+    <string name="phone_shortcut_history">History</string>
+    <string name="phone_incognito_off">Incognito: Off</string>
+    <string name="phone_incognito_on">Incognito: On</string>
+    <string name="phone_incognito_started">Incognito is on: videos you watch aren\'t added to your YouTube history</string>
+    <string name="phone_incognito_ended">Incognito is off</string>
+    <string name="phone_open_links">Open YouTube links in StreamTube</string>
+    <string name="phone_open_links_hint">Tap \"Add link\" and turn on the YouTube links</string>
+    <!-- You > Downloads -->
+    <string name="phone_downloads">Downloads</string>
+    <string name="phone_downloads_empty">Nothing downloaded yet.\nUse Download under a video to save it here.</string>
+    <string name="phone_downloads_total">%1$d · %2$s</string>
+    <string name="phone_downloads_video">Video</string>
+    <string name="phone_downloads_audio">Audio</string>
+    <string name="phone_downloads_play">Play</string>
+    <string name="phone_downloads_delete_title">Delete this download?</string>
+    <string name="phone_downloads_deleted">Download deleted</string>
+    <string name="phone_downloads_delete_failed">Couldn\'t delete it. Delete it from the Files app (Download/StreamTube).</string>
 </resources>

@@ -577,6 +577,90 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         });
     }
 
+    private static final java.util.regex.Pattern TIMESTAMP =
+            java.util.regex.Pattern.compile("(?<![\\d:])(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})(?![\\d:])");
+
+    /**
+     * Times in a comment ("2:31", "1:02:45") are links that jump the playing video there, like the YouTube app. Only for
+     * the comments of the video that's playing. A tap anywhere else on the text still opens the replies.
+     */
+    private void linkTimestamps(TextView message, String text) {
+        message.setOnTouchListener(null);
+        if (TextUtils.isEmpty(text) || !commentsOfPlayingVideo()) {
+            message.setText(text);
+            return;
+        }
+        android.text.SpannableString spannable = new android.text.SpannableString(text);
+        java.util.regex.Matcher matcher = TIMESTAMP.matcher(text);
+        boolean found = false;
+        while (matcher.find()) {
+            long hours = matcher.group(1) != null ? Long.parseLong(matcher.group(1)) : 0;
+            long minutes = Long.parseLong(matcher.group(2));
+            long seconds = Long.parseLong(matcher.group(3));
+            if (seconds > 59 || (hours > 0 && minutes > 59)) {
+                continue;
+            }
+            long positionMs = ((hours * 60 + minutes) * 60 + seconds) * 1000;
+            spannable.setSpan(new android.text.style.ClickableSpan() {
+                @Override
+                public void onClick(@NonNull View widget) {
+                    seekPlayingVideo(positionMs);
+                }
+
+                @Override
+                public void updateDrawState(@NonNull android.text.TextPaint paint) {
+                    paint.setColor(getResources().getColor(R.color.phone_link));
+                    paint.setUnderlineText(false);
+                }
+            }, matcher.start(), matcher.end(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            found = true;
+        }
+        message.setText(spannable);
+        if (!found) {
+            return;
+        }
+        // Only the times take the tap: the rest of the row keeps its click (replies) and long press
+        message.setOnTouchListener((v, event) -> {
+            TextView view = (TextView) v;
+            android.text.Layout layout = view.getLayout();
+            if (layout == null || !(view.getText() instanceof android.text.Spanned)) {
+                return false;
+            }
+            int x = (int) event.getX() - view.getTotalPaddingLeft() + view.getScrollX();
+            int y = (int) event.getY() - view.getTotalPaddingTop() + view.getScrollY();
+            int line = layout.getLineForVertical(y);
+            if (x > layout.getLineRight(line)) {
+                return false;
+            }
+            int offset = layout.getOffsetForHorizontal(line, x);
+            android.text.style.ClickableSpan[] links =
+                    ((android.text.Spanned) view.getText()).getSpans(offset, offset, android.text.style.ClickableSpan.class);
+            if (links.length == 0) {
+                return false;
+            }
+            if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
+                links[0].onClick(view);
+            }
+            return true;
+        });
+    }
+
+    private boolean commentsOfPlayingVideo() {
+        AbstractCommentsReceiver receiver = writableReceiver(currentPage());
+        com.liskovsoft.smartyoutubetv2.common.app.models.data.Video playing =
+                com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter.instance(this).getVideo();
+        return receiver != null && playing != null && Helpers.equals(receiver.getVideoId(), playing.videoId);
+    }
+
+    private void seekPlayingVideo(long positionMs) {
+        com.liskovsoft.smartyoutubetv2.common.app.views.PlaybackView player =
+                com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter.instance(this).getView();
+        if (player != null) {
+            player.setPositionMs(positionMs);
+            player.setPlayWhenReady(true);
+        }
+    }
+
     /** Comments posted from this app (YouTube may show them under another name until the list reloads) */
     private static final java.util.Set<String> sPostedIds = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
@@ -1014,7 +1098,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             String author = item.getAuthorName() != null ? item.getAuthorName() : "";
             String date = item.getPublishedDate();
             meta.setText(TextUtils.isEmpty(date) ? author : author + "  ·  " + date);
-            message.setText(item.getMessage());
+            linkTimestamps(message, item.getMessage());
             likes.setText(item.getLikeCount());
             likeIcon.setImageTintList(android.content.res.ColorStateList.valueOf(getResources().getColor(
                     item.isLiked() ? R.color.phone_accent : R.color.phone_text_2)));
@@ -1039,6 +1123,16 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             view.setOnClickListener(v -> {
                 if (item.getNestedCommentsKey() != null) {
                     mState.receiver.onCommentClicked(item);
+                }
+            });
+            view.findViewById(R.id.phone_comment_like).setOnClickListener(v -> {
+                com.liskovsoft.mediaserviceinterfaces.oauth.Account account =
+                        com.liskovsoft.smartyoutubetv2.common.misc.MediaServiceManager.instance().getSelectedAccount();
+                if (account == null || account.isEmpty()) {
+                    android.widget.Toast.makeText(PhoneDialogActivity.this, R.string.phone_comment_like_sign_in,
+                            android.widget.Toast.LENGTH_SHORT).show();
+                } else if (item.getNestedCommentsKey() != null) {
+                    mState.receiver.onCommentLongClicked(item); // SmartTube's like toggle: the row updates at once
                 }
             });
             view.setOnLongClickListener(v -> {
