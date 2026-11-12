@@ -20,6 +20,9 @@ import com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsGroup;
 import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
 import com.liskovsoft.smartyoutubetv2.common.app.models.data.VideoGroup;
 import com.liskovsoft.smartyoutubetv2.common.app.models.errors.ErrorFragmentData;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionItem;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem;
+import com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter;
 import com.liskovsoft.smartyoutubetv2.common.app.presenters.BrowsePresenter;
 import com.liskovsoft.smartyoutubetv2.common.app.presenters.SearchPresenter;
 import com.liskovsoft.smartyoutubetv2.common.app.presenters.YTSignInPresenter;
@@ -327,10 +330,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         View settingsBtn = findViewById(R.id.phone_settings_btn);
         if (settingsBtn != null) {
             settingsBtn.setOnClickListener(v -> openAppSettings());
-        }
-        View accountSettingsBtn = findViewById(R.id.phone_account_settings);
-        if (accountSettingsBtn != null) {
-            accountSettingsBtn.setOnClickListener(v -> openAppSettings());
         }
         mTopAvatar = findViewById(R.id.phone_top_avatar);
         if (PhoneUi.isTablet(this)) {
@@ -1418,51 +1417,66 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items = new ArrayList<>();
         int appearance = PhoneTheme.get(this);
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                getString(R.string.phone_quick_actions_title),
-                () -> PhoneQuickActions.openSettings(this, () -> {
-                    if (mAdapter != null) {
-                        mAdapter.refreshQuickActions();
-                    }
-                }),
-                R.drawable.ic_phone_not_interested));
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                PhoneUi.getGridSettingsTitle(this), () -> PhoneUi.openGridSettings(this, () -> {
-                    updateLayoutColumns();
-                    if (mAdapter != null) {
-                        mAdapter.notifyItemRangeChanged(0, mAdapter.getItemCount());
-                    }
-                    if (mSettingsGroup != null) {
-                        updateSection(mSettingsGroup);
-                    }
-                }),
-                R.drawable.ic_phone_settings));
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                getString(PhoneTheme.titleRes(appearance)), () -> {
-                    PhoneTheme.set(this, PhoneTheme.next(appearance));
-                    recreate();
-                }, R.drawable.ic_phone_brightness));
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                PhoneUi.getLongPressSpeedTitle(this), () -> PhoneUi.openLongPressSpeedSettings(this, () -> {
-                    if (mSettingsGroup != null) {
-                        updateSection(mSettingsGroup);
-                    }
-                }),
-                R.drawable.ic_phone_speed));
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                PhoneUi.getCardPreviewRandomStartTitle(this), () -> PhoneUi.openCardPreviewRandomStartSettings(this, () -> {
-                    if (mSettingsGroup != null) {
-                        updateSection(mSettingsGroup);
-                    }
-                }),
-                R.drawable.ic_phone_play));
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                PhoneNotifications.settingsTitle(this), () -> PhoneNotifications.open(this), R.drawable.ic_phone_bell));
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                PhoneUpdater.settingsTitle(this), () -> PhoneUpdater.open(this), R.drawable.ic_phone_update));
+                "Plus", this::openPlusSettings, R.drawable.ic_phone_settings));
         if (group.getItems() != null) {
             items.addAll(group.getItems());
         }
         mAdapter.setSettings(items);
+    }
+
+    private void openPlusSettings() {
+        AppDialogPresenter dialog = AppDialogPresenter.instance(this);
+        List<OptionItem> options = new ArrayList<>();
+
+        options.add(UiOptionItem.from(
+                getString(R.string.phone_quick_actions_title),
+                item -> PhoneQuickActions.openSettings(this, () -> {
+                    if (mAdapter != null) mAdapter.refreshQuickActions();
+                })
+        ));
+
+        options.add(UiOptionItem.from(
+                PhoneUi.getGridSettingsTitle(this),
+                item -> PhoneUi.openGridSettings(this, () -> {
+                    updateLayoutColumns();
+                    if (mAdapter != null) mAdapter.notifyItemRangeChanged(0, mAdapter.getItemCount());
+                })
+        ));
+
+        options.add(UiOptionItem.from(
+                PhoneUi.getLongPressSpeedTitle(this),
+                item -> PhoneUi.openLongPressSpeedSettings(this, null)
+        ));
+
+        options.add(UiOptionItem.from(
+                PhoneUi.getCardPreviewRandomStartTitle(this),
+                item -> PhoneUi.openCardPreviewRandomStartSettings(this, null)
+        ));
+
+        int appearance = PhoneTheme.get(this);
+        options.add(UiOptionItem.from(
+                getString(PhoneTheme.titleRes(appearance)),
+                item -> {
+                    PhoneTheme.set(this, PhoneTheme.next(appearance));
+                    recreate();
+                }
+        ));
+
+        options.add(UiOptionItem.from(
+                PhoneNotifications.settingsTitle(this),
+                item -> PhoneNotifications.open(this)
+        ));
+
+        options.add(UiOptionItem.from(
+                PhoneUpdater.settingsTitle(this),
+                item -> PhoneUpdater.open(this)
+        ));
+
+        for (OptionItem opt : options) {
+            dialog.appendSingleButton(opt);
+        }
+        dialog.showDialog("Plus");
+    }
     }
 
     @Override

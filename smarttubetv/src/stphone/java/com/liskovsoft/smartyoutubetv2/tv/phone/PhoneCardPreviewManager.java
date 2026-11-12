@@ -56,6 +56,23 @@ public final class PhoneCardPreviewManager {
         sOriginalPercent = -1f;
     }
 
+    public static void stopActivePreviewWithoutStateReset(Context context) {
+        sHandler.removeCallbacksAndMessages(null);
+        if (sActivePlayer != null) {
+            try {
+                sActivePlayer.finish();
+            } catch (Throwable ignored) {
+            }
+            if (sActiveContainer != null) {
+                sActiveContainer.removeView(sActivePlayer);
+            }
+            sActivePlayer = null;
+        }
+        sActiveVideo = null;
+        sActiveContainer = null;
+        sOriginalPercent = -1f;
+    }
+
     public static void bind(View cardView, Video video, Runnable onNormalClick) {
         if (cardView == null || video == null) {
             return;
@@ -141,6 +158,38 @@ public final class PhoneCardPreviewManager {
                             sHandler.removeCallbacks(startPreviewRunnable);
                         }
                         if (isPreviewRunning) {
+                            float dy = event.getY() - downY;
+                            float dx = Math.abs(event.getX() - downX);
+                            // Swipe up while previewing to launch full video playback
+                            if (dy < -slop * 2.5f && Math.abs(dy) > dx * 1.2f) {
+                                isPreviewRunning = false;
+                                long currentPos = 0;
+                                if (sActivePlayer != null) {
+                                    try {
+                                        currentPos = sActivePlayer.getPositionMs();
+                                    } catch (Throwable ignored) {
+                                    }
+                                }
+                                boolean isRandom = PhoneUi.isCardPreviewRandomStart(context);
+                                if (isRandom) {
+                                    video.pendingPosMs = 0;
+                                } else if (currentPos > 0) {
+                                    video.pendingPosMs = currentPos;
+                                }
+
+                                stopActivePreviewWithoutStateReset(context);
+
+                                try {
+                                    cardView.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK);
+                                } catch (Throwable ignored) {
+                                }
+
+                                if (onNormalClick != null) {
+                                    PhoneUi.rememberClick(cardView);
+                                    onNormalClick.run();
+                                }
+                                return true;
+                            }
                             return true;
                         }
                         return false;
