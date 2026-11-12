@@ -15,6 +15,8 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.Switch;
 import android.widget.TextView;
 
@@ -27,6 +29,7 @@ import com.liskovsoft.mediaserviceinterfaces.data.CommentGroup;
 import com.liskovsoft.mediaserviceinterfaces.data.CommentItem;
 import com.liskovsoft.sharedutils.helpers.Helpers;
 import com.liskovsoft.sharedutils.helpers.MessageHelpers;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.AbstractCommentsReceiver;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.CommentsReceiver;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionCategory;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionItem;
@@ -86,6 +89,15 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
     private final RowsAdapter mAdapter = new RowsAdapter();
     private TextView mTitle;
     private View mBack;
+    private TextView mCount; // comments total next to the title
+    private View mSort; // comments: Top / Newest
+    private TextView mSortLabel;
+    private View mSortChevron;
+    private View mComposer; // comments: write a comment or a reply
+    private android.widget.EditText mComposerInput;
+    private ImageView mComposerSend;
+    private ImageView mComposerAvatar;
+    private boolean mPosting;
     private RecyclerView mList;
     private com.liskovsoft.smartyoutubetv2.tv.phone.widget.MaxHeightFrameLayout mListFrame;
     private int mVideoLimit;
@@ -110,6 +122,16 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
 
         mTitle = findViewById(R.id.phone_sheet_title);
         mBack = findViewById(R.id.phone_sheet_back);
+        mCount = findViewById(R.id.phone_sheet_count);
+        mSort = findViewById(R.id.phone_sheet_sort);
+        mSortLabel = findViewById(R.id.phone_sheet_sort_label);
+        mSortChevron = findViewById(R.id.phone_sheet_sort_chevron);
+        mSort.setOnClickListener(v -> showSortMenu());
+        mComposer = findViewById(R.id.phone_sheet_composer);
+        mComposerInput = findViewById(R.id.phone_sheet_composer_input);
+        mComposerSend = findViewById(R.id.phone_sheet_composer_send);
+        mComposerAvatar = findViewById(R.id.phone_sheet_composer_avatar);
+        mComposerSend.setOnClickListener(v -> postComment());
         RecyclerView list = findViewById(R.id.phone_sheet_list);
         mList = list;
         mListFrame = findViewById(R.id.phone_sheet_list_frame);
@@ -379,7 +401,9 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                         rows.add(new Row(ROW_SWITCH, first.getTitle(), first.getDescription(), first, category, first.isSelected()));
                         break;
                     default:
-                        rows.add(new Row(ROW_CATEGORY, category.title, selectedSummary(category), null, category, false));
+                        if (!PhoneTvOnly.isCategory(this, category.title)) {
+                            rows.add(new Row(ROW_CATEGORY, category.title, selectedSummary(category), null, category, false));
+                        }
                         break;
                 }
             }
@@ -438,19 +462,417 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         mTitle.setText(page.title);
         mTitle.setVisibility(TextUtils.isEmpty(page.title) ? View.INVISIBLE : View.VISIBLE);
         mBack.setVisibility(mStack.size() > 1 ? View.VISIBLE : View.GONE);
+        renderCommentsHeader(page);
+        renderComposer(page);
         if (page.comments != null) {
-            // Comments keep a steady, tall sheet while they load
-            // (over the player: all the space under the video)
-            int screen = android.content.res.Resources.getSystem().getDisplayMetrics().heightPixels;
-            mListFrame.setMinimumHeight(mVideoLimit > 0 ? screen : (int) (screen * 0.72f));
+            // Comments keep a steady, tall sheet (over the player: all the space under the video). The list takes
+            // what the header and the comment bar leave, so the bar stays on screen (and above the keyboard)
+            fillSheet(true);
             mList.setAdapter(page.comments.adapter);
         } else {
-            mListFrame.setMinimumHeight(0);
+            fillSheet(false);
             if (mList.getAdapter() != mAdapter) {
                 mList.setAdapter(mAdapter);
             }
             mAdapter.setRows(page.rows);
         }
+    }
+
+    /** Comments: a tall sheet whose list fills it above the comment bar. Other sheets wrap their rows. */
+    private void fillSheet(boolean fill) {
+        View sheet = findViewById(R.id.phone_sheet);
+        android.widget.FrameLayout.LayoutParams sheetParams = (android.widget.FrameLayout.LayoutParams) sheet.getLayoutParams();
+        int screen = android.content.res.Resources.getSystem().getDisplayMetrics().heightPixels;
+        int height = !fill ? ViewGroup.LayoutParams.WRAP_CONTENT
+                : mVideoLimit > 0 ? ViewGroup.LayoutParams.MATCH_PARENT : (int) (screen * 0.8f);
+        if (sheetParams.height != height) {
+            sheetParams.height = height;
+            sheet.setLayoutParams(sheetParams);
+        }
+        LinearLayout.LayoutParams listParams = (LinearLayout.LayoutParams) mListFrame.getLayoutParams();
+        int listHeight = fill ? 0 : ViewGroup.LayoutParams.WRAP_CONTENT;
+        float weight = fill ? 1f : 0f;
+        if (listParams.height != listHeight || listParams.weight != weight) {
+            listParams.height = listHeight;
+            listParams.weight = weight;
+            mListFrame.setLayoutParams(listParams);
+        }
+        mListFrame.setMinimumHeight(0);
+    }
+
+    /** Comments: "Comments 24" and the Top / Newest button (replies and other sheets show neither) */
+    private void renderCommentsHeader(Page page) {
+        AbstractCommentsReceiver receiver = page.comments != null && page.comments.receiver instanceof AbstractCommentsReceiver
+                ? (AbstractCommentsReceiver) page.comments.receiver : null;
+        String count = receiver != null ? receiver.getCommentsCount() : null;
+        mCount.setText(count);
+        mCount.setVisibility(TextUtils.isEmpty(count) ? View.GONE : View.VISIBLE);
+        boolean sortable = receiver != null && receiver.canSortByNewest();
+        mSort.setVisibility(sortable ? View.VISIBLE : View.GONE);
+        if (sortable) {
+            mSortLabel.setText(receiver.isSortedByNewest() ? R.string.phone_comments_newest : R.string.phone_comments_top);
+        }
+    }
+
+    // region Writing comments
+
+    private static AbstractCommentsReceiver writableReceiver(Page page) {
+        if (page == null || page.comments == null || !(page.comments.receiver instanceof AbstractCommentsReceiver)) {
+            return null;
+        }
+        AbstractCommentsReceiver receiver = (AbstractCommentsReceiver) page.comments.receiver;
+        return receiver.getVideoId() != null ? receiver : null;
+    }
+
+    /** The comment bar under the comments (and replies): the account's picture, the text field and Post */
+    private void renderComposer(Page page) {
+        AbstractCommentsReceiver receiver = writableReceiver(page);
+        if (receiver == null) {
+            mComposer.setVisibility(View.GONE);
+            return;
+        }
+        mComposer.setVisibility(View.VISIBLE);
+        com.liskovsoft.mediaserviceinterfaces.oauth.Account account =
+                com.liskovsoft.smartyoutubetv2.common.misc.MediaServiceManager.instance().getSelectedAccount();
+        boolean signedIn = account != null && !account.isEmpty();
+        boolean reply = receiver.getParentCommentId() != null;
+
+        if (signedIn && account.getAvatarImageUrl() != null) {
+            mComposerAvatar.setImageTintList(null);
+            PhoneUi.loadAvatar(mComposerAvatar, account.getAvatarImageUrl());
+        } else {
+            mComposerAvatar.setImageResource(R.drawable.ic_phone_account);
+            mComposerAvatar.setImageTintList(android.content.res.ColorStateList.valueOf(getResources().getColor(R.color.phone_text_2)));
+        }
+
+        mComposerInput.setText(null);
+        mComposerInput.setHint(!signedIn ? R.string.phone_comment_sign_in : reply ? R.string.phone_comment_reply : R.string.phone_comment_add);
+        mComposerInput.setFocusable(signedIn);
+        mComposerInput.setFocusableInTouchMode(signedIn);
+        mComposerInput.setOnClickListener(signedIn ? null : v -> {
+            // Signed out: the field leads to signing in
+            com.liskovsoft.smartyoutubetv2.common.app.presenters.YTSignInPresenter.instance(this).start();
+            finish();
+        });
+        mComposerSend.setVisibility(signedIn ? View.VISIBLE : View.GONE);
+        setPosting(false);
+    }
+
+    private void setPosting(boolean posting) {
+        mPosting = posting;
+        mComposerSend.setEnabled(!posting);
+        mComposerSend.setAlpha(posting ? 0.4f : 1f);
+        mComposerInput.setEnabled(!posting);
+    }
+
+    /** Post: YouTube adds the comment (or reply) to the video with the signed-in account; it shows on top */
+    private void postComment() {
+        Page page = currentPage();
+        AbstractCommentsReceiver receiver = writableReceiver(page);
+        String text = mComposerInput.getText() != null ? mComposerInput.getText().toString().trim() : "";
+        if (receiver == null || mPosting || text.isEmpty()) {
+            return;
+        }
+        String videoId = receiver.getVideoId();
+        String parentId = receiver.getParentCommentId();
+        com.liskovsoft.mediaserviceinterfaces.CommentsService service =
+                com.liskovsoft.youtubeapi.service.YouTubeServiceManager.instance().getCommentsService();
+        io.reactivex.Observable<CommentItem> post = parentId != null
+                ? service.createReplyObserve(videoId, parentId, text)
+                : service.createCommentObserve(videoId, text);
+        setPosting(true);
+        com.liskovsoft.sharedutils.rx.RxHelper.execute(post, comment -> {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            setPosting(false);
+            mComposerInput.setText(null);
+            hideKeyboard();
+            Page current = currentPage();
+            if (current == page && page.comments != null) {
+                if (comment != null && !TextUtils.isEmpty(comment.getMessage())) {
+                    if (comment.getId() != null) {
+                        sPostedIds.add(comment.getId()); // long press offers Delete
+                    }
+                    page.comments.items.add(0, comment);
+                    page.comments.adapter.notifyItemInserted(0);
+                    mList.scrollToPosition(0);
+                } else {
+                    page.comments.restart(); // posted, but YouTube didn't describe it: load the list again
+                }
+            }
+            android.widget.Toast.makeText(this, parentId != null ? R.string.phone_comment_reply_posted : R.string.phone_comment_posted,
+                    android.widget.Toast.LENGTH_SHORT).show();
+        }, error -> {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            setPosting(false);
+            String message = error.getMessage() != null ? error.getMessage().replace("ErrorResponse: ", "") : "";
+            if (message.contains("Not signed in")) {
+                message = getString(R.string.phone_comment_sign_in);
+            }
+            android.widget.Toast.makeText(this, getString(R.string.phone_comment_failed, message), android.widget.Toast.LENGTH_LONG).show();
+        });
+    }
+
+    private static final java.util.regex.Pattern TIMESTAMP =
+            java.util.regex.Pattern.compile("(?<![\\d:])(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})(?![\\d:])");
+
+    /**
+     * Times in a comment ("2:31", "1:02:45") are links that jump the playing video there, like the YouTube app. Only for
+     * the comments of the video that's playing. A tap anywhere else on the text still opens the replies.
+     */
+    private void linkTimestamps(TextView message, String text) {
+        message.setOnTouchListener(null);
+        if (TextUtils.isEmpty(text) || !commentsOfPlayingVideo()) {
+            message.setText(text);
+            return;
+        }
+        android.text.SpannableString spannable = new android.text.SpannableString(text);
+        java.util.regex.Matcher matcher = TIMESTAMP.matcher(text);
+        boolean found = false;
+        while (matcher.find()) {
+            long hours = matcher.group(1) != null ? Long.parseLong(matcher.group(1)) : 0;
+            long minutes = Long.parseLong(matcher.group(2));
+            long seconds = Long.parseLong(matcher.group(3));
+            if (seconds > 59 || (hours > 0 && minutes > 59)) {
+                continue;
+            }
+            long positionMs = ((hours * 60 + minutes) * 60 + seconds) * 1000;
+            spannable.setSpan(new android.text.style.ClickableSpan() {
+                @Override
+                public void onClick(@NonNull View widget) {
+                    seekPlayingVideo(positionMs);
+                }
+
+                @Override
+                public void updateDrawState(@NonNull android.text.TextPaint paint) {
+                    paint.setColor(getResources().getColor(R.color.phone_link));
+                    paint.setUnderlineText(false);
+                }
+            }, matcher.start(), matcher.end(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            found = true;
+        }
+        message.setText(spannable);
+        if (!found) {
+            return;
+        }
+        // Only the times take the tap: the rest of the row keeps its click (replies) and long press
+        message.setOnTouchListener((v, event) -> {
+            TextView view = (TextView) v;
+            android.text.Layout layout = view.getLayout();
+            if (layout == null || !(view.getText() instanceof android.text.Spanned)) {
+                return false;
+            }
+            int x = (int) event.getX() - view.getTotalPaddingLeft() + view.getScrollX();
+            int y = (int) event.getY() - view.getTotalPaddingTop() + view.getScrollY();
+            int line = layout.getLineForVertical(y);
+            if (x > layout.getLineRight(line)) {
+                return false;
+            }
+            int offset = layout.getOffsetForHorizontal(line, x);
+            android.text.style.ClickableSpan[] links =
+                    ((android.text.Spanned) view.getText()).getSpans(offset, offset, android.text.style.ClickableSpan.class);
+            if (links.length == 0) {
+                return false;
+            }
+            if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
+                links[0].onClick(view);
+            }
+            return true;
+        });
+    }
+
+    private boolean commentsOfPlayingVideo() {
+        AbstractCommentsReceiver receiver = writableReceiver(currentPage());
+        com.liskovsoft.smartyoutubetv2.common.app.models.data.Video playing =
+                com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter.instance(this).getVideo();
+        return receiver != null && playing != null && Helpers.equals(receiver.getVideoId(), playing.videoId);
+    }
+
+    private void seekPlayingVideo(long positionMs) {
+        com.liskovsoft.smartyoutubetv2.common.app.views.PlaybackView player =
+                com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter.instance(this).getView();
+        if (player != null) {
+            player.setPositionMs(positionMs);
+            player.setPlayWhenReady(true);
+        }
+    }
+
+    /** Comments posted from this app (YouTube may show them under another name until the list reloads) */
+    private static final java.util.Set<String> sPostedIds = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    /** "@Some_Handle" and "some_handle" are the same person */
+    private static String normalizeHandle(String name) {
+        if (name == null) {
+            return null;
+        }
+        String handle = name.trim();
+        if (handle.startsWith("@")) {
+            handle = handle.substring(1);
+        }
+        return handle.isEmpty() ? null : handle.toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /** Written by the signed-in account (its channel handle or name is the comment's author) */
+    private boolean isOwnComment(CommentItem item) {
+        if (item == null || item.getId() == null || writableReceiver(currentPage()) == null) {
+            return false;
+        }
+        com.liskovsoft.mediaserviceinterfaces.oauth.Account account =
+                com.liskovsoft.smartyoutubetv2.common.misc.MediaServiceManager.instance().getSelectedAccount();
+        if (account == null || account.isEmpty()) {
+            return false;
+        }
+        if (sPostedIds.contains(item.getId())) {
+            return true;
+        }
+        String author = normalizeHandle(item.getAuthorName());
+        if (author == null) {
+            return false;
+        }
+        String channel = account instanceof com.liskovsoft.googlecommon.service.oauth.YouTubeAccount
+                ? normalizeHandle(((com.liskovsoft.googlecommon.service.oauth.YouTubeAccount) account).getChannelName()) : null;
+        return author.equals(channel) || author.equals(normalizeHandle(account.getName()));
+    }
+
+    private void confirmDelete(CommentItem item) {
+        Page page = currentPage();
+        boolean reply = item.getId().contains(".");
+        new android.app.AlertDialog.Builder(this, PhoneTheme.isNight(this)
+                ? android.R.style.Theme_DeviceDefault_Dialog_Alert : android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+                .setTitle(reply ? R.string.phone_comment_delete_reply_title : R.string.phone_comment_delete_title)
+                .setMessage(R.string.phone_comment_delete_message)
+                .setNegativeButton(R.string.phone_comment_delete_cancel, null)
+                .setPositiveButton(R.string.phone_comment_delete, (dialog, which) -> deleteComment(page, item))
+                .show();
+    }
+
+    /** YouTube removes the comment (or reply); it leaves the list right away */
+    private void deleteComment(Page page, CommentItem item) {
+        AbstractCommentsReceiver receiver = writableReceiver(page);
+        if (receiver == null) {
+            return;
+        }
+        com.liskovsoft.mediaserviceinterfaces.CommentsService service =
+                com.liskovsoft.youtubeapi.service.YouTubeServiceManager.instance().getCommentsService();
+        com.liskovsoft.sharedutils.rx.RxHelper.execute(service.deleteCommentObserve(receiver.getVideoId(), item.getId()), error -> {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            String message = error.getMessage() != null ? error.getMessage().replace("ErrorResponse: ", "") : "";
+            android.widget.Toast.makeText(this, getString(R.string.phone_comment_delete_failed, message), android.widget.Toast.LENGTH_LONG).show();
+        }, () -> {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            sPostedIds.remove(item.getId());
+            if (page.comments != null) {
+                int index = page.comments.items.indexOf(item);
+                if (index >= 0) {
+                    page.comments.items.remove(index);
+                    page.comments.adapter.notifyItemRemoved(index);
+                }
+            }
+            android.widget.Toast.makeText(this, R.string.phone_comment_deleted, android.widget.Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private void hideKeyboard() {
+        android.view.inputmethod.InputMethodManager keyboard =
+                (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (keyboard != null) {
+            keyboard.hideSoftInputFromWindow(mComposerInput.getWindowToken(), 0);
+        }
+        mComposerInput.clearFocus();
+    }
+
+    // endregion
+
+    private void showSortMenu() {
+        Page page = currentPage();
+        if (page == null || page.comments == null || !(page.comments.receiver instanceof AbstractCommentsReceiver)) {
+            return;
+        }
+        AbstractCommentsReceiver receiver = (AbstractCommentsReceiver) page.comments.receiver;
+        boolean newest = receiver.isSortedByNewest();
+        float density = getResources().getDisplayMetrics().density;
+
+        LinearLayout menu = new LinearLayout(this);
+        menu.setOrientation(LinearLayout.VERTICAL);
+        menu.setPadding(0, (int) (6 * density), 0, (int) (6 * density));
+        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+        background.setColor(getResources().getColor(R.color.phone_surface_2));
+        background.setCornerRadius(14 * density);
+        menu.setBackground(background);
+
+        android.widget.PopupWindow popup = new android.widget.PopupWindow(menu,
+                (int) (264 * density), ViewGroup.LayoutParams.WRAP_CONTENT, true);
+        popup.setElevation(12 * density);
+        popup.setOutsideTouchable(true);
+        menu.addView(sortRow(R.string.phone_comments_top, R.string.phone_comments_top_hint, !newest, () -> {
+            popup.dismiss();
+            setCommentsOrder(page, false);
+        }));
+        menu.addView(sortRow(R.string.phone_comments_newest, R.string.phone_comments_newest_hint, newest, () -> {
+            popup.dismiss();
+            setCommentsOrder(page, true);
+        }));
+        mSortChevron.setRotation(-90);
+        popup.setOnDismissListener(() -> mSortChevron.setRotation(90));
+        popup.showAsDropDown(mSort, 0, 0, android.view.Gravity.END);
+    }
+
+    private View sortRow(int title, int hint, boolean checked, Runnable onClick) {
+        float density = getResources().getDisplayMetrics().density;
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding((int) (16 * density), (int) (10 * density), (int) (16 * density), (int) (10 * density));
+        android.util.TypedValue ripple = new android.util.TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackground, ripple, true);
+        if (ripple.resourceId != 0) {
+            row.setBackgroundResource(ripple.resourceId);
+        }
+
+        ImageView check = new ImageView(this);
+        check.setImageResource(R.drawable.ic_phone_check);
+        check.setImageTintList(android.content.res.ColorStateList.valueOf(getResources().getColor(R.color.phone_text)));
+        check.setVisibility(checked ? View.VISIBLE : View.INVISIBLE);
+        row.addView(check, new LinearLayout.LayoutParams((int) (24 * density), (int) (24 * density)));
+
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        TextView name = new TextView(this);
+        name.setText(title);
+        name.setTextSize(16);
+        name.setTextColor(getResources().getColor(R.color.phone_text));
+        TextView description = new TextView(this);
+        description.setText(hint);
+        description.setTextSize(13);
+        description.setTextColor(getResources().getColor(R.color.phone_text_2));
+        texts.addView(name);
+        texts.addView(description);
+        LinearLayout.LayoutParams textsParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        textsParams.setMarginStart((int) (16 * density));
+        row.addView(texts, textsParams);
+
+        row.setOnClickListener(v -> onClick.run());
+        return row;
+    }
+
+    /** Top or Newest: the list starts over from the first page of that order */
+    private void setCommentsOrder(Page page, boolean newest) {
+        AbstractCommentsReceiver receiver = (AbstractCommentsReceiver) page.comments.receiver;
+        if (receiver.isSortedByNewest() == newest) {
+            return;
+        }
+        receiver.setSortedByNewest(newest);
+        page.comments.restart();
+        mList.scrollToPosition(0);
+        renderCommentsHeader(page);
     }
 
     private Page commentsPage(OptionCategory category) {
@@ -572,6 +994,17 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             }
             receiver.setCallback(this);
             receiver.onStart();
+        }
+
+        /** Another order picked: empty list, loading line, first page again */
+        void restart() {
+            items.clear();
+            group = null;
+            loading = true;
+            finished = false;
+            footer = receiver != null ? receiver.getLoadingMessage() : null;
+            adapter.notifyDataSetChanged();
+            start();
         }
 
         @Override
@@ -704,7 +1137,7 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
             String author = item.getAuthorName() != null ? item.getAuthorName() : "";
             String date = item.getPublishedDate();
             meta.setText(TextUtils.isEmpty(date) ? author : author + "  ·  " + date);
-            message.setText(item.getMessage());
+            linkTimestamps(message, item.getMessage());
             likes.setText(item.getLikeCount());
             likeIcon.setImageTintList(android.content.res.ColorStateList.valueOf(getResources().getColor(
                     item.isLiked() ? R.color.phone_accent : R.color.phone_text_2)));
@@ -731,8 +1164,22 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                     mState.receiver.onCommentClicked(item);
                 }
             });
+            view.findViewById(R.id.phone_comment_like).setOnClickListener(v -> {
+                com.liskovsoft.mediaserviceinterfaces.oauth.Account account =
+                        com.liskovsoft.smartyoutubetv2.common.misc.MediaServiceManager.instance().getSelectedAccount();
+                if (account == null || account.isEmpty()) {
+                    android.widget.Toast.makeText(PhoneDialogActivity.this, R.string.phone_comment_like_sign_in,
+                            android.widget.Toast.LENGTH_SHORT).show();
+                } else if (item.getNestedCommentsKey() != null) {
+                    mState.receiver.onCommentLongClicked(item); // SmartTube's like toggle: the row updates at once
+                }
+            });
             view.setOnLongClickListener(v -> {
-                mState.receiver.onCommentLongClicked(item);
+                if (isOwnComment(item)) {
+                    confirmDelete(item); // the account's own comment: delete it
+                } else {
+                    mState.receiver.onCommentLongClicked(item);
+                }
                 return true;
             });
         }

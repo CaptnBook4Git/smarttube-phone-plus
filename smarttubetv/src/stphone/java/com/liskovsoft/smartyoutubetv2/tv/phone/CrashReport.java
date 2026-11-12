@@ -29,7 +29,7 @@ final class CrashReport {
 
         Thread.setDefaultUncaughtExceptionHandler((thread, error) -> {
             try {
-                String text = "SmartTube Phone crash\n"
+                String text = "StreamTube crash\n"
                         + "Device: " + Build.MANUFACTURER + " " + Build.MODEL + ", Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")\n"
                         + "Thread: " + thread.getName() + "\n\n"
                         + Log.getStackTraceString(error);

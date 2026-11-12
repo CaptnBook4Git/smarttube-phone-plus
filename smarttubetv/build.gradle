@@ -141,6 +141,11 @@ android {
     }
 
     packagingOptions {
+        // Native libraries compressed in the APK (about half the download: the JavaScript engine alone is 32 MB);
+        // Android unpacks them once at install
+        jniLibs {
+            useLegacyPackaging true
+        }
         // openvpn module fix: More than one file was found with OS independent path 'META-INF/com.android.tools/proguard/coroutines.pro'
         //exclude 'META-INF/com.android.tools/proguard/coroutines.pro'
         // Not working!
@@ -182,9 +187,10 @@ android {
             // no Firebase, and no auto-updater that would replace this build with the TV one.
             matchingFallbacks = ['stfdroid']
 
-            // Modern phones are 64-bit only
+            // Release APKs (see the splits above): arm64 (most phones), armeabi-v7a (32-bit phones) and the
+            // universal one (all three, also x86 emulators and Chromebooks)
             ndk {
-                abiFilters 'arm64-v8a'
+                abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86'
             }
         }
         stfdroid {
@@ -276,6 +282,8 @@ dependencies {
     // Phone UI: channel picture lookups through SmartTube's OkHttp client
     stphoneImplementation 'com.squareup.okhttp3:okhttp:' + okhttpVersion
     stphoneImplementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0' // pull to refresh on Home
+    // New-video notifications: a WorkManager worker needs ListenableFuture to compile (already in the app through :common)
+    stphoneImplementation 'com.google.guava:guava:' + guavaVersion
 
     implementation 'androidx.work:work-runtime:' + workVersion
 }

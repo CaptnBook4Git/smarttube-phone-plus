@@ -1,3 +1,84 @@
+diff --git a/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/CommentsService.java b/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/CommentsService.java
+index 4247477..4a7f5da 100644
+--- a/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/CommentsService.java
++++ b/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/CommentsService.java
+@@ -1,10 +1,20 @@
+ package com.liskovsoft.mediaserviceinterfaces;
+ 
+ import com.liskovsoft.mediaserviceinterfaces.data.CommentGroup;
++import com.liskovsoft.mediaserviceinterfaces.data.CommentItem;
+ import io.reactivex.Observable;
+ 
+ public interface CommentsService {
+     Observable<CommentGroup> getCommentsObserve(String key);
+     Observable<Void> toggleLikeObserve(String key);
+     Observable<Void> toggleDislikeObserve(String key);
++
++    /** Phone: posts a top-level comment on the video with the signed-in account; emits the new comment. */
++    Observable<CommentItem> createCommentObserve(String videoId, String commentText);
++
++    /** Phone: replies to a top-level comment; emits the new reply. */
++    Observable<CommentItem> createReplyObserve(String videoId, String parentCommentId, String commentText);
++
++    /** Phone: deletes one of the signed-in account's comments or replies. */
++    Observable<Void> deleteCommentObserve(String videoId, String commentId);
+ }
+diff --git a/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/data/MediaItemMetadata.java b/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/data/MediaItemMetadata.java
+index a633990..c5e160c 100644
+--- a/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/data/MediaItemMetadata.java
++++ b/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/data/MediaItemMetadata.java
+@@ -23,6 +23,21 @@ public interface MediaItemMetadata {
+     boolean isLive();
+     String getLiveChatKey();
+     String getCommentsKey();
++
++    /**
++     * Phone: the comments total as YouTube shows it next to the title ("24", "2.4K"), or null.
++     */
++    default String getCommentsCount() {
++        return null;
++    }
++
++    /**
++     * Phone: the key that loads the first page of comments sorted Newest first ({@link #getCommentsKey()} is Top
++     * comments). Null when YouTube offers no sort.
++     */
++    default String getNewestCommentsKey() {
++        return null;
++    }
+     boolean isUpcoming();
+     String getChannelId();
+     String getParams();
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/app/AppService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/app/AppService.java
+index 522cb28..df25e52 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/app/AppService.java
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/app/AppService.java
+@@ -24,6 +24,7 @@ public class AppService {
+     private static AppService sInstance;
+     private final AppServiceCore mAppServiceCore;
+     private String mClientPlaybackNonce;
++    private boolean mKeepClientPlaybackNonce;
+ 
+     private AppService() {
+         mAppServiceCore = new AppServiceCoreCached();
+@@ -157,9 +158,17 @@ public class AppService {
+     }
+ 
+     public void resetClientPlaybackNonce() {
++        if (mKeepClientPlaybackNonce) {
++            return; // a video info fetched ahead of time: the playing video keeps its nonce
++        }
+         mClientPlaybackNonce = null;
+     }
+ 
++    /** While set, fetching a video info doesn't start a new nonce (the info is for later, see FormatInfoWrapper) */
++    public void setKeepClientPlaybackNonce(boolean keep) {
++        mKeepClientPlaybackNonce = keep;
++    }
++
+     /**
+      * Constant used in {@link AuthApi}
+      */
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
 index ad4bafa..fe4cd9f 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
@@ -67,6 +148,373 @@ index ad4bafa..fe4cd9f 100644
          }
      }
  
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentWriteAnswers.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentWriteAnswers.kt
+new file mode 100644
+index 0000000..e3a3c4b
+--- /dev/null
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentWriteAnswers.kt
+@@ -0,0 +1,116 @@
++package com.liskovsoft.youtubeapi.comments
++
++import com.google.gson.Gson
++import com.google.gson.JsonArray
++import com.google.gson.JsonElement
++import com.google.gson.JsonObject
++import com.liskovsoft.mediaserviceinterfaces.data.CommentItem
++import com.liskovsoft.youtubeapi.comments.gen.CommentItemWrapper
++import com.liskovsoft.youtubeapi.comments.gen.CommentRenderer
++import com.liskovsoft.youtubeapi.comments.impl.CommentItemImpl
++
++/**
++ * Phone: what YouTube answered (adapted from NewTube, MIT) to a new comment, reply or delete.
++ *
++ * The answers are read loosely on purpose. A new comment comes back inside a list mutation
++ * (actions[].listMutationCommand...commentThreadRenderer.comment.commentRenderer) next to
++ * placeholder renderers that only carry trackingParams, and a reply's is nested the same way with
++ * a different wrapper; so the comment is the first commentRenderer that has a commentId, wherever
++ * it is. Success is the actionResult's status: the top-level one for a create, the
++ * removeCommentAction's for a delete (which must say so explicitly, for the right comment). A
++ * refusal is thrown as "ErrorResponse: <YouTube's words>", the form RetrofitHelper gives an HTTP
++ * error's message, so a caller finds the reason one way.
++ */
++internal object CommentWriteAnswers {
++    private const val SUCCEEDED = "STATUS_SUCCEEDED"
++    private val gson = Gson()
++
++    /**
++     * The comment YouTube created; throws with YouTube's reason when it refused. A post YouTube
++     * reports done but does not describe comes back as an empty item (no id), never as a failure:
++     * the person would be offered a retry and post it twice.
++     */
++    fun createdComment(answer: JsonObject?): CommentItem {
++        answer ?: throw IllegalStateException("No answer")
++        val result = findFirst(answer, "actionResult") as? JsonObject
++        val status = statusOf(result)
++        if (status != null && status != SUCCEEDED) {
++            throw refusal(result, status)
++        }
++        val renderer = findCommentRenderer(answer)
++        if (renderer == null) {
++            if (status == SUCCEEDED) {
++                return CommentItemImpl(CommentItemWrapper(null, null))
++            }
++            throw IllegalStateException("No comment in the answer")
++        }
++        val comment = gson.fromJson(renderer, CommentRenderer::class.java)
++        return CommentItemImpl(CommentItemWrapper(
++            CommentItemWrapper.CommentThreadRenderer(CommentItemWrapper.CommentThreadRenderer.Comment(comment)),
++            null))
++    }
++
++    /** YouTube removed [commentId]: its removeCommentAction says so, explicitly. */
++    fun checkDeleted(answer: JsonObject?, commentId: String) {
++        answer ?: throw IllegalStateException("No answer")
++        val remove = findFirst(answer, "removeCommentAction") as? JsonObject
++        val result = (remove?.get("actionResult") ?: findFirst(answer, "actionResult")) as? JsonObject
++        val status = statusOf(result) ?: throw IllegalStateException("No result in the answer")
++        if (status != SUCCEEDED) {
++            throw refusal(result, status)
++        }
++        val removed = remove?.get("commentId")?.takeIf { it.isJsonPrimitive }?.asString
++        if (removed != null && removed != commentId) {
++            throw IllegalStateException("The answer names another comment")
++        }
++    }
++
++    private fun statusOf(result: JsonObject?): String? =
++        result?.get("status")?.takeIf { it.isJsonPrimitive }?.asString
++
++    private fun refusal(result: JsonObject?, status: String) =
++        IllegalStateException("ErrorResponse: " + ((result?.let { feedback(it) }) ?: status))
++
++    /** "Comment added", "Comment deleted", or YouTube's reason for refusing. */
++    private fun feedback(result: JsonObject): String? {
++        val runs = (result.get("feedbackText") as? JsonObject)?.get("runs") as? JsonArray ?: return null
++        val text = runs.mapNotNull { (it as? JsonObject)?.get("text")?.takeIf { t -> t.isJsonPrimitive }?.asString }
++            .joinToString("")
++        return text.ifEmpty { null }
++    }
++
++    private fun findCommentRenderer(node: JsonElement?): JsonObject? {
++        when (node) {
++            is JsonObject -> {
++                val renderer = node.get("commentRenderer") as? JsonObject
++                if (renderer != null && renderer.has("commentId")) {
++                    return renderer
++                }
++                for ((_, value) in node.entrySet()) {
++                    findCommentRenderer(value)?.let { return it }
++                }
++            }
++            is JsonArray -> for (value in node) {
++                findCommentRenderer(value)?.let { return it }
++            }
++            else -> {}
++        }
++        return null
++    }
++
++    private fun findFirst(node: JsonElement?, key: String): JsonElement? {
++        when (node) {
++            is JsonObject -> {
++                node.get(key)?.let { return it }
++                for ((_, value) in node.entrySet()) {
++                    findFirst(value, key)?.let { return it }
++                }
++            }
++            is JsonArray -> for (value in node) {
++                findFirst(value, key)?.let { return it }
++            }
++            else -> {}
++        }
++        return null
++    }
++}
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsApi.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsApi.kt
+index 4a17eac..329bfa7 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsApi.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsApi.kt
+@@ -1,5 +1,6 @@
+ package com.liskovsoft.youtubeapi.comments
+ 
++import com.google.gson.JsonObject
+ import com.liskovsoft.youtubeapi.comments.gen.CommentsResult
+ import com.liskovsoft.googlecommon.common.converters.gson.WithGson
+ import retrofit2.Call
+@@ -16,4 +17,19 @@ internal interface CommentsApi {
+     @Headers("Content-Type: application/json")
+     @POST("https://www.youtube.com/youtubei/v1/comment/perform_comment_action")
+     fun commentAction(@Body actionQuery: String): Call<Void?>
++
++    // Phone: writing comments. The answers are read loosely (CommentWriteAnswers): YouTube nests the new comment
++    // differently in each, and only its commentRenderer and actionResult matter.
++
++    @Headers("Content-Type: application/json")
++    @POST("https://www.youtube.com/youtubei/v1/comment/create_comment")
++    fun createComment(@Body createQuery: String): Call<JsonObject?>
++
++    @Headers("Content-Type: application/json")
++    @POST("https://www.youtube.com/youtubei/v1/comment/create_comment_reply")
++    fun createCommentReply(@Body replyQuery: String): Call<JsonObject?>
++
++    @Headers("Content-Type: application/json")
++    @POST("https://www.youtube.com/youtubei/v1/comment/perform_comment_action")
++    fun commentActionWithAnswer(@Body actionQuery: String): Call<JsonObject?>
+ }
+\ No newline at end of file
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsApiParams.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsApiParams.kt
+index 65fd614..ad3c2bf 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsApiParams.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsApiParams.kt
+@@ -1,6 +1,9 @@
+ package com.liskovsoft.youtubeapi.comments
+ 
++import com.google.gson.Gson
+ import com.liskovsoft.youtubeapi.common.helpers.PostDataHelper
++import okio.Buffer
++import java.net.URLEncoder
+ 
+ internal object CommentsApiParams {
+     private const val COMMENT_ACTION_TEMPLATE: String = "\"actions\":[\"%s\"]"
+@@ -13,4 +16,67 @@ internal object CommentsApiParams {
+     fun getActionQuery(actionKey: String): String {
+         return PostDataHelper.createQueryTV(String.format(COMMENT_ACTION_TEMPLATE, actionKey))
+     }
++
++    // Phone: writing comments with the TV sign-in (TVHTML5 context), the approach of NewTube (MIT). The TV comment
++    // views carry no create/reply/delete params (the TV app only reads), so they are built here in the layouts
++    // YouTube's web client sends (create: upstream MediaServiceCore PR #40; delete: perform_comment_action type 6).
++
++    fun getCreateCommentQuery(videoId: String, commentText: String): String =
++        PostDataHelper.createQueryTV(
++            "\"createCommentParams\":\"${createCommentParams(videoId)}\",\"commentText\":${Gson().toJson(commentText)}")
++
++    fun getCreateReplyQuery(videoId: String, parentCommentId: String, commentText: String): String =
++        PostDataHelper.createQueryTV(
++            "\"createReplyParams\":\"${createReplyParams(videoId, parentCommentId)}\",\"commentText\":${Gson().toJson(commentText)}")
++
++    fun getDeleteCommentQuery(videoId: String, commentId: String): String =
++        getActionQuery(deleteCommentParams(videoId, commentId))
++
++    /** {2: videoId, 5: {}, 10: 7} */
++    fun createCommentParams(videoId: String): String =
++        encode(Proto().string(2, videoId).message(5, Proto()).varint(10, 7))
++
++    /** {2: videoId, 4: the top-level comment's id, 5: {1: 0}, 10: 7} */
++    fun createReplyParams(videoId: String, parentCommentId: String): String =
++        encode(Proto().string(2, videoId).string(4, parentCommentId).message(5, Proto().varint(1, 0)).varint(10, 7))
++
++    /** {1: 6 (delete), 2: 2, 3: commentId, 5: videoId}; a reply's id is "parentId.replyId" */
++    fun deleteCommentParams(videoId: String, commentId: String): String =
++        encode(Proto().varint(1, 6).varint(2, 2).string(3, commentId).string(5, videoId))
++
++    /** Standard base64 with padding, URL-encoded, as YouTube's own clients send these params */
++    private fun encode(proto: Proto): String = URLEncoder.encode(proto.bytes.readByteString().base64(), "UTF-8")
++
++    /** Just enough protobuf: varints, strings and nested messages, in the order written */
++    private class Proto {
++        val bytes = Buffer()
++
++        fun varint(field: Int, value: Long): Proto = apply { tag(field, 0); writeVarint(value) }
++
++        fun varint(field: Int, value: Int): Proto = varint(field, value.toLong())
++
++        fun string(field: Int, value: String): Proto = apply {
++            val utf8 = value.toByteArray(Charsets.UTF_8)
++            tag(field, 2)
++            writeVarint(utf8.size.toLong())
++            bytes.write(utf8)
++        }
++
++        fun message(field: Int, value: Proto): Proto = apply {
++            tag(field, 2)
++            writeVarint(value.bytes.size)
++            bytes.writeAll(value.bytes)
++        }
++
++        private fun tag(field: Int, wireType: Int) = writeVarint(((field shl 3) or wireType).toLong())
++
++        private fun writeVarint(value: Long) {
++            var v = value
++            while (v and 0x7F.inv().toLong() != 0L) {
++                bytes.writeByte(((v and 0x7F) or 0x80).toInt())
++                v = v ushr 7
++            }
++            bytes.writeByte(v.toInt())
++        }
++    }
+ }
+\ No newline at end of file
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsServiceInt.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsServiceInt.kt
+index 529f1a8..9ced312 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsServiceInt.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/comments/CommentsServiceInt.kt
+@@ -1,6 +1,7 @@
+ package com.liskovsoft.youtubeapi.comments
+ 
+ import com.liskovsoft.mediaserviceinterfaces.data.CommentGroup
++import com.liskovsoft.mediaserviceinterfaces.data.CommentItem
+ import com.liskovsoft.youtubeapi.comments.gen.getDislikeParams
+ import com.liskovsoft.youtubeapi.comments.gen.getLikeParams
+ import com.liskovsoft.youtubeapi.comments.gen.getActiveCommentItem
+@@ -29,6 +30,19 @@ internal object CommentsServiceInt {
+         likeParam?.let { getActionResult(it) }
+     }
+ 
++    // Phone: each returns YouTube's answer or throws with its reason
++
++    fun createComment(videoId: String, commentText: String): CommentItem = CommentWriteAnswers.createdComment(
++        RetrofitHelper.getWithErrors(mApi.createComment(CommentsApiParams.getCreateCommentQuery(videoId, commentText))))
++
++    fun createReply(videoId: String, parentCommentId: String, commentText: String): CommentItem =
++        CommentWriteAnswers.createdComment(RetrofitHelper.getWithErrors(mApi.createCommentReply(
++            CommentsApiParams.getCreateReplyQuery(videoId, parentCommentId, commentText))))
++
++    fun deleteComment(videoId: String, commentId: String) = CommentWriteAnswers.checkDeleted(
++        RetrofitHelper.getWithErrors(mApi.commentActionWithAnswer(CommentsApiParams.getDeleteCommentQuery(videoId, commentId))),
++        commentId)
++
+     private fun getCommentsResult(commentsKey: String) = RetrofitHelper.get(mApi.getComments(CommentsApiParams.getCommentsQuery(commentsKey)))
+ 
+     private fun getActionResult(actionKey: String) = RetrofitHelper.get(mApi.commentAction(CommentsApiParams.getActionQuery(actionKey)))
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/common/models/gen/CommonItems.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/common/models/gen/CommonItems.kt
+index c256267..8719908 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/common/models/gen/CommonItems.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/common/models/gen/CommonItems.kt
+@@ -701,5 +701,6 @@ internal data class OverlayPanelHeaderRenderer(
+ 
+ internal data class EngagementPanelTitleHeaderRenderer(
+     val menu: Menu?,
+-    val title: TextItem?
++    val title: TextItem?,
++    val contextualInfo: TextItem? // Phone: the comments total next to the title ("24", "2.4K")
+ )
+\ No newline at end of file
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/gen/WatchNextHelper.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/gen/WatchNextHelper.kt
+index 7692924..600b987 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/gen/WatchNextHelper.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/gen/WatchNextHelper.kt
+@@ -188,6 +188,8 @@ internal fun List<ContinuationItem?>.getContinuationToken(): String? = firstNotN
+ internal fun EngagementPanel.getTopCommentsToken(): String? = getSubMenuItems()?.getOrNull(0)?.continuation?.getContinuationToken() ?:
+     getSections()?.firstNotNullOfOrNull { it?.itemSectionRenderer?.continuations?.getContinuationToken() }
+ internal fun EngagementPanel.getNewCommentsToken(): String? = getSubMenuItems()?.getOrNull(1)?.continuation?.getContinuationToken()
++internal fun EngagementPanel.getCommentsCount(): String? =
++    engagementPanelSectionListRenderer?.header?.engagementPanelTitleHeaderRenderer?.contextualInfo?.getText()
+ internal fun EngagementPanel.isCommentsSection(): Boolean = engagementPanelSectionListRenderer?.panelIdentifier == "comment-item-section"
+ internal fun EngagementPanel.isDescriptionSection(): Boolean = engagementPanelSectionListRenderer?.panelIdentifier == "video-description-ep-identifier"
+ internal fun EngagementPanel.isCollaboratorSection(): Boolean = engagementPanelSectionListRenderer?.identifier?.tag?.startsWith("channel-actions-panel-") ?: false
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/impl/MediaItemMetadataImpl.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/impl/MediaItemMetadataImpl.kt
+index 2cad49f..aa95319 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/impl/MediaItemMetadataImpl.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/next/v2/impl/MediaItemMetadataImpl.kt
+@@ -261,6 +261,14 @@ internal data class MediaItemMetadataImpl(private val watchNextResult: WatchNext
+         return commentsKeyItem
+     }
+ 
++    override fun getCommentsCount(): String? {
++        return commentsPanel?.getCommentsCount()
++    }
++
++    override fun getNewestCommentsKey(): String? {
++        return commentsPanel?.getNewCommentsToken()
++    }
++
+     override fun isUpcoming(): Boolean {
+         return isUpcomingItem
+     }
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeCommentsService.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeCommentsService.kt
+index 708c599..fa429de 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeCommentsService.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeCommentsService.kt
+@@ -1,7 +1,9 @@
+ package com.liskovsoft.youtubeapi.service
+ 
+ import com.liskovsoft.mediaserviceinterfaces.CommentsService
++import com.liskovsoft.googlecommon.common.helpers.RetrofitOkHttpHelper
+ import com.liskovsoft.mediaserviceinterfaces.data.CommentGroup
++import com.liskovsoft.mediaserviceinterfaces.data.CommentItem
+ import com.liskovsoft.sharedutils.rx.RxHelper
+ import com.liskovsoft.youtubeapi.comments.CommentsServiceInt
+ import io.reactivex.Observable
+@@ -30,4 +32,37 @@ internal object YouTubeCommentsService: CommentsService {
+     override fun toggleDislikeObserve(key: String?): Observable<Void> {
+         return RxHelper.fromRunnable { toggleDislike(key) }
+     }
++
++    override fun createCommentObserve(videoId: String?, commentText: String?): Observable<CommentItem> {
++        return RxHelper.fromCallable {
++            checkSignedIn()
++            CommentsServiceInt.createComment(requireNotNull(videoId), requireNotNull(commentText))
++        }
++    }
++
++    override fun createReplyObserve(videoId: String?, parentCommentId: String?, commentText: String?): Observable<CommentItem> {
++        return RxHelper.fromCallable {
++            checkSignedIn()
++            CommentsServiceInt.createReply(requireNotNull(videoId), requireNotNull(parentCommentId), requireNotNull(commentText))
++        }
++    }
++
++    override fun deleteCommentObserve(videoId: String?, commentId: String?): Observable<Void> {
++        return RxHelper.fromRunnable {
++            checkSignedIn()
++            CommentsServiceInt.deleteComment(requireNotNull(videoId), requireNotNull(commentId))
++        }
++    }
++
++    /**
++     * Phone: a write never leaves without the account's header. Right after a cold start the header may not be
++     * restored yet, and YouTube answers an anonymous write with 403 "Comment failed to post": restore it first and
++     * refuse outright when there is still none.
++     */
++    private fun checkSignedIn() {
++        YouTubeSignInService.instance().checkAuth()
++        if (RetrofitOkHttpHelper.authHeaders["Authorization"].isNullOrEmpty()) {
++            throw IllegalStateException("Not signed in")
++        }
++    }
+ }
+\ No newline at end of file
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
 index 1bfecfd..1380533 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
@@ -150,8 +598,132 @@ index 0000000..fa503c1
 +        return RxHelper.fromCallable(() -> getDownloadInfo(videoId));
 +    }
 +}
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java
+index 69c0a61..b11e397 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java
+@@ -74,6 +74,11 @@ public class YouTubeMediaItemService implements MediaItemService {
+         return FormatInfoWrapper.getFormatInfo(videoId, clickTrackingParams);
+     }
+ 
++    /** Fetches a video's info ahead of time, see {@link FormatInfoWrapper#preloadFormatInfo} (blocking: not for the UI thread) */
++    public static void preloadFormatInfo(String videoId) {
++        FormatInfoWrapper.preloadFormatInfo(videoId);
++    }
++
+     @Override
+     public Observable<MediaItemFormatInfo> getFormatInfoObserve(MediaItem item) {
+         return RxHelper.fromCallable(() -> getFormatInfo(item));
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/data/YouTubeMediaItemFormatInfo.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/data/YouTubeMediaItemFormatInfo.java
+index c470585..493dc71 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/data/YouTubeMediaItemFormatInfo.java
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/data/YouTubeMediaItemFormatInfo.java
+@@ -49,6 +49,7 @@ public class YouTubeMediaItemFormatInfo implements MediaItemFormatInfo {
+     private String mVisitorMonitoringData; // used in tracking
+     private String mOfParam; // used in tracking
+     private String mStoryboardSpec;
++    private boolean mStoryboardFetched;
+     private boolean mIsUnplayable;
+     private String mPlayabilityStatus;
+     private String mStartTimestamp;
+@@ -343,6 +344,16 @@ public class YouTubeMediaItemFormatInfo implements MediaItemFormatInfo {
+ 
+     @Override
+     public MediaItemStoryboard createStoryboard() {
++        if (mStoryboardSpec == null && !mStoryboardFetched && mVideoId != null && !isLive()) {
++            // Phone: not fetched before the video started (VideoInfoService.setDeferStoryboardFix)
++            mStoryboardFetched = true;
++            try {
++                mStoryboardSpec = com.liskovsoft.youtubeapi.videoinfo.V2.VideoInfoService.instance().getStoryboardSpec(mVideoId);
++            } catch (Exception e) {
++                e.printStackTrace();
++            }
++        }
++
+         if (mStoryboardSpec == null) {
+             return null;
+         }
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt
+index e3be953..1152cca 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt
+@@ -13,6 +13,7 @@ import com.liskovsoft.youtubeapi.videoinfo.V2.VideoInfoService
+ 
+ internal object FormatInfoWrapper {
+     private var mCachedFormatInfo: MediaItemFormatInfo? = null
++    private var mPreloadedFormatInfo: MediaItemFormatInfo? = null
+     private var mTryInnertubeFirst: Boolean = false
+     private val mInnertubeResult = object { var isUnplayable: Boolean = false; var client: AppClient? = null }
+     private val mInnertubeProvider: (String, String?) -> MediaItemFormatInfo? =
+@@ -34,6 +35,13 @@ internal object FormatInfoWrapper {
+ 
+         try {
+             synchronized(lock) {
++                takePreloadedFormatInfo(videoId)?.let {
++                    // Same as a fresh info: its own nonce (history), then the usual cache
++                    AppService.instance().resetClientPlaybackNonce()
++                    setCachedFormatInfo(it, clickTrackingParams)
++                    return it
++                }
++
+                 return selectPlaybackFormatInfo(videoId, clickTrackingParams)
+             }
+         } finally {
+@@ -41,6 +49,44 @@ internal object FormatInfoWrapper {
+         }
+     }
+ 
++    /**
++     * Fetches a video's info ahead of time (the phone's next Short), so opening it doesn't wait for the network.
++     * The playing video isn't disturbed: its cached info and its playback nonce (watch history) stay as they are.
++     */
++    @JvmStatic
++    fun preloadFormatInfo(videoId: String?) {
++        if (videoId == null)
++            return
++
++        synchronized(lock) {
++            if (getCachedFormatInfo(videoId) != null || mPreloadedFormatInfo?.getVideoId() == videoId)
++                return
++
++            val playing = mCachedFormatInfo
++            AppService.instance().setKeepClientPlaybackNonce(true)
++            try {
++                mCachedFormatInfo = null
++                mPreloadedFormatInfo = selectPlaybackFormatInfo(videoId, null)?.takeIf { !it.isUnplayable() }
++            } catch (e: Exception) {
++                mPreloadedFormatInfo = null // best effort: opened the usual way later
++            } finally {
++                AppService.instance().setKeepClientPlaybackNonce(false)
++                mCachedFormatInfo = playing
++            }
++        }
++    }
++
++    private fun takePreloadedFormatInfo(videoId: String): MediaItemFormatInfo? {
++        val preloaded = mPreloadedFormatInfo ?: return null
++
++        if (preloaded.getVideoId() != videoId)
++            return null
++
++        mPreloadedFormatInfo = null
++
++        return preloaded.takeIf { it.isCacheActual() }
++    }
++
+     @JvmStatic
+     fun switchNextClient(force: Boolean) {
+         if (mTryInnertubeFirst && !mInnertubeResult.isUnplayable) {
+@@ -63,6 +109,7 @@ internal object FormatInfoWrapper {
+     @JvmStatic
+     fun invalidateCache() {
+         mCachedFormatInfo = null
++        mPreloadedFormatInfo = null
+     }
+ 
+     @JvmStatic
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java
-index 29e7de1..5b57538 100644
+index 29e7de1..6f18421 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java
 +++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java
 @@ -47,6 +47,14 @@ public class VideoInfoService extends VideoInfoServiceBase {
@@ -169,7 +741,39 @@ index 29e7de1..5b57538 100644
      @Nullable
      private AppClient mActualClient = null;
      @Nullable
-@@ -94,6 +102,52 @@ public class VideoInfoService extends VideoInfoServiceBase {
+@@ -59,6 +67,31 @@ public class VideoInfoService extends VideoInfoServiceBase {
+         mVideoInfoApi = RetrofitHelper.create(VideoInfoApi.class);
+     }
+ 
++    /**
++     * Phone: a missing storyboard (seek preview pictures) is fetched when the player asks for it, after the video has
++     * started, instead of with one more request before the video can start.
++     */
++    private static boolean sDeferStoryboardFix;
++
++    public static void setDeferStoryboardFix(boolean defer) {
++        sDeferStoryboardFix = defer;
++    }
++
++    /** The storyboard spec from the iOS client (when the first answer had none); null if there's none either */
++    public String getStoryboardSpec(String videoId) {
++        if (videoId == null) {
++            return null;
++        }
++        boolean oldUseAuth = mUseAuth;
++        mUseAuth = false;
++        try {
++            VideoInfoHls videoInfoHls = getVideoInfoIOSHls(videoId, null);
++            return videoInfoHls != null ? videoInfoHls.getStoryboardSpec() : null;
++        } finally {
++            mUseAuth = oldUseAuth;
++        }
++    }
++
+     public static VideoInfoService instance() {
+         if (sInstance == null) {
+             sInstance = new VideoInfoService();
+@@ -94,6 +127,52 @@ public class VideoInfoService extends VideoInfoServiceBase {
          return result;
      }
  
@@ -222,133 +826,21 @@ index 29e7de1..5b57538 100644
      public VideoInfo getAuthVideoInfo(String videoId, String clickTrackingParams) {
          if (videoId == null) {
              return null;
-diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java
-index 2568d1c..c9e691c 100644
---- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java
-+++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/search/SearchFilterHelper.java
-@@ -97,14 +97,123 @@ final class SearchFilterHelper {
-         sParams[UPLOAD_DATE_THIS_WEEK][DURATION_OVER_20][TYPE_ANY][FEATURE_ANY][SORT_BY_RATING] = "CAESBBABGAI%3D";
-     }
+@@ -245,14 +324,15 @@ public class VideoInfoService extends VideoInfoServiceBase {
  
-+    private static final int TYPE_SHORTS_OPT = 1 << 19;
-+    private static final int FEATURE_HD_OPT = 1 << 20;
-+    private static final int FEATURE_SUBTITLES_OPT = 1 << 21;
-+    private static final int FEATURE_CREATIVE_COMMONS_OPT = 1 << 22;
-+    private static final int FEATURE_360_OPT = 1 << 23;
-+    private static final int FEATURE_VR180_OPT = 1 << 24;
-+    private static final int FEATURE_3D_OPT = 1 << 25;
-+    private static final int FEATURE_LOCATION_OPT = 1 << 26;
-+    private static final int FEATURE_PURCHASED_OPT = 1 << 27;
-+
-+    private static void writeVarint(java.io.ByteArrayOutputStream out, int value) {
-+        while ((value & ~0x7F) != 0) {
-+            out.write((value & 0x7F) | 0x80);
-+            value >>>= 7;
-+        }
-+        out.write(value & 0x7F);
-+    }
-+
-+    private static void writeVarintField(java.io.ByteArrayOutputStream out, int fieldNumber, int value) {
-+        writeVarint(out, (fieldNumber << 3));
-+        writeVarint(out, value);
-+    }
-+
-     public static String toParams(int options) {
-         if (options == -1 || options == 0) {
-             return null;
+         boolean oldUseAuth = mUseAuth;
+ 
+-        if (shouldObtainExtendedFormats(result) || result.isStoryboardBroken()) {
++        boolean fixStoryboard = result.isStoryboardBroken() && !sDeferStoryboardFix;
++        if (shouldObtainExtendedFormats(result) || fixStoryboard) {
+             Log.d(TAG, "Enable high bitrate formats...");
+             mUseAuth = false;
+             VideoInfoHls videoInfoHls = getVideoInfoIOSHls(videoId, clickTrackingParams);
+             if (videoInfoHls != null && shouldObtainExtendedFormats(result)) {
+                 result.setHlsManifestUrl(videoInfoHls.getHlsManifestUrl());
+             }
+-            if (videoInfoHls != null && result.isStoryboardBroken()) {
++            if (videoInfoHls != null && result.isStoryboardBroken()) { // also when deferred: it came for free
+                 result.setStoryboardSpec(videoInfoHls.getStoryboardSpec());
+             }
          }
- 
--        init();
-+        int sortProto = 0;
-+        if (Helpers.check(options, SearchOptions.SORT_BY_RATING)) {
-+            sortProto = 1;
-+        } else if (Helpers.check(options, SearchOptions.SORT_BY_UPLOAD_DATE)) {
-+            sortProto = 2;
-+        } else if (Helpers.check(options, SearchOptions.SORT_BY_VIEW_COUNT)) {
-+            sortProto = 3;
-+        }
-+
-+        int uploadProto = getUploadDateIndex(options);
-+
-+        int durationProto = 0;
-+        if (Helpers.check(options, SearchOptions.DURATION_UNDER_4) || Helpers.check(options, TYPE_SHORTS_OPT)) {
-+            durationProto = 1;
-+        } else if (Helpers.check(options, SearchOptions.DURATION_BETWEEN_4_20)) {
-+            durationProto = 3;
-+        } else if (Helpers.check(options, SearchOptions.DURATION_OVER_20)) {
-+            durationProto = 2;
-+        }
-+
-+        int typeProto = getTypeIndex(options);
-+        if (Helpers.check(options, TYPE_SHORTS_OPT)) {
-+            typeProto = TYPE_VIDEO;
-+        }
-+        if (typeProto == TYPE_ANY && (uploadProto != UPLOAD_DATE_ALL || durationProto != 0 || sortProto == 1 || sortProto == 3)) {
-+            typeProto = TYPE_VIDEO;
-+        }
-+
-+        java.io.ByteArrayOutputStream filterOut = new java.io.ByteArrayOutputStream();
-+        if (uploadProto != UPLOAD_DATE_ALL) {
-+            writeVarintField(filterOut, 1, uploadProto);
-+        }
-+        if (typeProto != TYPE_ANY) {
-+            writeVarintField(filterOut, 2, typeProto);
-+        }
-+        if (durationProto != 0) {
-+            writeVarintField(filterOut, 3, durationProto);
-+        }
-+        if (Helpers.check(options, FEATURE_HD_OPT)) {
-+            writeVarintField(filterOut, 4, 1);
-+        }
-+        if (Helpers.check(options, FEATURE_SUBTITLES_OPT)) {
-+            writeVarintField(filterOut, 5, 1);
-+        }
-+        if (Helpers.check(options, FEATURE_CREATIVE_COMMONS_OPT)) {
-+            writeVarintField(filterOut, 6, 1);
-+        }
-+        if (Helpers.check(options, FEATURE_3D_OPT)) {
-+            writeVarintField(filterOut, 7, 1);
-+        }
-+        if (Helpers.check(options, SearchOptions.FEATURE_LIVE)) {
-+            writeVarintField(filterOut, 8, 1);
-+        }
-+        if (Helpers.check(options, FEATURE_PURCHASED_OPT)) {
-+            writeVarintField(filterOut, 9, 1);
-+        }
-+        if (Helpers.check(options, SearchOptions.FEATURE_4K)) {
-+            writeVarintField(filterOut, 14, 1);
-+        }
-+        if (Helpers.check(options, FEATURE_360_OPT)) {
-+            writeVarintField(filterOut, 15, 1);
-+        }
-+        if (Helpers.check(options, FEATURE_LOCATION_OPT)) {
-+            writeVarintField(filterOut, 23, 1);
-+        }
-+        if (Helpers.check(options, SearchOptions.FEATURE_HDR)) {
-+            writeVarintField(filterOut, 25, 1);
-+        }
-+        if (Helpers.check(options, FEATURE_VR180_OPT)) {
-+            writeVarintField(filterOut, 26, 1);
-+        }
-+
-+        byte[] filterBytes = filterOut.toByteArray();
-+        java.io.ByteArrayOutputStream topOut = new java.io.ByteArrayOutputStream();
-+        if (sortProto != 0) {
-+            writeVarintField(topOut, 1, sortProto);
-+        }
-+        if (filterBytes.length > 0) {
-+            writeVarint(topOut, (2 << 3) | 2);
-+            writeVarint(topOut, filterBytes.length);
-+            topOut.write(filterBytes, 0, filterBytes.length);
-+        }
-+
-+        byte[] topBytes = topOut.toByteArray();
-+        if (topBytes.length == 0) {
-+            return null;
-+        }
- 
--        return sParams[getUploadDateIndex(options)][getDurationIndex(options)][getTypeIndex(options)][getFeaturesIndex(options)][getSortByIndex(options)];
-+        return android.util.Base64.encodeToString(topBytes, android.util.Base64.NO_WRAP).replace("=", "%3D");
-     }
- 
-     private static int getUploadDateIndex(int options) {

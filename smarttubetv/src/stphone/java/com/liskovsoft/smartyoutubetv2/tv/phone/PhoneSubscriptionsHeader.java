@@ -181,14 +181,14 @@ final class PhoneSubscriptionsHeader {
         for (int i = 0; i < titles.length; i++) {
             TextView chip = new TextView(mActivity);
             chip.setText(titles[i]);
-            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
             chip.setGravity(Gravity.CENTER);
-            chip.setPadding(dp(14), 0, dp(14), 0);
+            chip.setPadding(dp(12), 0, dp(12), 0);
             chip.setBackgroundResource(R.drawable.phone_chip_bg);
             chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             final int filter = i;
             chip.setOnClickListener(v -> setFilter(filter));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(32));
             params.setMarginStart(dp(4));
             params.setMarginEnd(dp(4));
             mFilters.addView(chip, params);

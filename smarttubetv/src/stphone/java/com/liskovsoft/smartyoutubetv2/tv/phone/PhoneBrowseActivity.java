@@ -114,7 +114,48 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mPresenter.onViewInitialized();
 
         CrashReport.showIfAny(this);
+        mList.postDelayed(() -> PhoneRebrandBanner.showIfPending(this), 900); // once, after the rename to StreamTube
         mList.postDelayed(this::askNotificationPermission, 1500);
+        handleShortcut(getIntent(), 0);
+    }
+
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        handleShortcut(intent, 0);
+    }
+
+    /** App shortcuts (long press the app icon), see res/xml/phone_shortcuts.xml */
+    static final String EXTRA_SHORTCUT = "org.smarttube.phone.SHORTCUT";
+
+    /** Opens what an app shortcut asks for, once Home's sections are there (they load right after start) */
+    private void handleShortcut(android.content.Intent intent, int attempt) {
+        String shortcut = intent != null ? intent.getStringExtra(EXTRA_SHORTCUT) : null;
+        if (shortcut == null || isFinishing()) {
+            return;
+        }
+        if ("search".equals(shortcut)) {
+            intent.removeExtra(EXTRA_SHORTCUT);
+            com.liskovsoft.smartyoutubetv2.common.app.presenters.SearchPresenter.instance(this).startSearch(null);
+            return;
+        }
+        int sectionId = "shorts".equals(shortcut) ? MediaGroup.TYPE_SHORTS
+                : "history".equals(shortcut) ? MediaGroup.TYPE_HISTORY : MediaGroup.TYPE_SUBSCRIPTIONS;
+        BrowseSection section = sectionById(sectionId);
+        if (section == null) {
+            if (attempt < 20) {
+                mList.postDelayed(() -> handleShortcut(intent, attempt + 1), 250);
+            }
+            return;
+        }
+        intent.removeExtra(EXTRA_SHORTCUT);
+        if (sectionId == MediaGroup.TYPE_SHORTS) {
+            playShorts();
+        } else if (sectionId == MediaGroup.TYPE_SUBSCRIPTIONS) {
+            selectTab(TAB_SUBS);
+        } else {
+            focusSection(section);
+        }
     }
 
     @Override
@@ -123,7 +164,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         sTaskId = getTaskId();
         // New build waiting? A small Update card (can be turned off on the update screen)
         getWindow().getDecorView().postDelayed(() -> {
-            if (!isFinishing() && !isDestroyed()) {
+            if (!isFinishing() && !isDestroyed() && !PhoneRebrandBanner.isShowing()) {
                 PhoneUpdater.checkInBackground(this);
             }
         }, 2500);
@@ -131,7 +172,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             mPresenter.onViewResumed();
         }
         mIsFirstResume = false;
-        updateAccountViews();
+        updateAccountViews(); // also the tabs: the bell's dot for new videos
         refreshSettingsRows(); // back from Android's notification settings
         if (mAdapter != null) {
             mAdapter.refreshQuickActions();
@@ -140,6 +181,42 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             mLastListsVersion = PhoneSearchFilters.listsVersion();
             updateChips();
         }
+        refreshIncognito();
+        PhoneNewVideos.schedule(this); // the background look at the Subscriptions feed (kept if already planned)
+    }
+
+    /** The incognito glasses next to search while watch history is paused; tap them to turn incognito off */
+    private void refreshIncognito() {
+        View icon = findViewById(R.id.phone_incognito);
+        if (icon == null) {
+            return;
+        }
+        icon.setVisibility(PhoneIncognito.isOn(this) ? View.VISIBLE : View.GONE);
+        icon.setOnClickListener(v -> {
+            PhoneIncognito.toggle(this);
+            refreshIncognito();
+            refreshSettingsRows();
+        });
+    }
+
+    /**
+     * YouTube links open in SmartTube+ only once Android allows it (Android 12+ never picks an app that isn't the link's
+     * owner by itself): the app's "Open by default" settings, where "Add link" turns on youtube.com, youtu.be...
+     */
+    private void openLinkSettings() {
+        android.content.Intent intent = Build.VERSION.SDK_INT >= 31
+                ? new android.content.Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
+                        android.net.Uri.parse("package:" + getPackageName()))
+                : new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        android.net.Uri.fromParts("package", getPackageName(), null));
+        try {
+            startActivity(intent);
+            android.widget.Toast.makeText(this, R.string.phone_open_links_hint, android.widget.Toast.LENGTH_LONG).show();
+        } catch (android.content.ActivityNotFoundException e) {
+            startActivity(new android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.fromParts("package", getPackageName(), null)));
+        }
+    }
     }
 
     @Override
@@ -162,6 +239,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         super.onPause();
         PhoneCardPreviewManager.stopActivePreview(this, true);
         mPresenter.onViewPaused();
+    }
+
+    @Override
+    protected int miniPlayerBottomOffset() {
+        // Above the tabs (they include the navigation bar)
+        int tabs = mBottomBar != null && mBottomBar.getVisibility() == View.VISIBLE && mBottomBar.getHeight() > 0
+                ? mBottomBar.getHeight() : super.miniPlayerBottomOffset();
+        return tabs + PhoneUpdateBanner.heightOn(this); // and above the "Update available" banner
     }
 
     @Override
@@ -466,9 +551,27 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         popup.showAsDropDown(anchor, -dp(240), dp(4));
     }
 
+    // Bottom tabs as in the YouTube app: its icons (2px lines), the chosen tab's icon filled, all in the text colour
+    private static final int[] TAB_ICONS = {R.drawable.ic_phone_tab_home, R.drawable.ic_phone_tab_shorts,
+            R.drawable.ic_phone_tab_subs, R.drawable.ic_phone_tab_bell, R.drawable.ic_phone_account};
+    private static final int[] TAB_ICONS_ON = {R.drawable.ic_phone_tab_home_on, R.drawable.ic_phone_tab_shorts_on,
+            R.drawable.ic_phone_tab_subs_on, R.drawable.ic_phone_tab_bell, R.drawable.ic_phone_account};
+
+    /** A red dot at the bell's top right: new videos nobody has looked at yet */
+    private android.graphics.drawable.Drawable unreadDot() {
+        android.graphics.drawable.GradientDrawable dot = new android.graphics.drawable.GradientDrawable();
+        dot.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        dot.setColor(getResources().getColor(R.color.phone_accent));
+        android.graphics.drawable.LayerDrawable layer =
+                new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[] {dot});
+        layer.setLayerSize(0, dp(8), dp(8));
+        layer.setLayerGravity(0, Gravity.TOP | Gravity.END);
+        return layer;
+    }
+    }
+
     private void setupTabs() {
-        int[] icons = {R.drawable.ic_phone_home, R.drawable.ic_phone_shorts, R.drawable.ic_phone_subs,
-                R.drawable.ic_phone_bell, R.drawable.ic_phone_account};
+        int[] icons = TAB_ICONS;
         String[] labels = {
                 getString(R.string.header_home),
                 getString(R.string.header_shorts),
@@ -491,11 +594,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
             ImageView icon = new ImageView(this);
             icon.setImageResource(icons[i]);
-            tab.addView(icon, new LinearLayout.LayoutParams(dp(28), dp(28)));
+            tab.addView(icon, new LinearLayout.LayoutParams(dp(24), dp(24)));
 
             TextView label = new TextView(this);
             label.setText(labels[i]);
-            label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
+            label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f); // five tabs: "Subscriptions" and "Notifications" fit
             label.setMaxLines(1);
             label.setEllipsize(TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
@@ -507,12 +610,20 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             tab.setOnClickListener(v -> {
                 if (index == TAB_SHORTS) {
                     playShorts();
+                } else if (index == TAB_NOTIFICATIONS) {
+                    PhoneNotificationsActivity.open(this); // its own screen, like Shorts
                 } else if (index == TAB_SUBS && mCurrentTab == TAB_SUBS && !isSubscriptionsFeed()) {
                     selectTab(TAB_SUBS); // from All channels back to the feed
                 } else if (index == mCurrentTab) {
                     scrollToTopOrRefresh();
                 } else {
                     selectTab(index);
+                    // The chosen tab's icon pops
+                    View tabIcon = ((LinearLayout) v).getChildAt(0);
+                    tabIcon.setScaleX(0.8f);
+                    tabIcon.setScaleY(0.8f);
+                    tabIcon.animate().scaleX(1f).scaleY(1f).setDuration(220)
+                            .setInterpolator(new android.view.animation.OvershootInterpolator(3f)).start();
                 }
             });
 
@@ -529,18 +640,25 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             if (tab == null) {
                 continue;
             }
-            // No Notifications tab for now (YouTube doesn't give SmartTube the notification inbox)
-            boolean visible = i == TAB_YOU || (hasTab(i) && i != TAB_NOTIFICATIONS);
+            // Notifications is the app's own list of new videos (PhoneNewVideos), not a SmartTube section
+            boolean visible = i == TAB_YOU || i == TAB_NOTIFICATIONS || hasTab(i);
             tab.setVisibility(visible ? View.VISIBLE : View.GONE);
             boolean selected = i == mCurrentTab;
-            int color = getResources().getColor(selected ? R.color.phone_text : R.color.phone_icon_inactive);
+            int color = getResources().getColor(R.color.phone_text);
             LinearLayout layout = (LinearLayout) tab;
             ImageView icon = (ImageView) layout.getChildAt(0);
             // The You tab shows the account picture untinted
-            icon.setImageTintList(i == TAB_YOU && icon.getTag() != null ? null : ColorStateList.valueOf(color));
+            boolean picture = i == TAB_YOU && icon.getTag() != null;
+            if (!picture) {
+                icon.setImageResource(selected ? TAB_ICONS_ON[i] : TAB_ICONS[i]);
+            }
+            icon.setImageTintList(picture ? null : ColorStateList.valueOf(color));
+            if (i == TAB_NOTIFICATIONS) {
+                icon.setForeground(PhoneNewVideos.unread(this) > 0 ? unreadDot() : null);
+            }
             TextView label = (TextView) layout.getChildAt(1);
             label.setTextColor(color);
-            label.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
+            label.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL)); // the filled icon marks the chosen tab
         }
     }
 
@@ -548,7 +666,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mChips.removeAllViews();
         List<BrowseSection> sections = sectionsOfTab(mCurrentTab);
 
-        if (isSubscriptionsFeed()) {
+        // The Subscriptions feed has its own channels row and filter chips (All opens the Channels section)
+        if ((sections.size() <= 1 && mCurrentTab != TAB_YOU) || isSubscriptionsFeed()) { // You always has Downloads
             mChipsScroll.setVisibility(View.GONE);
             updateSavedListFilterBar();
             return;
@@ -741,9 +860,33 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                     chip.post(() -> mChipsScroll.smoothScrollTo(Math.max(0, chip.getLeft() - dp(16)), 0));
                 }
             }
+
+            // You: Downloads right after History (videos and audio saved by the app, played in the app)
+            if (mCurrentTab == TAB_YOU && section.getId() == MediaGroup.TYPE_HISTORY) {
+                addDownloadsChip();
+            }
+        }
+        if (mCurrentTab == TAB_YOU && sectionById(MediaGroup.TYPE_HISTORY) == null) {
+            addDownloadsChip();
         }
 
         updateSavedListFilterBar();
+    }
+
+    private void addDownloadsChip() {
+        TextView chip = new TextView(this);
+        chip.setText(R.string.phone_downloads);
+        chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        chip.setGravity(Gravity.CENTER);
+        chip.setPadding(dp(12), 0, dp(12), 0);
+        chip.setBackgroundResource(R.drawable.phone_chip_bg);
+        chip.setTextColor(getResources().getColor(R.color.phone_text));
+        chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        chip.setOnClickListener(v -> PhoneDownloadsActivity.open(this));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(32));
+        params.setMarginStart(dp(4));
+        params.setMarginEnd(dp(4));
+        mChips.addView(chip, params);
     }
 
     /**
@@ -1414,17 +1557,117 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         hideMessage();
         mSettingsGroup = group;
+        mAdapter.setSettings(groupedSettings(group));
+    }
+
+    /**
+     * The Settings list in groups with headings: SmartTube's settings pages (found by their titles) next to the
+     * phone's own rows. TV-only pages are left out, and SmartTube's About page too (its updater and voice search
+     * bridge aren't part of this app; "About SmartTube+" is the phone's). A page this list doesn't know (added
+     * upstream later) lands in a last group, so nothing gets lost.
+     */
+    private java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> groupedSettings(SettingsGroup group) {
+        java.util.Map<String, com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> engine = new java.util.LinkedHashMap<>();
+        if (group.getItems() != null) {
+            for (com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem item : group.getItems()) {
+                if (item != null && item.title != null && !PhoneTvOnly.isSetting(this, item.title)) {
+                    engine.put(item.title, item);
+                }
+            }
+        }
+        engine.remove(getString(R.string.settings_about));
+
         java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items = new ArrayList<>();
-        // Check for updates shown directly at the very top of settings
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                PhoneUpdater.settingsTitle(this), () -> PhoneUpdater.open(this), R.drawable.ic_phone_update));
+
+        // Always first: the app updates itself from here
+        items.add(PhoneSetting.row(PhoneUpdater.settingsTitle(this), R.drawable.ic_phone_update, () -> PhoneUpdater.open(this)));
+
         // Plus settings bundle with plus icon
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
                 "Plus", this::openPlusSettings, R.drawable.ic_phone_plus));
-        if (group.getItems() != null) {
-            items.addAll(group.getItems());
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_account)));
+        addEngineSetting(items, engine, R.string.settings_accounts);
+        items.add(PhoneSetting.toggle(getString(R.string.phone_incognito), PhoneIncognito.isOn(this), R.drawable.ic_phone_incognito, () -> {
+            PhoneIncognito.toggle(this);
+            refreshIncognito();
+            refreshSettingsRows();
+        }));
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_appearance)));
+        items.add(PhoneSetting.dropDown(getString(R.string.phone_theme), getString(PhoneTheme.valueRes(PhoneTheme.get(this))),
+                R.drawable.ic_phone_brightness, this::pickTheme));
+        addEngineSetting(items, engine, R.string.settings_main_ui);
+        addEngineSetting(items, engine, R.string.settings_language_country);
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_playback)));
+        addEngineSetting(items, engine, R.string.settings_player);
+        addEngineSetting(items, engine, R.string.subtitle_category_title);
+        addEngineSetting(items, engine, R.string.content_block_provider);
+        addEngineSetting(items, engine, R.string.dearrow_provider);
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_general)));
+        addEngineSetting(items, engine, R.string.settings_general);
+        addEngineSetting(items, engine, R.string.settings_search);
+        items.add(PhoneSetting.row(getString(R.string.phone_open_links), R.drawable.ic_phone_link, this::openLinkSettings));
+        items.add(PhoneSetting.value(getString(R.string.phone_notifications),
+                getString(PhoneNotifications.isEnabled(this) ? R.string.phone_value_on : R.string.phone_value_off),
+                R.drawable.ic_phone_bell, () -> PhoneNotifications.open(this)));
+
+        items.add(PhoneSetting.toggle(getString(R.string.phone_new_videos), PhoneNewVideos.isEnabled(this), R.drawable.ic_phone_bell, () -> {
+            PhoneNewVideos.setEnabled(this, !PhoneNewVideos.isEnabled(this));
+            refreshSettingsRows();
+        }));
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_backup)));
+        addEngineSetting(items, engine, R.string.app_backup_restore);
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_about)));
+        items.add(PhoneSetting.row(getString(R.string.phone_about_title), R.drawable.ic_phone_info, () -> PhoneAbout.show(this)));
+
+        if (!engine.isEmpty()) {
+            items.add(PhoneSetting.header(getString(R.string.phone_settings_more)));
+            items.addAll(engine.values());
         }
-        mAdapter.setSettings(items);
+
+        // A heading with no rows under it (its pages are missing in this SmartTube version) is dropped
+        for (int i = items.size() - 1; i >= 0; i--) {
+            boolean header = items.get(i) instanceof PhoneSetting && ((PhoneSetting) items.get(i)).header;
+            boolean lastOrBeforeHeader = i == items.size() - 1
+                    || (items.get(i + 1) instanceof PhoneSetting && ((PhoneSetting) items.get(i + 1)).header);
+            if (header && lastOrBeforeHeader) {
+                items.remove(i);
+            }
+        }
+        return items;
+    }
+
+    /** Theme: a drop-down under the row with the three choices, the current one ticked */
+    private void pickTheme(View anchor) {
+        int current = PhoneTheme.get(this);
+        int[] modes = {PhoneTheme.DARK, PhoneTheme.LIGHT, PhoneTheme.SYSTEM};
+        android.widget.PopupMenu menu = new android.widget.PopupMenu(this, anchor, Gravity.END);
+        for (int i = 0; i < modes.length; i++) {
+            menu.getMenu().add(0, i, i, PhoneTheme.valueRes(modes[i])).setCheckable(true).setChecked(modes[i] == current);
+        }
+        menu.getMenu().setGroupCheckable(0, true, true);
+        menu.setOnMenuItemClickListener(item -> {
+            int mode = modes[item.getItemId()];
+            if (mode != current) {
+                PhoneTheme.set(this, mode);
+                recreate();
+            }
+            return true;
+        });
+        menu.show();
+    }
+
+    private void addEngineSetting(java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items,
+            java.util.Map<String, com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> engine, int titleRes) {
+        com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem item = engine.remove(getString(titleRes));
+        if (item != null) {
+            items.add(item);
+        }
     }
 
     private void openPlusSettings() {

@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# Mini player check: play from Home, drag the video down, the card lands bottom right with the video playing; open
+# it again, Back into the card, move it, swipe it down to close it. Frames around each step are printed to the log (base64 JPEG between
+# ==IMG name== and ==END== lines) along with the activity stack and crashes. Files also in ./smoke.
+set -x
+PKG=org.smarttube.phone
+SPLASH=com.liskovsoft.smartyoutubetv2.tv.ui.main.SplashActivity
+OUT=smoke
+mkdir -p $OUT
+
+adb install -r -g app.apk > $OUT/install.txt 2>&1
+cat $OUT/install.txt
+adb logcat -c
+adb shell settings put global hide_error_dialogs 1
+adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher
+
+tasks() { adb shell dumpsys activity activities | grep -E "^ +\* Task\{|^ +\* ActivityRecord\{|topResumedActivity" > "$OUT/tasks_$1.txt"; echo "== tasks $1"; cat "$OUT/tasks_$1.txt"; }
+shot() { adb exec-out screencap -p > "$OUT/$1.png"; }
+# Centre of the view with this content description, from the UI dump
+center_of() {
+  adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1
+  adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep "content-desc=\"$1\"" | head -1 \
+    | sed -E 's/.*bounds="\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]".*/\1 \2 \3 \4/' \
+    | awk '{ printf "%d %d", ($1+$3)/2, ($2+$4)/2 }'
+}
+record() { adb shell screenrecord --bit-rate 8000000 --time-limit "$2" "/sdcard/$1.mp4" & }
+pull_record() { sleep 1; adb pull "/sdcard/$1.mp4" "$OUT/$1.mp4" > /dev/null 2>&1; }
+
+adb shell am start -n "$PKG/$SPLASH"
+sleep 40
+
+# 1. Play from Home
+adb shell input tap 540 1000
+sleep 20
+shot 1_player
+tasks 1_player
+
+# 2. Drag the video down: it lands on the card, Home in front, the player still alive behind it
+record 2_minimize 8
+sleep 2
+adb shell input swipe 540 350 540 1400 450
+sleep 5
+pull_record 2_minimize
+shot 2_card
+tasks 2_card
+sleep 4
+shot 2b_card_later
+
+# 3. Tap the card: the player opens again
+XY=$(center_of "Open the player")
+echo "card at: $XY"
+record 3_expand 6
+sleep 2
+if [ -n "$XY" ]; then adb shell input tap $XY; else adb shell input tap 800 1850; fi
+sleep 4
+pull_record 3_expand
+shot 3_expanded
+tasks 3_expanded
+
+# 4. Back: into the card again
+record 4_back 6
+sleep 2
+adb shell input keyevent KEYCODE_BACK
+sleep 4
+pull_record 4_back
+shot 4_card_again
+tasks 4_card_again
+
+# 5. Drag the card to the left, then swipe it down off the screen: the video closes
+XY=$(center_of "Open the player")
+if [ -n "$XY" ]; then
+  set -- $XY
+  adb shell input swipe $1 $2 200 1200 400
+  sleep 2
+  shot 5_moved
+fi
+XY=$(center_of "Open the player")
+echo "card before the swipe down: $XY"
+if [ -n "$XY" ]; then
+  set -- $XY
+  record 6_swipe_down 5
+  sleep 1
+  adb shell input swipe $1 $2 $1 2350 250
+  sleep 3
+  pull_record 6_swipe_down
+fi
+shot 6_closed
+tasks 6_closed
+XY=$(center_of "Open the player")
+echo "card after the swipe down: ${XY:-gone}"
+
+# 7. You > Settings: the grouped settings list, top and bottom
+center_of_text() {
+  adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1
+  adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep " text=\"$1\"" | head -1 \
+    | sed -E 's/.*bounds="\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]".*/\1 \2 \3 \4/' \
+    | awk '{ printf "%d %d", ($1+$3)/2, ($2+$4)/2 }'
+}
+XY=$(center_of_text "You")
+if [ -n "$XY" ]; then adb shell input tap $XY; else adb shell input tap 945 2280; fi
+sleep 6
+shot 7_you
+for i in 1 2 3 4; do
+  XY=$(center_of_text "Settings")
+  if [ -n "$XY" ]; then break; fi
+  adb shell input swipe 900 265 250 265 300
+  sleep 1
+done
+echo "settings chip at: $XY"
+if [ -n "$XY" ]; then
+  adb shell input tap $XY
+  sleep 4
+  shot 8_settings
+  adb shell input swipe 540 1800 540 700 400
+  sleep 2
+  shot 9_settings_more
+fi
+
+# 8. The Notifications tab: its own screen (signed out here: the hint to sign in)
+XY=$(center_of_text "Notifications")
+echo "notifications tab at: $XY"
+if [ -n "$XY" ]; then
+  adb shell input tap $XY
+  sleep 4
+  shot 10_notifications
+  tasks 10_notifications
+  adb shell input keyevent KEYCODE_BACK
+  sleep 2
+  shot 11_back_from_notifications
+fi
+
+adb logcat -d -b crash > $OUT/crash.txt
+adb logcat -d | grep -E "ActivityTaskManager: (START|Displayed)|wm_finish|wm_destroy" | grep -i smarttube > $OUT/activity_log.txt
+adb logcat -d | grep -iE "PhoneMiniPlayer|exoplayer|MediaCodec.*(error|Exception)|surface.*abandon|PlaybackFragment|AndroidRuntime" | grep -v SabrStream | tail -120 > $OUT/player_log.txt
+
+echo "== crash"; cat $OUT/crash.txt
+echo "== activities"; cat $OUT/activity_log.txt
+echo "== player"; cat $OUT/player_log.txt
+
+# Pictures into the log (small JPEGs), and frame strips from the recordings (10 per second)
+img() { echo "==IMG $2=="; convert "$1" -resize "$3" -quality 70 jpg:- | base64 -w0; echo; echo "==END=="; }
+for f in $OUT/*.png; do img "$f" "$(basename "$f" .png)" 270x; done
+for v in 2_minimize 3_expand 4_back 6_swipe_down; do
+  if [ -s "$OUT/$v.mp4" ]; then
+    mkdir -p "$OUT/$v"
+    ffmpeg -v error -i "$OUT/$v.mp4" -vf "fps=10,scale=180:-1" "$OUT/$v/f%03d.png"
+    montage "$OUT/$v"/f*.png -tile 10x -geometry +1+1 "$OUT/${v}_strip.jpg"
+    img "$OUT/${v}_strip.jpg" "${v}_strip" 1800x
+  fi
+done
+exit 0

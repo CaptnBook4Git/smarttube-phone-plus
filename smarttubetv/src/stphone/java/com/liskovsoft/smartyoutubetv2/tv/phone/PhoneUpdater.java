@@ -42,10 +42,13 @@ import java.util.regex.Pattern;
  * Release tags are build-N and the app's version code is BASE_VERSION_CODE + N (see smarttubetv/build.gradle).
  */
 final class PhoneUpdater {
-    static final String REPO = "CaptnBook4Git/smarttube-phone";
+    static final String REPO = "CaptnBook4Git/smarttube-phone-plus";
     private static final String TAG = "PhoneUpdater";
     private static final String LATEST_URL = "https://api.github.com/repos/" + REPO + "/releases/latest";
-    private static final String APK_NAME = "SmartTube-Phone-arm64.apk";
+    // Each release carries one APK per processor (arm64, arm32, universal), each as the versioned file
+    // and under a fixed name (SmartTube-Phone-arm64.apk, the direct download link).
+    private static final String APK_ARCH = deviceArch();
+    private static final String APK_NAME = "SmartTube-Phone-" + APK_ARCH + ".apk";
     private static final int BASE_VERSION_CODE = 2462;
     private static final String ACTION_INSTALL_STATUS = "org.smarttube.phone.INSTALL_STATUS";
 
@@ -391,7 +394,7 @@ final class PhoneUpdater {
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(30000);
         connection.setInstanceFollowRedirects(false);
-        connection.setRequestProperty("User-Agent", "SmartTube-Phone-Updater");
+        connection.setRequestProperty("User-Agent", "StreamTube-Updater");
         try {
             connection.getResponseCode();
             String location = connection.getHeaderField("Location");
@@ -434,7 +437,12 @@ final class PhoneUpdater {
         if (assets != null) {
             for (int i = 0; i < assets.length(); i++) {
                 JSONObject asset = assets.getJSONObject(i);
-                if (APK_NAME.equals(asset.optString("name"))) {
+                String name = asset.optString("name");
+                // The versioned file (StreamTube-Phone-32.72.81-arm64.apk); the fixed name is the same APK
+                boolean versioned = (name.startsWith("StreamTube-Phone-") || name.startsWith("SmartTube-Phone-") || name.startsWith("SmartTube_"))
+                        && (name.endsWith("-" + APK_ARCH + ".apk") || name.endsWith("_" + APK_ARCH + ".apk"));
+                boolean matchesApkName = APK_NAME.equals(name) || "SmartTube-Phone-arm64.apk".equals(name) || "StreamTube-arm64.apk".equals(name);
+                if (versioned || (matchesApkName && TextUtils.isEmpty(release.apkUrl))) {
                     release.apkUrl = asset.optString("browser_download_url");
                     release.size = asset.optLong("size", 0);
                 }
@@ -446,6 +454,24 @@ final class PhoneUpdater {
         release.publishedAt = parseDate(json.optString("published_at", ""));
         parseNotes(json.optString("body", ""), release.notes);
         return release;
+    }
+
+    /**
+     * The APK for this phone: arm64 on 64-bit ARM, arm32 on 32-bit ARM, otherwise (x86 emulators, Chromebooks) the
+     * universal one. Same package and key, so a phone can move from one to another as an ordinary update.
+     */
+    private static String deviceArch() {
+        for (String abi : Build.SUPPORTED_64_BIT_ABIS) {
+            if ("arm64-v8a".equals(abi)) {
+                return "arm64";
+            }
+        }
+        for (String abi : Build.SUPPORTED_32_BIT_ABIS) {
+            if ("armeabi-v7a".equals(abi)) {
+                return Build.SUPPORTED_64_BIT_ABIS.length == 0 ? "arm32" : "universal";
+            }
+        }
+        return "universal";
     }
 
     /** "- change" lines from the release text (the build workflow lists the commits since the previous build) */
@@ -483,7 +509,7 @@ final class PhoneUpdater {
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(30000);
         connection.setInstanceFollowRedirects(true);
-        connection.setRequestProperty("User-Agent", "SmartTube-Phone-Updater");
+        connection.setRequestProperty("User-Agent", "StreamTube-Updater");
         connection.setRequestProperty("Accept", "application/vnd.github+json");
         int code = connection.getResponseCode();
         // GitHub serves release files from another host: follow that redirect by hand if needed
@@ -493,7 +519,7 @@ final class PhoneUpdater {
             connection = (HttpURLConnection) new URL(new URL(url), next).openConnection();
             connection.setConnectTimeout(15000);
             connection.setReadTimeout(30000);
-            connection.setRequestProperty("User-Agent", "SmartTube-Phone-Updater");
+            connection.setRequestProperty("User-Agent", "StreamTube-Updater");
             code = connection.getResponseCode();
         }
         if (code != 200) {

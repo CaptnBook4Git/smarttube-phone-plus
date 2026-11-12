@@ -1061,6 +1061,11 @@ public class PlaybackFragment extends SeekModePlaybackFragment implements Playba
         return mPlayer != null;
     }
 
+    /** Phone mini player: draws the running video into its own surface */
+    public SimpleExoPlayer getExoPlayer() {
+        return mPlayer;
+    }
+
     @Override
     public void blockEngine(boolean block) {
         mIsEngineBlocked = block;

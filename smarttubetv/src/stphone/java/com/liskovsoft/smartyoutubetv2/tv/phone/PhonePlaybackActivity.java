@@ -58,6 +58,8 @@ import java.util.List;
 public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlaybackFragment.Host, FeedAdapter.Listener {
     private static final long HIDE_CONTROLS_MS = 3_500;
     private static final long TICK_MS = 500;
+    private static final long SHORT_TICK_MS = 50;
+    private static final long DOUBLE_TAP_MS = 230;
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private PhonePlaybackFragment mPlayer;
@@ -126,6 +128,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private Video mLastScrollEndVideo;
     private ImageView mPoster;
     private ImageView mIncomingPoster; // the next Short's picture while swiping
+    private android.widget.ProgressBar mLoading;
     private boolean mAwaitingNewVideo;
     private String mExpectedVideoId; // the Short a swipe is opening
     private Video mSwipedTo; // the Short a swipe opened, until SmartTube's presenter reports it too
@@ -143,7 +146,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         @Override
         public void run() {
             updateProgress();
-            mHandler.postDelayed(this, TICK_MS);
+            // A Short's picture is still over the video: look often, so the video shows the moment it plays
+            boolean waitingForShort = mShortsMode && mPoster != null && mPoster.getVisibility() == View.VISIBLE;
+            mHandler.postDelayed(this, waitingForShort ? SHORT_TICK_MS : TICK_MS);
         }
     };
 
@@ -196,6 +201,14 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mIncomingPoster.setVisibility(View.GONE);
         mVideoBox.addView(mIncomingPoster, 2, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // Spinning circle over the thumbnail while the video loads, and while it buffers
+        mLoading = new android.widget.ProgressBar(this);
+        mLoading.setIndeterminate(true);
+        mLoading.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
+        mLoading.setVisibility(View.GONE);
+        mLoading.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        int spinner = dp(44);
+        mVideoBox.addView(mLoading, 3, new FrameLayout.LayoutParams(spinner, spinner, Gravity.CENTER));
         showPoster(presenter().getVideo());
 
         setupNotification();
@@ -254,6 +267,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
         mRoot.setOnApplyWindowInsetsListener((v, insets) -> {
             mStatusInset = insets.getSystemWindowInsetTop();
+            mNavInset = insets.getSystemWindowInsetBottom();
             applyLayoutMode();
             return insets;
         });
@@ -270,6 +284,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (!isPip()) {
             resetShrink();
         }
+        backFromMiniPlayer();
         moveBackToHomeTaskIfNeeded();
         allowLockScreen();
         PhoneTheme.apply(this);
@@ -322,6 +337,15 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         super.onStop();
         mStopped = true;
         mLeftPip = false;
+        if (mMinimized) {
+            // Behind the app now, the mini player shows the video: back to the full layout for the next open
+            mMinimizing = false;
+            resetShrink();
+            setSeeThrough(false);
+            if (mDetails != null) {
+                mDetails.setAlpha(1f);
+            }
+        }
         if ((isPip() && !screenOff) || isChangingConfigurations() || mPlayer == null) {
             return;
         }
@@ -419,8 +443,12 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
             return;
         }
+        if (!isPip() && !mShortsMode && canMinimizeToCard()) {
+            minimizeToCard(); // the video goes on in the mini player over the app
+            return;
+        }
         if (!isPip() && !mShortsMode && mPlayer != null && mPlayer.getPlayWhenReady()) {
-            // Playing: shrink to the floating mini player instead of stopping
+            // Android 10 and older: shrink to the floating window instead of stopping
             enterMiniPlayer();
             return;
         }
@@ -432,14 +460,53 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         super.onPictureInPictureModeChanged(isInPictureInPictureMode);
         if (isInPictureInPictureMode) {
             showPhoneControls(false);
-            resetShrink(); // the floating window shows the plain video
-            setSeeThrough(false);
+            // Android animates the floating window out of the video exactly where the drag left it. Moving the video
+            // back (or relaying out, or turning the window opaque, which recreates its surface) during that animation
+            // shows black inside the window: tidy up only once the window has its floating size.
+            afterPipResize(() -> {
+                if (isPip()) {
+                    resetShrink(); // the floating window shows the plain video
+                    applyLayoutMode();
+                }
+            });
         } else {
             mLeftPip = true; // expanded (onResume follows) or closed (onStop follows)
-            resetShrink();
             setSeeThrough(false);
+            resetShrink();
+            applyLayoutMode();
         }
-        applyLayoutMode();
+    }
+
+    /**
+     * Runs the action once the player window has been resized into the floating window (its size changes), or after
+     * the enter animation at the latest.
+     */
+    private void afterPipResize(Runnable action) {
+        View root = getWindow().getDecorView();
+        int startWidth = root.getWidth();
+        int startHeight = root.getHeight();
+        boolean[] done = {false};
+        Runnable once = () -> {
+            if (!done[0]) {
+                done[0] = true;
+                action.run();
+            }
+        };
+        View.OnLayoutChangeListener listener = new View.OnLayoutChangeListener() {
+            @Override
+            public void onLayoutChange(View v, int l, int t, int r, int b, int ol, int ot, int or, int ob) {
+                if (r - l != startWidth || b - t != startHeight) {
+                    root.removeOnLayoutChangeListener(this);
+                    // A frame later: the floating window shows its first frame at the new size before we move things
+                    root.post(once);
+                }
+            }
+        };
+        root.addOnLayoutChangeListener(listener);
+        mHandler.postDelayed(() -> {
+            root.removeOnLayoutChangeListener(listener);
+            once.run();
+        }, 700);
     }
 
     // region One task with Home
@@ -593,10 +660,23 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         boolean controlsVisible = mControls != null && mControls.getVisibility() == View.VISIBLE;
         if (mMiniProgress != null) {
             mMiniProgress.setVisibility(!controlsVisible && !isTrueFullscreen && !pip ? View.VISIBLE : View.GONE);
+            // Shorts fill the screen: their progress line sits just above the navigation bar, not under it
+            FrameLayout.LayoutParams progressParams = (FrameLayout.LayoutParams) mMiniProgress.getLayoutParams();
+            int progressBottom = shorts ? mNavInset : 0;
+            if (progressParams.bottomMargin != progressBottom) {
+                progressParams.bottomMargin = progressBottom;
+                mMiniProgress.setLayoutParams(progressParams);
+            }
+        }
         }
         mRoot.setPadding(0, withDetails ? mStatusInset : 0, 0, 0);
 
         mShorts.setVisibility(shorts ? View.VISIBLE : View.GONE);
+        // A tall (three button) navigation bar would cover the Short's title: lift the overlay above it
+        int shortsBottom = mNavInset > dp(30) ? mNavInset - dp(14) : 0;
+        if (mShorts.getPaddingBottom() != shortsBottom) {
+            mShorts.setPadding(0, 0, 0, shortsBottom);
+        }
         View back = findViewById(R.id.phone_shorts_back);
         FrameLayout.LayoutParams backParams = (FrameLayout.LayoutParams) back.getLayoutParams();
         backParams.topMargin = dp(6) + mStatusInset;
@@ -700,6 +780,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
      */
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
+        if (mMinimizing) {
+            return true; // on its way into the mini player
+        }
         if (mVideoBox == null || isPip()) {
             return super.dispatchTouchEvent(event);
         }
@@ -798,8 +881,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mRouteTouchToPlayer = null;
         long dt = Math.max(1, event.getEventTime() - mDragStartTime);
         boolean shrink = action == MotionEvent.ACTION_UP && (dy > dp(160) || (dy > dp(60) && dy / dt > 0.6f));
-        if (shrink) {
-            enterMiniPlayer();
+        if (shrink && canMinimizeToCard()) {
+            minimizeToCard();
+        } else if (shrink) {
+            growThenEnterMiniPlayer();
         } else {
             animateShrink(0);
         }
@@ -807,6 +892,49 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     private float mShrinkOffset;
+
+    /**
+     * Android animates the floating window out of the video (source rect hint) only when that rectangle is larger
+     * than the floating window; a smaller one (a video shrunk by the drag) gets a plain black box that fades to the
+     * video once it redraws. So the video first grows back to full width where the drag left it (quickly), then the
+     * floating window takes it from there.
+     */
+    private void growThenEnterMiniPlayer() {
+        if (mShrinkAnimator != null) {
+            mShrinkAnimator.cancel();
+        }
+        View root = getWindow().getDecorView();
+        float startScale = mVideoBox.getScaleX();
+        float startY = mVideoBox.getTranslationY();
+        // Full size, as low as the drag left it but still entirely on screen
+        float endY = Math.min(startY, Math.max(0, root.getHeight() - mVideoBox.getTop() - mVideoBox.getHeight()));
+        mShrinkAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        mShrinkAnimator.setDuration(120);
+        mShrinkAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        mShrinkAnimator.addUpdateListener(a -> {
+            float f = (float) a.getAnimatedValue();
+            float scale = startScale + (1f - startScale) * f;
+            mVideoBox.setScaleX(scale);
+            mVideoBox.setScaleY(scale);
+            mVideoBox.setTranslationY(startY + (endY - startY) * f);
+        });
+        mShrinkAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+            private boolean mCancelled;
+
+            @Override
+            public void onAnimationCancel(android.animation.Animator animation) {
+                mCancelled = true;
+            }
+
+            @Override
+            public void onAnimationEnd(android.animation.Animator animation) {
+                if (!mCancelled && !isFinishing()) {
+                    enterMiniPlayer();
+                }
+            }
+        });
+        mShrinkAnimator.start();
+    }
 
     private void setShrinkProgress(float offset) {
         mShrinkOffset = offset;
@@ -895,6 +1023,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mShrinkDragging = false;
         setShrinkProgress(0);
         setSeeThrough(false);
+        if (mVideoBox != null) {
+            mVideoBox.setTranslationX(0); // the mini player shrink also moves it sideways
+        }
     }
 
     /** Where the video is on screen right now (after the drag transform), for a seamless picture-in-picture start */
@@ -941,7 +1072,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 hideSpeedBoostHud();
             }
             mHandler.removeCallbacks(mSpeedBoostRunnable);
+        }
 
+        // Mid drag the finger is often below the shrinking video already: the drag keeps the touch to its end
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN || (mRouteTouchToPlayer == null && !mShrinkDragging)) {
             Rect box = new Rect();
             mVideoBox.getGlobalVisibleRect(box);
             boolean onVideo = box.contains((int) event.getRawX(), (int) event.getRawY());
@@ -1103,7 +1237,37 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mPoster.setTranslationY(0);
         mPoster.setVisibility(View.VISIBLE);
         mPosterSince = android.os.SystemClock.uptimeMillis();
-        PhoneUi.loadThumb(mPoster, video, isShort(video));
+        mPosterUntilFrame = false; // a new video: black with the spinner until it plays
+        com.bumptech.glide.Glide.with(this).clear(mPoster); // no thumbnail, only the loading spinner
+        mPoster.setImageDrawable(null);
+        updateLoading();
+    }
+
+    /**
+     * The spinner shows while the video should play but can't yet: its thumbnail still covers it (loading) or it ran out
+     * of data (buffering). Not over the controls (their play button sits in the middle), nor in the floating window.
+     */
+    private void updateLoading() {
+        if (mLoading == null) {
+            return;
+        }
+        com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+        boolean wantsToPlay = exo == null || exo.getPlayWhenReady();
+        boolean buffering = exo != null && exo.getPlaybackState() == com.google.android.exoplayer2.Player.STATE_BUFFERING;
+        boolean covered = mPoster != null && mPoster.getVisibility() == View.VISIBLE;
+        boolean show = wantsToPlay && (covered || buffering) && !isPip() && !mMinimizing && !mMinimized
+                && (mControls == null || mControls.getVisibility() != View.VISIBLE);
+        if (show == (mLoading.getVisibility() == View.VISIBLE)) {
+            return;
+        }
+        mLoading.animate().cancel();
+        if (show) {
+            mLoading.setAlpha(0f);
+            mLoading.setVisibility(View.VISIBLE);
+            mLoading.animate().alpha(1f).setDuration(150).start();
+        } else {
+            mLoading.setVisibility(View.GONE);
+        }
     }
 
     private void showHint(int textResId) {
@@ -1119,6 +1283,234 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mLevelText.setText(textResId);
         mHandler.postDelayed(mHideLevel, 900);
     }
+
+    // region Mini player (in the app)
+
+    /** Shrinking into the mini player (touches ignored) */
+    private boolean mMinimizing;
+    /** The video plays in the mini player card, this screen is behind the app */
+    private boolean mMinimized;
+    private String mMinimizedVideoId;
+    private com.google.android.exoplayer2.video.VideoListener mFirstFrameListener;
+
+    /** The video in the mini player (its thumbnail when there's no frame to show) */
+    Video miniVideo() {
+        return currentVideo();
+    }
+
+    com.google.android.exoplayer2.SimpleExoPlayer exoPlayer() {
+        return mPlayer != null ? mPlayer.getExoPlayer() : null;
+    }
+
+    /** X on the mini player card */
+    void closeFromMiniPlayer() {
+        com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+        if (exo != null) {
+            exo.setPlayWhenReady(false);
+        }
+        mMinimized = false;
+        closePlayer();
+    }
+
+    /** Android 11+ (a see-through player window); videos, not Shorts, in the portrait player */
+    private boolean canMinimizeToCard() {
+        return Build.VERSION.SDK_INT >= 30 && !mShortsMode && mPortrait && !isPip() && !mMinimizing
+                && mVideoBox != null && mVideoBox.getWidth() > 0 && exoPlayer() != null && currentVideo() != null;
+    }
+
+    /**
+     * The video shrinks onto the mini player's spot (bottom right of the screen underneath), then that screen comes to
+     * the front with the card already showing this frame. The player keeps playing and draws into the card.
+     */
+    private void minimizeToCard() {
+        if (mShrinkAnimator != null) {
+            mShrinkAnimator.cancel();
+        }
+        mShrinkDragging = false;
+        mMinimizing = true;
+        showPhoneControls(false);
+        setSeeThrough(true);
+
+        Rect from = videoRectOnScreen();
+        int[] parent = new int[2];
+        ((View) mVideoBox.getParent()).getLocationInWindow(parent);
+        float baseLeft = parent[0] + mVideoBox.getLeft();
+        float baseTop = parent[1] + mVideoBox.getTop();
+        float width = mVideoBox.getWidth();
+        float aspect = width / Math.max(1, mVideoBox.getHeight());
+        Rect to = PhoneMiniPlayer.dockRect(this, aspect);
+        if (from == null) {
+            from = new Rect((int) baseLeft, (int) baseTop, (int) (baseLeft + width), (int) (baseTop + mVideoBox.getHeight()));
+        }
+        float startScale = from.width() / width;
+        float startX = from.left - baseLeft;
+        float startY = from.top - baseTop;
+        float endScale = to.width() / width;
+        float endX = to.left - baseLeft;
+        float endY = to.top - baseTop;
+        float detailsAlpha = mDetails != null ? mDetails.getAlpha() : 0f;
+
+        mVideoBox.setPivotX(0);
+        mVideoBox.setPivotY(0);
+        mShrinkAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        mShrinkAnimator.setDuration(260);
+        mShrinkAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator(1.4f));
+        mShrinkAnimator.addUpdateListener(a -> {
+            float f = (float) a.getAnimatedValue();
+            float scale = startScale + (endScale - startScale) * f;
+            mVideoBox.setScaleX(scale);
+            mVideoBox.setScaleY(scale);
+            mVideoBox.setTranslationX(startX + (endX - startX) * f);
+            mVideoBox.setTranslationY(startY + (endY - startY) * f);
+            if (mDetails != null) {
+                mDetails.setAlpha(Math.max(0f, detailsAlpha * (1f - f * 2f)));
+            }
+        });
+        mShrinkAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+            private boolean mCancelled;
+
+            @Override
+            public void onAnimationCancel(android.animation.Animator animation) {
+                mCancelled = true;
+            }
+
+            @Override
+            public void onAnimationEnd(android.animation.Animator animation) {
+                if (!mCancelled && !isFinishing()) {
+                    copyFrame(still -> handOffToCard(still, aspect));
+                } else {
+                    restoreAfterFailedMinimize();
+                }
+            }
+        });
+        mShrinkAnimator.start();
+    }
+
+    /** The frame on screen, for the card to show until the video draws there */
+    private interface FrameReady {
+        void accept(android.graphics.Bitmap frame);
+    }
+
+    private void copyFrame(FrameReady done) {
+        View surface = mPlayer != null ? mPlayer.getSurfaceView() : null;
+        android.util.Log.d("PhoneMiniPlayer", "frame copy from " + (surface != null ? surface.getClass().getSimpleName()
+                + " " + surface.getWidth() + "x" + surface.getHeight() : "nothing"));
+        try {
+            if (surface instanceof android.view.TextureView) {
+                done.accept(((android.view.TextureView) surface).getBitmap());
+                return;
+            }
+            if (Build.VERSION.SDK_INT >= 26 && surface instanceof android.view.SurfaceView && surface.getWidth() > 0 && surface.getHeight() > 0
+                    && ((android.view.SurfaceView) surface).getHolder().getSurface().isValid()) {
+                float shrink = Math.min(1f, 640f / surface.getWidth());
+                android.graphics.Bitmap frame = android.graphics.Bitmap.createBitmap(Math.max(1, Math.round(surface.getWidth() * shrink)),
+                        Math.max(1, Math.round(surface.getHeight() * shrink)), android.graphics.Bitmap.Config.ARGB_8888);
+                android.view.PixelCopy.request((android.view.SurfaceView) surface, frame, result -> {
+                    android.util.Log.d("PhoneMiniPlayer", "frame copy: " + result);
+                    done.accept(result == android.view.PixelCopy.SUCCESS ? frame : null);
+                }, mHandler);
+                return;
+            }
+        } catch (RuntimeException e) {
+            android.util.Log.d("PhoneMiniPlayer", "frame copy failed: " + e);
+        }
+        done.accept(null);
+    }
+
+    /** Something went wrong on the way into the card: the full player again */
+    private void restoreAfterFailedMinimize() {
+        mMinimizing = false;
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        resetShrink();
+        setSeeThrough(false);
+        if (mDetails != null) {
+            mDetails.setAlpha(1f);
+        }
+    }
+
+    private void handOffToCard(android.graphics.Bitmap still, float aspect) {
+        if (isFinishing() || isDestroyed() || exoPlayer() == null) {
+            restoreAfterFailedMinimize();
+            return;
+        }
+        Video video = currentVideo();
+        mMinimizedVideoId = video != null ? video.videoId : null;
+        mMinimized = true;
+        PhoneMiniPlayer.begin(this, still, aspect);
+        mPlayer.blockEngine(true); // keeps playing behind the app
+        getViewManager().removeTop(this); // Back on the screen underneath doesn't come back here
+        Class<? extends android.app.Activity> host = PhoneMiniPlayer.hostClass();
+        startActivity(new android.content.Intent(this, host != null ? host : PhoneBrowseActivity.class)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_NO_ANIMATION));
+        overridePendingTransition(0, 0);
+    }
+
+    /** Opened again from the card (or for another video): the video comes back here, from the card's last frame */
+    private void backFromMiniPlayer() {
+        if (!mMinimized) {
+            return;
+        }
+        mMinimized = false;
+        mMinimizing = false;
+        android.graphics.Bitmap still = PhoneMiniPlayer.takeStill();
+        PhoneMiniPlayer.end();
+        setSeeThrough(false);
+        resetShrink();
+        if (mDetails != null) {
+            mDetails.setAlpha(1f);
+        }
+        Video video = currentVideo();
+        boolean sameVideo = video != null && mMinimizedVideoId != null && mMinimizedVideoId.equals(video.videoId);
+        com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+        if (!sameVideo || still == null || mPoster == null || exo == null) {
+            return; // another video: its thumbnail shows until it plays
+        }
+        // The card's frame until the player draws here again (no black frame)
+        mPoster.animate().cancel();
+        mPoster.setImageBitmap(still);
+        mPoster.setAlpha(1f);
+        mPoster.setVisibility(View.VISIBLE);
+        mPosterUntilFrame = true;
+        if (mFirstFrameListener != null) {
+            exo.removeVideoListener(mFirstFrameListener);
+        }
+        mFirstFrameListener = new com.google.android.exoplayer2.video.VideoListener() {
+            @Override
+            public void onRenderedFirstFrame() {
+                exo.removeVideoListener(this);
+                if (mFirstFrameListener == this) {
+                    mFirstFrameListener = null;
+                }
+                uncoverVideo();
+            }
+        };
+        exo.addVideoListener(mFirstFrameListener);
+        // Paused videos may not draw a new frame: the still stays until they play
+        mHandler.postDelayed(() -> {
+            com.google.android.exoplayer2.SimpleExoPlayer player = exoPlayer();
+            if (mPosterUntilFrame && player != null && player.getPlayWhenReady()) {
+                uncoverVideo();
+            }
+        }, 800);
+    }
+
+    /** The poster waits for the video's first frame on this screen's surface */
+    private boolean mPosterUntilFrame;
+
+    private void uncoverVideo() {
+        if (!mPosterUntilFrame || mPoster == null) {
+            return;
+        }
+        mPosterUntilFrame = false;
+        mPoster.animate().alpha(0f).setDuration(120).withEndAction(() -> {
+                mPoster.setVisibility(View.GONE);
+                updateLoading();
+            }).start();
+    }
+
+    // endregion
 
     // region Picture-in-picture
 
@@ -1137,6 +1529,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             Rect hint = videoRectOnScreen();
             if (hint != null && !hint.isEmpty()) {
                 builder.setSourceRectHint(hint);
+            }
+            if (Build.VERSION.SDK_INT >= 31) {
+                // Video doesn't resize seamlessly: Android cross-fades instead of showing half-drawn (black) frames
+                builder.setSeamlessResizeEnabled(false);
             }
             android.app.PictureInPictureParams params = builder.build();
             showPhoneControls(false);
@@ -1457,6 +1853,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         } else {
             mHandler.removeCallbacks(mAutoHide);
         }
+        updateLoading();
     }
 
     private void scheduleAutoHide() {
@@ -1483,11 +1880,27 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         long position = mPlayer.getPositionMs();
         int progress = duration > 0 ? (int) Math.max(0, Math.min(1000, position * 1000 / duration)) : 0;
 
-        mMiniProgress.setProgress(progress);
+        setMiniProgress(progress);
+        updateLoading();
 
-        if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mAwaitingNewVideo && !mPaging && !mPageAnimating && position > 350
+        boolean settled = !mAwaitingNewVideo && !mPaging && !mPageAnimating;
+        long now = android.os.SystemClock.uptimeMillis();
+        // One fade per poster: this runs many times a second while a Short's picture is up, and starting the fade
+        // again each time would never let it finish (the picture stayed, invisible, with the loading circle on top).
+        // A fade something else stopped halfway is started again after a moment.
+        boolean fading = mPoster != null && mPoster.getAlpha() < 1f && now - mPosterFadeStart < 600;
+        if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mPosterUntilFrame && settled && !fading
+                && position > (mShortsMode ? 150 : 350)
                 && mPlayer.getPlayWhenReady() && (!mShortsMode || newShortIsPlaying(position))) {
-            mPoster.animate().alpha(0f).setDuration(220).withEndAction(() -> mPoster.setVisibility(View.GONE)).start();
+            mPosterFadeStart = now;
+            ImageView poster = mPoster;
+            poster.animate().alpha(0f).setDuration(mShortsMode ? 150 : 220).withEndAction(() -> {
+                poster.setVisibility(View.GONE);
+                updateLoading();
+            }).start();
+        }
+        if (mShortsMode && settled && position > 150 && mPlayer.getPlayWhenReady()) {
+            preloadNextShort(); // this one plays: get the next one ready
         }
 
         if (mControls.getVisibility() == View.VISIBLE && !mIsSeeking) {
@@ -1495,6 +1908,27 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             updateTimeText(position, duration);
         }
         updatePlayButton();
+    }
+
+    private long mPosterFadeStart;
+    private android.animation.ObjectAnimator mProgressAnimator;
+
+    /** Shorts are short: their line glides between updates instead of jumping twice a second */
+    private void setMiniProgress(int progress) {
+        if (mProgressAnimator != null) {
+            mProgressAnimator.cancel();
+            mProgressAnimator = null;
+        }
+        int ahead = progress - mMiniProgress.getProgress();
+        boolean playing = mPlayer != null && mPlayer.getPlayWhenReady();
+        if (mShortsMode && playing && ahead > 0 && ahead < 250) {
+            mProgressAnimator = android.animation.ObjectAnimator.ofInt(mMiniProgress, "progress", progress);
+            mProgressAnimator.setDuration(TICK_MS);
+            mProgressAnimator.setInterpolator(new android.view.animation.LinearInterpolator());
+            mProgressAnimator.start();
+        } else {
+            mMiniProgress.setProgress(progress);
+        }
     }
 
     private void updateTimeText(long position, long duration) {
@@ -1557,6 +1991,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     // TikTok style paging: the current Short follows the finger, the next one comes in right behind it
 
+    private int mNavInset;
     private float mPageStartY;
     private boolean mPaging;
     private int mPageDirection; // 1 next, -1 previous
@@ -1603,7 +2038,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             case MotionEvent.ACTION_CANCEL: {
                 if (!mPaging) {
                     if (event.getActionMasked() == MotionEvent.ACTION_UP) {
-                        togglePlay();
+                        onShortTapped(event.getX(), event.getY());
                     }
                 } else {
                     float dy = event.getRawY() - mPageStartY;
@@ -1617,7 +2052,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     boolean farEnough = Math.abs(dy) > height * 0.18f || Math.abs(velocity) > 900;
                     boolean rightWay = mPageDirection > 0 ? dy < 0 : dy > 0;
                     if (mIncoming != null && farEnough && rightWay) {
-                        commitPage();
+                        commitPage(velocity);
                     } else {
                         settlePage();
                     }
@@ -1638,13 +2073,78 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         return mPlayer != null ? mPlayer.getView() : null;
     }
 
+    // A tap pauses, two quick taps like. The pause waits a moment for a second tap.
+
+    private long mLastShortTap;
+    private final Runnable mShortSingleTap = this::togglePlay;
+
+    private void onShortTapped(float x, float y) {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - mLastShortTap < DOUBLE_TAP_MS) {
+            mHandler.removeCallbacks(mShortSingleTap);
+            likeShort(x, y);
+        } else {
+            mHandler.postDelayed(mShortSingleTap, DOUBLE_TAP_MS);
+        }
+        mLastShortTap = now; // a third quick tap is another like, not a pause
+    }
+
+    /** Double tap: likes the Short (never takes a like back) and pops a thumb where the finger was */
+    private void likeShort(float x, float y) {
+        if (getButtonState(R.id.action_thumbs_up) != PlayerUI.BUTTON_ON) {
+            clickButton(R.id.action_thumbs_up);
+        }
+        mShorts.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK);
+
+        if (!(mShorts instanceof FrameLayout)) {
+            return;
+        }
+        FrameLayout overlay = (FrameLayout) mShorts;
+        int size = dp(92);
+        ImageView thumb = new ImageView(this);
+        thumb.setImageResource(R.drawable.ic_phone_like);
+        thumb.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+        thumb.setAlpha(0f);
+        thumb.setScaleX(0.3f);
+        thumb.setScaleY(0.3f);
+        thumb.setRotation(x < overlay.getWidth() / 2f ? -12 : 12);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(size, size);
+        params.leftMargin = Math.round(x - size / 2f);
+        params.topMargin = Math.round(y - size / 2f);
+        overlay.addView(thumb, params);
+        thumb.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(160)
+                .setInterpolator(new android.view.animation.OvershootInterpolator(2.5f))
+                .withEndAction(() -> thumb.animate().alpha(0f).translationYBy(-dp(40)).scaleX(1.25f).scaleY(1.25f)
+                        .setStartDelay(220).setDuration(260)
+                        .setInterpolator(new android.view.animation.AccelerateInterpolator())
+                        .withEndAction(() -> overlay.removeView(thumb)).start())
+                .start();
+    }
+
+    // The next Short's stream info and picture are fetched while this one plays, so a swipe starts it right away
+
+    private String mPreloadedShortId;
+
+    private void preloadNextShort() {
+        Video next = nextShort();
+        if (next == null || next.videoId == null || next.videoId.equals(mPreloadedShortId)) {
+            return;
+        }
+        String videoId = next.videoId;
+        mPreloadedShortId = videoId;
+        PhoneUi.prefetchThumb(this, next, true);
+        PhoneUi.prefetchThumb(this, PhoneShortsQueue.next(next), true);
+        com.liskovsoft.sharedutils.rx.RxHelper.runAsync(
+                () -> com.liskovsoft.youtubeapi.service.YouTubeMediaItemService.preloadFormatInfo(videoId));
+    }
+
     /**
      * Right after a swipe the player can still report the previous Short's position for a moment. Only uncover the
      * video once its position fits the time since the new Short arrived, i.e. its own frames are really playing.
      */
     private boolean newShortIsPlaying(long position) {
         long shownFor = android.os.SystemClock.uptimeMillis() - mPosterSince;
-        return shownFor > 300 && position <= shownFor + 1500;
+        return shownFor > 200 && position <= shownFor + 1500;
     }
 
     private void preparePage(Video incoming) {
@@ -1670,11 +2170,17 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mIncomingPoster.setTranslationY((mPageDirection > 0 ? height : -height) + offset);
     }
 
-    private void commitPage() {
+    /** @param velocity finger speed at release, pixels per second: a quick flick turns the page quicker */
+    private void commitPage(float velocity) {
         float height = mVideoBox.getHeight();
         float target = mPageDirection > 0 ? -height : height;
         View video = playerView();
-        animatePage(target, 230, () -> {
+        float left = Math.abs(target - mShorts.getTranslationY());
+        long duration = 230;
+        if (Math.abs(velocity) > 1) {
+            duration = Math.max(130, Math.min(230, Math.round(left / Math.abs(velocity) * 1000 * 1.7f)));
+        }
+        animatePage(target, duration, () -> {
             // The new Short's thumbnail now fills the screen and stays until its video plays: it becomes the poster
             ImageView old = mPoster;
             mPoster = mIncomingPoster;
@@ -1954,7 +2460,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
         boolean playing = mPlayer.getPlayWhenReady();
         android.content.Intent open = new android.content.Intent(this, PhonePlaybackActivity.class)
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
         android.app.PendingIntent contentIntent = android.app.PendingIntent.getActivity(this, 0, open,
                 android.app.PendingIntent.FLAG_IMMUTABLE | android.app.PendingIntent.FLAG_UPDATE_CURRENT);
         android.app.PendingIntent toggleIntent = android.app.PendingIntent.getBroadcast(this, 1,
@@ -2091,6 +2598,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             if (buttonId == R.id.action_thumbs_up) {
                 ((TextView) item.getChildAt(1)).setText(
                         !TextUtils.isEmpty(video.likeCount) ? video.likeCount : getString(R.string.phone_like));
+            } else if (buttonId == R.id.action_thumbs_down) {
+                ((TextView) item.getChildAt(1)).setText(
+                        !TextUtils.isEmpty(video.dislikeCount) ? video.dislikeCount : getString(R.string.phone_dislike));
             }
         }
     }
@@ -2162,6 +2672,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     // endregion
 
     private void clickButton(int buttonId) {
+        if (buttonId == R.id.action_thumbs_up || buttonId == R.id.action_thumbs_down || buttonId == R.id.action_subscribe) {
+            mRoot.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK); // a tick under the finger
+        }
         presenter().onButtonClicked(buttonId, getButtonState(buttonId));
     }
 
@@ -2186,7 +2699,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
         LinearLayout actions = mHeader.findViewById(R.id.phone_player_actions);
         addAction(actions, R.id.action_thumbs_up, R.drawable.ic_phone_like, getString(R.string.phone_like));
-        addAction(actions, R.id.action_thumbs_down, R.drawable.ic_phone_dislike, null);
+        addAction(actions, R.id.action_thumbs_down, R.drawable.ic_phone_dislike, ""); // Return YouTube Dislike count
         addAction(actions, R.id.action_chat, R.drawable.ic_phone_comments, getString(R.string.phone_comments));
         addAction(actions, R.id.action_share, R.drawable.ic_phone_share, getString(R.string.phone_share));
         addAction(actions, R.id.action_playlist_add, R.drawable.ic_phone_save, getString(R.string.phone_save));
@@ -2232,6 +2745,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (label != null) {
             TextView text = new TextView(this);
             text.setText(label);
+            if (label.isEmpty()) {
+                text.setVisibility(View.GONE); // filled in later (dislike count)
+            }
             text.setTextColor(getResources().getColor(R.color.phone_text));
             text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
             text.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
@@ -2353,6 +2869,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             if (buttonId == R.id.action_thumbs_up && pill.getChildCount() > 1) {
                 ((TextView) pill.getChildAt(1)).setText(
                         !TextUtils.isEmpty(video.likeCount) ? video.likeCount : getString(R.string.phone_like));
+            } else if (buttonId == R.id.action_thumbs_down && pill.getChildCount() > 1) {
+                // Dislikes from Return YouTube Dislike (SmartTube's likes counter setting, on by default)
+                boolean count = !TextUtils.isEmpty(video.dislikeCount);
+                TextView text = (TextView) pill.getChildAt(1);
+                text.setText(video.dislikeCount);
+                text.setVisibility(count ? View.VISIBLE : View.GONE);
+                pill.setPadding(dp(14), 0, count ? dp(16) : dp(14), 0);
             }
         }
     }

@@ -260,6 +260,21 @@ public class ViewManager {
         return caller;
     }
 
+    /** Phone UI: extra intent flags for a screen (e.g. bring an existing one to the front instead of a new one) */
+    public interface LaunchFlags {
+        int flagsFor(Class<?> activityClass);
+    }
+
+    private LaunchFlags mLaunchFlags;
+
+    public void setLaunchFlags(LaunchFlags launchFlags) {
+        mLaunchFlags = launchFlags;
+    }
+
+    private int launchFlags(Class<?> activityClass) {
+        return mLaunchFlags != null ? mLaunchFlags.flagsFor(activityClass) : 0;
+    }
+
     private void startActivity(Class<?> activityClass) {
         Log.d(TAG, "Launching activity: " + activityClass.getSimpleName());
 
@@ -268,11 +283,12 @@ public class ViewManager {
 
         Activity caller = getCallerActivity(activityClass);
         if (caller != null) {
-            safeStartActivity(caller, new Intent(caller, activityClass), takeLaunchOptions(activityClass));
+            Intent intent = new Intent(caller, activityClass).addFlags(launchFlags(activityClass));
+            safeStartActivity(caller, intent, takeLaunchOptions(activityClass));
             return;
         }
 
-        Intent intent = new Intent(mContext, activityClass);
+        Intent intent = new Intent(mContext, activityClass).addFlags(launchFlags(activityClass));
 
         // Fix: Calling startActivity() from outside of an Activity  context requires the FLAG_ACTIVITY_NEW_TASK flag
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

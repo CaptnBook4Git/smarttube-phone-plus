@@ -63,9 +63,34 @@ public abstract class PhoneActivity extends MotherActivity {
         setupSystemBars();
         updateLayoutColumns();
         getViewManager().addTop(this);
+        PhoneMiniPlayer.onHostResumed(this);
         if (mAdapter != null) {
             mAdapter.refreshQuickActions();
+            mAdapter.refreshProgress();
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        PhoneMiniPlayer.onHostPaused(this);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        PhoneMiniPlayer.onHostStopped(this);
+    }
+
+    /** Shows the mini player card while a video plays in it (not on full screen pages like sign in or updates) */
+    protected boolean hostsMiniPlayer() {
+        return true;
+    }
+
+    /** Space the mini player card keeps clear at the bottom of the screen (navigation bar, Home's tabs) */
+    protected int miniPlayerBottomOffset() {
+        return PhoneMiniPlayer.navigationInset(getWindow().getDecorView());
+    }
     }
 
     @Override

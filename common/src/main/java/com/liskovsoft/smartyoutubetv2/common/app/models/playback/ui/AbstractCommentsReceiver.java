@@ -39,6 +39,34 @@ public abstract class AbstractCommentsReceiver implements CommentsReceiver {
         mCallback = callback;
     }
 
+    /** Phone: the comments total to show next to the title ("24", "2.4K"), or null */
+    public String getCommentsCount() {
+        return null;
+    }
+
+    /** Phone: whether these comments can also be listed Newest first */
+    public boolean canSortByNewest() {
+        return false;
+    }
+
+    public boolean isSortedByNewest() {
+        return false;
+    }
+
+    /** Phone: Top (false) or Newest (true) order for the next {@link #onStart()} */
+    public void setSortedByNewest(boolean newest) {
+    }
+
+    /** Phone: the video a new comment goes to; null when these comments can't be written to */
+    public String getVideoId() {
+        return null;
+    }
+
+    /** Phone: the top-level comment a new reply goes to; null for the video's own comments */
+    public String getParentCommentId() {
+        return null;
+    }
+
     @Override
     public void onLoadMore(CommentGroup commentGroup) {
 

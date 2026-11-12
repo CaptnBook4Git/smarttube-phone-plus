@@ -26,7 +26,32 @@
         android:textColor="@color/phone_text"
         android:textSize="15sp" />
 
+    <!-- The current value ("Dark"), for rows that have one -->
+    <TextView
+        android:id="@+id/phone_setting_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="4dp"
+        android:maxLines="1"
+        android:textColor="@color/phone_text_2"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+    <!-- On/off rows: the whole row is the button, the switch only shows the state -->
+    <Switch
+        android:id="@+id/phone_setting_switch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:clickable="false"
+        android:focusable="false"
+        android:thumbTint="@color/phone_update_switch_thumb"
+        android:trackTint="@color/phone_update_switch_track"
+        android:visibility="gone" />
+
     <ImageView
+        android:id="@+id/phone_setting_chevron"
         android:layout_width="20dp"
         android:layout_height="20dp"
         android:importantForAccessibility="no"

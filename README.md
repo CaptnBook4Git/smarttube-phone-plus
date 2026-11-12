@@ -1,13 +1,16 @@
 <p align="center">
-  <img src="images/phone/icon.svg" width="96" alt="SmartTube+ icon">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/brand/streamtube-logo-dark.png">
+    <img src="images/brand/streamtube-logo-light.png" width="420" alt="SmartTube+">
+  </picture>
 </p>
 
 <h1 align="center">SmartTube+ (Phone & Tablet Edition)</h1>
 
 <p align="center">
-  <b>An enhanced Android phone and tablet port of <a href="https://github.com/yuliskov/SmartTube">SmartTube</a> with dedicated touch and tablet features.</b><br>
-  Ad-free YouTube with rich touch gestures, 3-zone fullscreen, card previews, tablet split-view,<br>
-  swipeable Shorts, picture-in-picture, background play, SponsorBlock and an optimized UI.
+  <b>Ad-free YouTube client for Android phones, foldables, and tablets.</b><br>
+  A touch-optimized app with intuitive gestures, 3-zone fullscreen, card previews, tablet split-view,<br>
+  in-app mini player, comments with writing & reply support, downloads, background play, and SponsorBlock.
 </p>
 
 <p align="center">
@@ -15,19 +18,23 @@
   &nbsp;·&nbsp;
   <a href="https://github.com/CaptnBook4Git/smarttube-phone-plus/releases">All releases</a>
   &nbsp;·&nbsp;
+  <a href="#install">How to install</a>
+  &nbsp;·&nbsp;
   <a href="#credits">Credits</a>
 </p>
 
 <p align="center">
-  <img src="images/phone/01_home.jpg" width="200" alt="Home">
-  <img src="images/phone/02_player.jpg" width="200" alt="Player">
-  <img src="images/phone/05_shorts.jpg" width="200" alt="Shorts">
-  <img src="images/phone/11_home_light.jpg" width="200" alt="Home in Light appearance">
+  <img src="images/phone/01_home.jpg" width="180" alt="Home">
+  <img src="images/phone/02_player.jpg" width="180" alt="Player">
+  <img src="images/phone/03_comments.jpg" width="180" alt="Comments">
+  <img src="images/phone/04_mini_player.jpg" width="180" alt="Mini player">
+  <img src="images/phone/05_shorts.jpg" width="180" alt="Shorts">
 </p>
 
 > [!NOTE]
-> **SmartTube+** is a fork of the [SmartTube for phones](https://github.com/shreyas-bangera/smarttube-phone) port (originally created by [Yuriy Liskov](https://github.com/yuliskov) for Android TV).
-> This Plus edition enriches the phone port with comprehensive tablet optimizations, intuitive player gestures, interactive card previews, quick curation actions, and a unified Plus settings menu.
+> **SmartTube+** is an enhanced fork of [SmartTube](https://github.com/yuliskov/SmartTube) (by [Yuriy Liskov](https://github.com/yuliskov)) and the phone port by [shreyas-bangera](https://github.com/shreyas-bangera).
+> This Plus edition enriches the phone port with comprehensive tablet optimizations, intuitive player gestures, interactive card previews, quick curation actions, a dedicated stop button, and a unified Plus settings menu.
+> It is an independent open-source project, not affiliated with SmartTube's original developer, YouTube, or Google.
 
 ---
 
@@ -43,7 +50,7 @@ The **Plus version** expands SmartTube with numerous quality-of-life enhancement
 | **Volume control** | Swipe up / down on the **right 20%** in fullscreen | Smooth stepless media volume adjustment. |
 | **Exit fullscreen** | Swipe down on the **middle 60%** in fullscreen | Exits fullscreen back to portrait / split-view player (without accidentally minimizing to mini-player). |
 | **Enter fullscreen** | Swipe up on the normal player | Instantly transitions into fullscreen mode. |
-| **Mini-player (PiP)** | Swipe down on the normal player (or press Back) | Shrinks the video into a floating picture-in-picture window for seamless multitasking. |
+| **Mini-player (PiP)** | Swipe down on the normal player (or press Back) | Shrinks the video into a floating / in-app mini player for seamless multitasking. |
 | **⚡ Tap & Hold Speed Boost** | Touch and hold the bare video area (> 600&nbsp;ms) | Temporarily accelerates playback to e.g. **2.0x** (or your preferred speed chosen in settings). Releasing immediately restores the previous normal playback speed. |
 | **Show player controls** | Single tap on the video | Instantly and reliably reveals the play/pause and stop controls without lag. |
 
@@ -86,7 +93,6 @@ The **Plus version** expands SmartTube with numerous quality-of-life enhancement
 ## Contents
 
 - [✨ What's new in SmartTube+? (Features & Gestures)](#-whats-new-in-smarttube-features--gestures)
-- [What it is](#what-it-is)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Install](#install)
@@ -95,8 +101,9 @@ The **Plus version** expands SmartTube with numerous quality-of-life enhancement
 - [How to use](#how-to-use)
   - [Home](#home)
   - [Watching a video](#watching-a-video)
-  - [Full screen gestures](#full-screen-gestures)
+  - [Comments](#comments)
   - [Mini player and background play](#mini-player-and-background-play)
+  - [Full screen gestures](#full-screen-gestures)
   - [Shorts](#shorts)
   - [Channels](#channels)
   - [Search](#search)
@@ -110,64 +117,49 @@ The **Plus version** expands SmartTube with numerous quality-of-life enhancement
 
 ---
 
-## What it is
-
-SmartTube for phones is a port of [SmartTube](https://github.com/yuliskov/SmartTube), the popular open-source YouTube client for Android TV, to Android phones.
-
-The original SmartTube is designed for the big screen: it is navigated with a TV remote and does not support phones or tablets. This port brings it to phones by rebuilding the interface for touch, in portrait, held in one hand, while keeping SmartTube's proven core unchanged underneath:
-
-| From SmartTube (unchanged) | New in this port |
-| --- | --- |
-| YouTube client and video playback | Phone interface with bottom tabs and topic chips |
-| Ad-free viewing and SponsorBlock | Portrait player with details, comments and recommendations |
-| Account sign in with a device code | Full screen vertical Shorts with swipe navigation |
-| Quality up to 8K, 60 fps and HDR | Picture in picture and background play with notification controls |
-| Settings, history, playlists and subscriptions | Touch gestures, phone search with voice input, Dark and Light appearance |
-
-It installs as its own app (`org.smarttube.phone`), so it can sit next to the official YouTube app or SmartTube for TV without conflicts.
-
 ## Features
 
 **Feels like YouTube**
-- Bottom tabs: Home, Shorts, Subscriptions and You
+- Bottom tabs: Home, Shorts, Subscriptions, Notifications and You
 - Topic chips on Home (Kids, Sports, LIVE, Gaming, News and more)
 - Full-width video cards with channel pictures, and horizontal shelves
 - Videos open with a smooth expand-from-thumbnail animation
 
 **Player**
-- Portrait player with the video on top and title, channel, buttons, comments and recommendations below
-- Like, dislike, subscribe, share, save to a playlist, captions and quality, right under the video
-- Comments with replies, readable in a sheet
-- Rotate the phone (or tap the full screen button) for full screen
-- Full screen gestures: double tap to skip, pinch to fill the screen, swipe for brightness and volume
+- Portrait player: the video on top, then the title, channel, buttons, comments and recommendations
+- Like, dislike, subscribe, share, download, save to a playlist, captions, quality and playback speed
+- Rotate the phone (or tap the full screen button) for full screen, with gestures for seeking, brightness, volume and zoom
+- Videos start quickly: 1080p by default on phones, and nothing extra is loaded before the first frame
 
-**Updates**
-- **Software update** screen (Settings, **Check for updates**): what's new, download progress and one-tap install, no browser needed
-- Optional notice on Home when a new build is out
+**Mini player**
+- Swipe the video down, or press Back: it shrinks into a small player at the bottom right of the screen and keeps playing while you browse Home, Search or a channel
+- Drag it anywhere, tap it to go back to the full player, close it with X
+- Background play with media controls in the notification and on the lock screen
 
-**Keep watching while you do other things**
-- Drag the player down, or press back, to shrink it into a floating picture-in-picture window
-- Background playback with a media notification (play, pause, next) for regular videos
+**Comments**
+- Total count, Top or Newest first, and reply threads
+- Write comments and replies when signed in
+- Long press your own comment or reply to delete it
+
+**Downloads**
+- Save a video from 1080p down to 360p (MP4), or audio only (M4A), to **Download/SmartTube**
 
 **Shorts**
-- Full screen vertical Shorts, swipe up for the next one and down for the previous one
-- The Shorts tab starts playing straight away, with Shorts from all of YouTube (not only your subscriptions)
+- Full screen vertical Shorts: swipe up for the next one, down for the previous one
 - Like, dislike, comments, share and save on the right side, like the official app
 
-**From SmartTube**
-- No ads
-- SponsorBlock: skips sponsor segments, intros, outros and reminders to subscribe
+**No ads, and more**
+- No ads, and no tracking added by the app
+- SponsorBlock skips sponsor segments, intros, outros and reminders to subscribe
 - Up to 8K, 60 fps and HDR when your phone supports it
-- Playback speed control
 - Works without Google Play services
-
-**Appearance**
-- Dark (default, pure black for AMOLED screens), Light, or Same as device
+- Dark (pure black for AMOLED screens), Light, or Same as device
+- Built-in updater: see what's new and install new builds from inside the app
 
 ## Requirements
 
-- An Android phone with Android 8.0 or newer
-- A 64-bit ARM processor (arm64-v8a). This covers almost every phone made since 2017, including all recent Samsung, Pixel, OnePlus, Xiaomi and Motorola phones.
+- An Android phone with Android 8.0 or newer (the in-app mini player needs Android 11 or newer; older versions use a floating window instead)
+- A 64-bit ARM processor (arm64-v8a). This covers almost every phone and tablet made since 2017.
 
 ## Install
 
@@ -177,7 +169,7 @@ It installs as its own app (`org.smarttube.phone`), so it can sit next to the of
 4. Tap **Install**. If Google Play Protect warns about an unknown app, tap **More details** and then **Install anyway**. This warning appears for every app that is not from the Play Store.
 5. Open **SmartTube+** from your app drawer. Home shows popular videos straight away; you can sign in whenever you like.
 
-When Android asks to allow notifications, tap **Allow**. The app uses the notification only for the background playback controls (also shown on the lock screen). If you tapped **Don't allow**, turn them on later in **You**, **Settings**, **Notifications**.
+When Android asks to allow notifications, tap **Allow**. The app uses notifications for background playback controls and optionally for new video alerts from your subscriptions.
 
 ## Update to a new build
 
@@ -190,54 +182,32 @@ Each build is listed on the [releases page](https://github.com/CaptnBook4Git/sma
 3. The first time, Android asks you to allow SmartTube to install apps: tap **Open settings**, turn on **Allow from this source** and come back. The update carries on by itself.
 4. Android shows its usual confirmation. Tap **Update**. You stay signed in and all your settings are kept.
 
-With **Notify me about new builds** turned on (on the same screen), SmartTube also checks every few hours and shows a small **Update** card on Home when a new build is out.
-
-**Manually**
-
-Download the latest APK from the link above and install it over the app you have. Android shows **Update** instead of Install.
-
-> **On builds 39 to 51?** Those builds can't update themselves (older ones only have SmartTube's TV updater, newer ones download the update but never show Android's install prompt). Install the latest APK manually once; it installs over your current app and keeps your settings.
-
-> **Coming from build 38 or older?** Those builds were signed with a temporary key, so Android refuses to install the new version over them ("App not installed" or "package conflicts with an existing package"). Uninstall the old SmartTube once (long press the icon, then **Uninstall**) and install the latest APK. Every update after that installs normally.
+With **Notify me about new builds** turned on (on the same screen), SmartTube also checks periodically and shows a small **Update** card on Home when a new build is out.
 
 ## Connect your YouTube account
 
-You don't need an account to watch. Signing in adds your own recommendations on Home, your subscriptions, history, playlists and Watch later, and lets you like, subscribe and save.
+You don't need an account to watch. Signing in adds your own recommendations on Home, your subscriptions, history, playlists and Watch later, and lets you like, subscribe, save and comment.
 
-SmartTube signs in the same way a smart TV does: the app shows a short code, and you approve it on Google's own website. **Your password is never typed into SmartTube** and never passes through it.
+SmartTube signs in the same way a smart TV does: the app shows a short code, and you approve it on Google's own website. **Your password is never typed into the app** and never passes through it.
 
 <p align="center">
   <img src="images/phone/08_you.jpg" width="220" alt="The You tab before signing in">
   <img src="images/phone/10_sign_in.jpg" width="220" alt="The sign in screen with a code">
 </p>
 
-**On the same phone**
+**On the same device**
 
 1. Open the **You** tab (bottom right) and tap **Sign in**. You can also tap **Sign in** on the card at the top of Home.
-2. SmartTube shows your sign-in code. Wait a moment until the code appears.
-3. Tap **Continue in browser**. Your browser opens Google's device activation page (yt.be/activate) with the code already filled in. If it isn't, tap the code in SmartTube to copy it and paste it on the page.
-4. Choose your Google account (sign in to Google if the browser asks) and tap **Allow** to give access to YouTube.
-5. Switch back to SmartTube. It signs you in by itself within a few seconds. Your picture appears on the You tab and your own feed loads on Home.
+2. The app shows your sign-in code. Wait a moment until the code appears.
+3. Tap **Continue in browser**. Your browser opens Google's device activation page (yt.be/activate) with the code already filled in.
+4. Choose your Google account and tap **Allow** to give access to YouTube.
+5. Switch back to the app. It signs you in by itself within a few seconds.
 
 **Using another device (a computer or a second phone)**
 
-1. In SmartTube, open the **You** tab and tap **Sign in**.
-2. On the other device, go to **yt.be/activate** (or youtube.com/activate) and enter the code shown in SmartTube.
-3. Pick your account and tap **Allow**. SmartTube signs in on its own.
-
-**More than one account**
-
-- Add another account: **You** tab, **Accounts**, then add an account and repeat the steps above.
-- Switch accounts: **You** tab, **Switch account**.
-- Sign out or remove an account: **You** tab, **Accounts**.
-
-**Remove the app's access from your Google account**
-
-Go to [myaccount.google.com/permissions](https://myaccount.google.com/permissions), find the YouTube on TV entry and remove its access. SmartTube is signed out the next time it starts.
-
-**If the code doesn't appear**
-
-The app retries a few times on its own. If it still shows "Can't reach YouTube right now", check your internet connection. Private DNS, ad blocking DNS or VPN apps that block `youtube.com` or `google.com` also stop the code from loading. Tap **Try again** after fixing it.
+1. In SmartTube+, open the **You** tab and tap **Sign in**.
+2. On the other device, go to **yt.be/activate** (or youtube.com/activate) and enter the code shown.
+3. Pick your account and tap **Allow**. The app signs in automatically.
 
 ## How to use
 
@@ -248,10 +218,10 @@ The app retries a few times on its own. If it still shows "Can't reach YouTube r
 </p>
 
 - Scroll the feed and tap any video to play it.
-- Tap a chip at the top (Kids, Sports, LIVE, Gaming, News) to switch topics.
+- Tap a chip at the top (Kids, Sports, LIVE, Gaming, News, or custom search lists) to switch topics.
 - Tap a channel picture to open that channel.
-- Tap the three dots next to a video for more options, such as adding it to a playlist or opening its channel.
-- Top right: the search button.
+- Tap the three dots next to a video for more options, or use direct Quick Action buttons (Like, Dislike, Not Interested, Don't Recommend Channel).
+- Top right: Search and account switcher.
 
 ### Watching a video
 
@@ -259,36 +229,44 @@ The app retries a few times on its own. If it still shows "Can't reach YouTube r
   <img src="images/phone/02_player.jpg" width="240" alt="Player">
 </p>
 
-- **Tap the video** to show or hide the controls: play and pause, previous and next, playback speed, captions (CC), settings (quality and more) and full screen.
-- **Download** (in the buttons under the video): choose a video quality from **1080p** down to **360p** (MP4), or **Audio only (M4A)**. The file downloads in the background with a progress notification and is saved to **Download/SmartTube**. For 480p and up, YouTube serves the picture and the sound separately: both are downloaded and joined on the phone (without re-encoding), so these take a little longer to finish. The download options come from a separate request as YouTube's visionOS app (then its Android VR app), whose answers include direct links to every quality up to 1080p; the player is not affected. When neither gives links, the sheet says so and offers 360p and Audio only (taken from the 360p file). Live streams can't be downloaded.
-- **Seek** by dragging along the red progress bar at the bottom of the video.
+- **Tap the video** to show or hide the controls: play/pause, stop playback, previous/next, playback speed, captions (CC), settings (quality and more) and full screen.
+- **Seek** by dragging along the progress bar with SponsorBlock markers at the bottom of the video.
 - **Double tap** the left or right side of the video to jump back or forward.
-- **Below the video**: the title, the channel with its Subscribe button, and the buttons Like, Dislike, Comments, Share and Save. Scroll the row sideways for more.
-- **Comments** opens a sheet; tap a comment's replies to read the thread.
-- **Recommendations** are listed under the buttons. Tap one to play it.
-- **Close the player**: tap the arrow at the top left, or drag the video down (it becomes the mini player, see below).
+- **Below the video**: the title, the channel with its Subscribe button, and quick buttons: Like, Dislike, Comments, Share, Download and Save.
 
-### Full screen gestures
+### Comments
 
-Rotate the phone sideways, or tap the full screen button, to watch full screen. In full screen:
+<p align="center">
+  <img src="images/phone/03_comments.jpg" width="240" alt="Comments">
+</p>
 
-| Gesture | What it does |
-| --- | --- |
-| Tap | Show or hide the controls |
-| Double tap on the left or right | Jump back or forward |
-| Swipe up or down on the left half | Brightness |
-| Swipe up or down on the right half | Volume |
-| Pinch out | Zoom the video to fill the screen |
-| Pinch in | Back to the original size |
-
-Rotate back to portrait, or press back, to leave full screen.
+- Tap the comment bar below the video to view the full comment sheet (or side panel on tablets).
+- Toggle between **Top** and **Newest** comments.
+- Tap on replies to expand full reply threads.
+- Post comments and replies with your signed-in account, and long-press your own comment to delete it.
 
 ### Mini player and background play
 
-- **Drag the video down** (or press back) while a video plays: it shrinks into a small floating window and you are back on Home. Keep browsing while it plays.
-- **Tap the floating window** for its controls; tap the expand button to open the player again, or the close button (or drag it to the bottom of the screen) to stop.
-- **Open another video** while the mini player is showing: the new video replaces it.
-- **Background play:** press the home button or lock the screen while a regular video plays and the sound keeps going. Locking the phone locks it as usual; the lock screen shows the video with play and pause controls. Use the media notification (or the lock screen) to play, pause or skip. Shorts don't play in the background.
+<p align="center">
+  <img src="images/phone/04_mini_player.jpg" width="240" alt="Mini player">
+</p>
+
+- **Swipe down on the video** (or press Back) while a video is playing: it smoothly docks into the in-app mini player.
+- Continue browsing your feeds while listening. Tap to expand, or swipe down / tap X to close.
+- **Background play:** Lock your device or switch apps to keep audio playing via notification controls.
+
+### Full screen gestures
+
+Rotate the phone sideways or tap the fullscreen button. In fullscreen:
+
+| Gesture | What it does |
+|---|---|
+| Tap | Show or hide player controls |
+| Double tap left / right | Jump back / forward |
+| Swipe up / down on left 20% | Adjust display brightness |
+| Swipe up / down on right 20% | Adjust media volume |
+| Swipe down on middle 60% | Exit fullscreen back to normal player |
+| Pinch in / out | Zoom video to fill screen or return to original aspect ratio |
 
 ### Shorts
 
@@ -296,11 +274,9 @@ Rotate back to portrait, or press back, to leave full screen.
   <img src="images/phone/05_shorts.jpg" width="240" alt="Shorts">
 </p>
 
-- Tap the **Shorts** tab: the first Short starts playing right away, full screen.
-- **Swipe up** for the next Short, **swipe down** for the previous one. More Shorts keep loading as you go.
-- **Tap** to pause or resume.
-- On the right: **Like**, **Dislike**, **Comments**, **Share**, **Save** and more options. At the bottom: the channel (tap it to open the channel), **Subscribe** and the title.
-- Press back (or tap the arrow at the top left) to return to Home.
+- Tap the **Shorts** tab: full-screen vertical Shorts start playing immediately.
+- **Swipe up** for the next Short, **swipe down** for the previous one.
+- **Tap** to pause or resume. Like, dislike, comments, share, and save are accessible on the right.
 
 ### Channels
 
@@ -308,9 +284,7 @@ Rotate back to portrait, or press back, to leave full screen.
   <img src="images/phone/13_channel.jpg" width="240" alt="Channel page">
 </p>
 
-- Tap a channel picture or name anywhere to open the channel.
-- The top shows the channel's banner, picture, name, handle, subscriber and video counts, and its description (tap it to read all of it). **Subscribe** is right below.
-- Tabs switch between **Videos**, **Shorts**, **Live**, **Playlists** and the channel's other sections. Videos are a list (thumbnail on the left), Shorts a grid. More load as you scroll.
+- Tap any channel avatar or name to open the channel page with banner, subscriber counts, and tabs for Videos, Shorts, Live, and Playlists.
 
 ### Search
 
@@ -319,15 +293,14 @@ Rotate back to portrait, or press back, to leave full screen.
   <img src="images/phone/07_search_results.jpg" width="220" alt="Search results">
 </p>
 
-- Tap the **magnifying glass** at the top of Home.
-- Type to see live suggestions, then tap a suggestion or press search on the keyboard.
-- Tap the **microphone** to search by voice.
-- Results include videos, channels and playlists.
+- Tap the search icon, enter text or use voice search.
+- Use advanced search filters (date, duration, features, hide watched) and save searches as permanent custom lists on Home.
 
 ### Subscriptions and the You tab
 
-- **Subscriptions** shows the latest videos from the channels you follow (sign in first). On top, a row of your channels, newest uploads first, with a blue dot on channels that have new videos. Tap a channel to see only its videos and Shorts, and tap it again to see all channels again. Below it, the chips **All**, **Today**, **Videos**, **Shorts** and **Live** filter the feed.
-- **You** shows your account at the top (Sign in, or Switch account once signed in, and Accounts). Below it, the chips **History**, **Playlists** (including Watch later and liked videos), **My videos** and **Settings**.
+- **Subscriptions** shows the latest uploads from your followed channels with active filter chips.
+- **Notifications tab** provides updates when subscribed channels release new content.
+- **You tab** offers quick access to History, Downloads, Playlists, and Settings.
 
 ### Settings and appearance
 
@@ -336,80 +309,58 @@ Rotate back to portrait, or press back, to leave full screen.
   <img src="images/phone/11_home_light.jpg" width="220" alt="Home in Light appearance">
 </p>
 
-Open the **You** tab and tap the **Settings** chip.
-
-- **Appearance** is the first setting. Tap it to cycle between **Dark**, **Light** and **Same as device**. The app switches immediately.
-- **Notifications** is the second setting. It shows whether the app's notifications are on; tap it to allow them (the lock screen and notification shade controls for background play need them).
-- **Check for updates** is the third setting. It opens the Software update screen (see [Update to a new build](#update-to-a-new-build)).
-- Everything else is SmartTube's own settings, for example:
-  - **Player**: default quality, playback speed, captions style, autoplay
-  - **SponsorBlock**: choose which segment types are skipped
-  - **General**: background playback, history, hidden sections
-  - **Accounts**: add, switch or remove accounts
+Open the **You** tab and tap the **Settings** icon.
+- **Check for updates**: Pinned directly to the top of settings.
+- **Plus**: Unified menu for speed boost multiplier, grid column customization, card preview behavior, and quick actions.
+- **Appearance**: Dark (pure AMOLED black), Light, or System theme.
+- **Account, Playback, and General**: Full fine-grained control over quality, SponsorBlock, history, and backup.
 
 ## Troubleshooting
 
 **"App not installed" when installing a new build**
-You probably have one of the early builds signed with a temporary key. Uninstall it once, then install the latest APK. See [Update to a new build](#update-to-a-new-build).
+Uninstall any older build with conflicting signature keys once, then install the latest APK.
 
-**Install is blocked**
-Allow your browser or file manager to install unknown apps (Settings, Apps, Special app access, Install unknown apps), and choose **Install anyway** if Play Protect warns.
-
-**The sign-in code doesn't appear**
-Check the connection, and turn off Private DNS, ad blocking DNS or VPN apps that block YouTube or Google, then tap **Try again**.
-
-**"Sign in to confirm you're not a bot"**
-YouTube sometimes asks this on shared or busy networks, and with VPNs. Signing in usually fixes it; switching between Wi-Fi and mobile data can help too.
+**Google Play Protect warning**
+Tap **More details** and then **Install anyway**.
 
 **Videos buffer a lot**
-Open the player settings and pick a lower quality, or turn off high frame rate. A different video format (codec) in the player settings can also help on older phones.
-
-**No sound in the background, or no controls on the lock screen**
-Turn on notifications (**You**, **Settings**, **Notifications**), and check your phone's battery settings. On OnePlus, Xiaomi, Samsung and similar phones, set SmartTube's battery usage to **Unrestricted** so Android doesn't stop it.
+Open player settings and choose a lower default resolution or adjust video codec settings.
 
 **The app crashed**
-When it opens again it offers a crash report. Please [open an issue](https://github.com/CaptnBook4Git/smarttube-phone-plus/issues) with the report and the steps that led to it.
+When it opens again it offers a crash report. Please [open an issue](https://github.com/CaptnBook4Git/smarttube-phone-plus/issues) with the crash details.
 
 ## Privacy
 
-- No ads and no tracking added by this app.
-- Sign in happens on Google's website; the app never sees your password. It keeps only the access token Google gives it, on your phone.
-- The app talks to YouTube, and to SponsorBlock if it is turned on. See [PRIVACY.md](PRIVACY.md) for SmartTube's privacy notes.
+- No ads, and no telemetry or tracking added by this app.
+- Sign-in is handled securely through Google's device activation endpoint.
+- Talks directly to YouTube, GitHub (for updates), and SponsorBlock (if enabled).
 
 ## Building from source
 
-The phone app is the Gradle flavor `stphone` of the SmartTube project. The phone code lives in [`smarttubetv/src/stphone/`](smarttubetv/src/stphone/); the rest is the SmartTube codebase.
+SmartTube+ is the Gradle flavor `stphone`. The phone/tablet code lives in [`smarttubetv/src/stphone/`](smarttubetv/src/stphone/).
 
-Builds run in GitHub Actions ([`.github/workflows/phone.yml`](.github/workflows/phone.yml)), which also applies the phone changes to the `MediaServiceCore` submodule from [`.github/patches/`](.github/patches/). To build locally with JDK 17 and the Android SDK:
+Builds run in GitHub Actions ([`.github/workflows/phone.yml`](.github/workflows/phone.yml)). To build locally with JDK 17 and Android SDK:
 
 ```bash
 git clone --recursive https://github.com/CaptnBook4Git/smarttube-phone-plus.git
-```
-
-```bash
-cd smarttube-phone-plus && git -C MediaServiceCore apply --ignore-whitespace .github/patches/mediaservicecore.patch
-```
-
-```bash
+cd smarttube-phone-plus && git -C MediaServiceCore apply --ignore-whitespace ../.github/patches/mediaservicecore.patch
 ./gradlew assembleStphoneRelease
 ```
 
 ## Credits
 
-This app exists because of **[SmartTube](https://github.com/yuliskov/SmartTube)** by **[Yuriy Liskov (yuliskov)](https://github.com/yuliskov)** and its contributors, as well as the phone port by **[shreyas-bangera](https://github.com/shreyas-bangera)**. Everything under the hood comes from their work: the YouTube client, sign in, playback, SponsorBlock, settings and touch base. SmartTube+ adds tablet enhancements, custom gestures, speed-boost, card previews and UI refinements on top.
+This project is built upon **[SmartTube](https://github.com/yuliskov/SmartTube)** by **[Yuriy Liskov (yuliskov)](https://github.com/yuliskov)** and its contributors, as well as the phone port by **[shreyas-bangera](https://github.com/shreyas-bangera)**. SmartTube+ adds tablet enhancements, custom gestures, speed boost, card previews, stop button, and UI refinements on top.
 
-If you enjoy this app, please support the original projects:
+Support the original project:
 - Star [SmartTube on GitHub](https://github.com/yuliskov/SmartTube)
-- Donate to the SmartTube developer through the links in the [SmartTube README](https://github.com/yuliskov/SmartTube#donation)
-- Visit the [SmartTube website](https://smarttubeapp.github.io)
+- Donate to Yuriy Liskov through [SmartTube README](https://github.com/yuliskov/SmartTube#donation)
 
 Thanks also to:
-- [SponsorBlock](https://sponsor.ajay.app/) for the crowd-sourced segment data
-- [ExoPlayer](https://github.com/google/ExoPlayer) for playback
-- Everyone who contributed code and translations to SmartTube
+- [SponsorBlock](https://sponsor.ajay.app/)
+- [ExoPlayer](https://github.com/google/ExoPlayer)
 
-SmartTube+ is an unofficial project. It is not made by, or affiliated with, SmartTube's developer, YouTube or Google. Please report problems with this app [here](https://github.com/CaptnBook4Git/smarttube-phone-plus/issues), not to the original SmartTube project.
+SmartTube+ is an independent, unofficial project. It is not affiliated with Google or YouTube.
 
 ## License
 
-MIT, the same as SmartTube. See [LICENSE](LICENSE). Copyright (c) 2020-present yuliskov, phone edition changes by [shreyas-bangera](https://github.com/shreyas-bangera), plus edition changes by [CaptnBook4Git](https://github.com/CaptnBook4Git).
+MIT. See [LICENSE](LICENSE). Copyright (c) 2020-present yuliskov, phone edition changes by shreyas-bangera, plus edition changes by CaptnBook4Git.

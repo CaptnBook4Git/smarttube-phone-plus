@@ -1,0 +1,290 @@
+package com.liskovsoft.smartyoutubetv2.tv.phone;
+
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.Build;
+import android.text.TextUtils;
+import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.work.Constraints;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
+import androidx.work.Worker;
+import androidx.work.WorkerParameters;
+
+import com.bumptech.glide.Glide;
+import com.liskovsoft.mediaserviceinterfaces.data.MediaGroup;
+import com.liskovsoft.mediaserviceinterfaces.data.MediaItem;
+import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
+import com.liskovsoft.smartyoutubetv2.tv.R;
+import com.liskovsoft.smartyoutubetv2.tv.ui.main.SplashActivity;
+import com.liskovsoft.youtubeapi.service.YouTubeServiceManager;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * New videos from the channels the account is subscribed to. YouTube doesn't hand its notification inbox to
+ * third-party apps, so the app keeps its own: from time to time, in the background, it looks at the Subscriptions feed,
+ * and what wasn't there before becomes an Android notification and a row on the Notifications tab
+ * ({@link PhoneNotificationsActivity}). One request per check, only while signed in, only with a connection.
+ */
+final class PhoneNewVideos {
+    private static final String TAG = "PhoneNewVideos";
+    private static final String PREFS = "phone_new_videos";
+    private static final String KEY_ENABLED = "enabled";
+    private static final String KEY_SEEDED = "seeded";
+    private static final String KEY_SEEN = "seen";
+    private static final String KEY_INBOX = "inbox";
+    private static final String KEY_UNREAD = "unread";
+    private static final String WORK_NAME = "phone_new_videos";
+    private static final String CHANNEL = "new_videos";
+    private static final String GROUP = "org.smarttube.phone.NEW_VIDEOS";
+    private static final int SUMMARY_ID = 5200;
+    private static final long CHECK_EVERY_HOURS = 2;
+    private static final int MAX_SEEN = 400;
+    private static final int MAX_INBOX = 100;
+    /** More new videos than this in one check: the rest are on the Notifications tab only */
+    private static final int MAX_POSTED = 4;
+
+    /** A row of the inbox */
+    static final class Entry {
+        final Video video;
+        final long foundAtMs;
+
+        Entry(Video video, long foundAtMs) {
+            this.video = video;
+            this.foundAtMs = foundAtMs;
+        }
+    }
+
+    private PhoneNewVideos() {
+    }
+
+    static boolean isEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_ENABLED, true);
+    }
+
+    static void setEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_ENABLED, enabled).apply();
+        schedule(context);
+    }
+
+    /** Keeps the background check running (or stops it when it's switched off). Safe to call at every start. */
+    static void schedule(Context context) {
+        try {
+            WorkManager manager = WorkManager.getInstance(context.getApplicationContext());
+            if (!isEnabled(context)) {
+                manager.cancelUniqueWork(WORK_NAME);
+                return;
+            }
+            Constraints constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+            PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(CheckWorker.class, CHECK_EVERY_HOURS, TimeUnit.HOURS)
+                    .setConstraints(constraints)
+                    .build();
+            manager.enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request);
+        } catch (RuntimeException e) {
+            Log.e(TAG, "schedule: " + e); // no WorkManager on this device: the tab still fills while the app is open
+        }
+    }
+
+    static int unread(Context context) {
+        return prefs(context).getInt(KEY_UNREAD, 0);
+    }
+
+    static void markRead(Context context) {
+        prefs(context).edit().putInt(KEY_UNREAD, 0).apply();
+        NotificationManagerCompat.from(context).cancel(SUMMARY_ID);
+    }
+
+    static List<Entry> inbox(Context context) {
+        List<Entry> result = new ArrayList<>();
+        try {
+            JSONArray array = new JSONArray(prefs(context).getString(KEY_INBOX, "[]"));
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject item = array.getJSONObject(i);
+                Video video = Video.fromString(item.optString("video", null));
+                if (video != null && video.videoId != null) {
+                    result.add(new Entry(video, item.optLong("at")));
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "inbox: " + e);
+        }
+        return result;
+    }
+
+    static void clear(Context context) {
+        prefs(context).edit().remove(KEY_INBOX).putInt(KEY_UNREAD, 0).apply();
+    }
+
+    /**
+     * Looks at the Subscriptions feed once (blocking: not for the UI thread). Returns how many videos are new.
+     * The first look only remembers what's there, so signing in doesn't end in a pile of notifications.
+     */
+    static synchronized int check(Context context) {
+        Context app = context.getApplicationContext();
+        if (!isEnabled(app) || !YouTubeServiceManager.instance().getSignInService().isSigned()) {
+            return 0;
+        }
+        MediaGroup feed = YouTubeServiceManager.instance().getContentService().getSubscriptions();
+        List<MediaItem> items = feed != null ? feed.getMediaItems() : null;
+        if (items == null || items.isEmpty()) {
+            return 0;
+        }
+
+        SharedPreferences prefs = prefs(app);
+        Set<String> seen = new LinkedHashSet<>();
+        String stored = prefs.getString(KEY_SEEN, "");
+        if (!TextUtils.isEmpty(stored)) {
+            for (String id : stored.split(",")) {
+                seen.add(id);
+            }
+        }
+
+        List<Video> fresh = new ArrayList<>();
+        List<String> current = new ArrayList<>();
+        for (MediaItem item : items) {
+            String id = item != null ? item.getVideoId() : null;
+            if (id == null) {
+                continue;
+            }
+            current.add(id);
+            // Videos and live streams; Shorts and not yet started premieres would mostly be noise
+            if (!seen.contains(id) && !item.isShorts() && !item.isUpcoming()) {
+                fresh.add(Video.from(item));
+            }
+        }
+
+        // Newest ids first, the oldest remembered ones fall off the end
+        Set<String> merged = new LinkedHashSet<>(current);
+        merged.addAll(seen);
+        StringBuilder joined = new StringBuilder();
+        int count = 0;
+        for (String id : merged) {
+            if (count++ >= MAX_SEEN) {
+                break;
+            }
+            joined.append(joined.length() > 0 ? "," : "").append(id);
+        }
+        boolean seeded = prefs.getBoolean(KEY_SEEDED, false);
+        prefs.edit().putString(KEY_SEEN, joined.toString()).putBoolean(KEY_SEEDED, true).apply();
+        if (!seeded || fresh.isEmpty()) {
+            return 0;
+        }
+
+        long now = System.currentTimeMillis();
+        try {
+            JSONArray inbox = new JSONArray();
+            for (Video video : fresh) {
+                inbox.put(new JSONObject().put("video", video.toString()).put("at", now));
+            }
+            JSONArray old = new JSONArray(prefs.getString(KEY_INBOX, "[]"));
+            for (int i = 0; i < old.length() && inbox.length() < MAX_INBOX; i++) {
+                inbox.put(old.get(i));
+            }
+            prefs.edit().putString(KEY_INBOX, inbox.toString()).putInt(KEY_UNREAD, prefs.getInt(KEY_UNREAD, 0) + fresh.size()).apply();
+        } catch (Exception e) {
+            Log.e(TAG, "store: " + e);
+        }
+        post(app, fresh);
+        return fresh.size();
+    }
+
+    private static void post(Context context, List<Video> fresh) {
+        NotificationManagerCompat manager = NotificationManagerCompat.from(context);
+        if (!manager.areNotificationsEnabled()) {
+            return; // the tab still shows them
+        }
+        if (Build.VERSION.SDK_INT >= 26) {
+            NotificationManager system = context.getSystemService(NotificationManager.class);
+            if (system != null && system.getNotificationChannel(CHANNEL) == null) {
+                system.createNotificationChannel(new NotificationChannel(CHANNEL,
+                        context.getString(R.string.phone_new_videos_channel), NotificationManager.IMPORTANCE_DEFAULT));
+            }
+        }
+        int immutable = Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
+        try {
+            for (int i = 0; i < fresh.size() && i < MAX_POSTED; i++) {
+                Video video = fresh.get(i);
+                // Opens like any YouTube link: the launcher screen hands it to the player
+                Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=" + video.videoId))
+                        .setClass(context, SplashActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL)
+                        .setSmallIcon(R.drawable.ic_phone_play)
+                        .setContentTitle(video.getAuthor())
+                        .setContentText(video.getTitle())
+                        .setStyle(new NotificationCompat.BigTextStyle().bigText(video.getTitle()))
+                        .setAutoCancel(true)
+                        .setGroup(GROUP)
+                        .setContentIntent(PendingIntent.getActivity(context, video.videoId.hashCode(), open,
+                                PendingIntent.FLAG_UPDATE_CURRENT | immutable));
+                Bitmap picture = thumbnail(context, video);
+                if (picture != null) {
+                    builder.setLargeIcon(picture);
+                }
+                manager.notify(video.videoId.hashCode(), builder.build());
+            }
+            Intent tab = new Intent(context, PhoneNotificationsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            manager.notify(SUMMARY_ID, new NotificationCompat.Builder(context, CHANNEL)
+                    .setSmallIcon(R.drawable.ic_phone_play)
+                    .setContentTitle(context.getResources().getQuantityString(R.plurals.phone_new_videos_count, fresh.size(), fresh.size()))
+                    .setAutoCancel(true)
+                    .setGroup(GROUP)
+                    .setGroupSummary(true)
+                    .setContentIntent(PendingIntent.getActivity(context, SUMMARY_ID, tab, PendingIntent.FLAG_UPDATE_CURRENT | immutable))
+                    .build());
+        } catch (SecurityException e) {
+            Log.e(TAG, "post: " + e); // notifications were switched off meanwhile
+        }
+    }
+
+    private static Bitmap thumbnail(Context context, Video video) {
+        try {
+            String url = video.getCardImageUrl();
+            return TextUtils.isEmpty(url) ? null : Glide.with(context).asBitmap().load(url).submit(320, 180).get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            return null; // a notification without a picture
+        }
+    }
+
+    private static SharedPreferences prefs(Context context) {
+        return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    /** The background check (WorkManager: survives restarts, waits for a connection) */
+    public static class CheckWorker extends Worker {
+        public CheckWorker(@NonNull Context context, @NonNull WorkerParameters params) {
+            super(context, params);
+        }
+
+        @NonNull
+        @Override
+        public Result doWork() {
+            try {
+                Log.d(TAG, "checked: " + check(getApplicationContext()) + " new");
+            } catch (Throwable e) {
+                Log.e(TAG, "check: " + e); // offline, signed out meanwhile, YouTube said no: next time
+            }
+            return Result.success();
+        }
+    }
+}

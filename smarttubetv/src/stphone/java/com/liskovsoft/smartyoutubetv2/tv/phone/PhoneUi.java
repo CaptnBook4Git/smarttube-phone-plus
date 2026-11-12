@@ -345,10 +345,15 @@ final class PhoneUi {
 
     /** Fetches a card thumbnail into the disk cache ahead of time (no decoding, no memory used) */
     static void prefetchThumb(Context context, Video video) {
+        prefetchThumb(context, video, video != null && video.isShorts);
+    }
+
+    /** @param vertical the full height picture of a Short (items of a Shorts list don't always carry the flag) */
+    static void prefetchThumb(Context context, Video video, boolean vertical) {
         if (video == null || TextUtils.isEmpty(video.videoId) || video.isChannel() || !isAlive(context)) {
             return;
         }
-        String url = "https://i.ytimg.com/vi/" + video.videoId + (video.isShorts ? "/oar2.jpg" : "/hq720.jpg");
+        String url = "https://i.ytimg.com/vi/" + video.videoId + (vertical ? "/oar2.jpg" : "/hq720.jpg");
         try {
             Glide.with(context).downloadOnly().load(url).submit();
         } catch (Throwable ignored) {
@@ -413,17 +418,40 @@ final class PhoneUi {
             }
         }
 
-        if (progress != null) {
-            float percent = video.percentWatched;
-            if (percent > 0 && !video.isLive) {
-                percent = Math.min(100f, percent);
-                setWeight(root.findViewById(R.id.phone_progress_fill), percent);
-                setWeight(root.findViewById(R.id.phone_progress_rest), 100f - percent);
-                progress.setVisibility(View.VISIBLE);
-            } else {
-                progress.setVisibility(View.GONE);
-            }
+        bindProgress(root, video);
+    }
+
+    /**
+     * The red bar under a thumbnail: how much of the video was watched. YouTube's own number when signed in, otherwise
+     * (or when this app has a newer one) the position this app saved when the video was last played here.
+     */
+    static void bindProgress(View root, Video video) {
+        View progress = root.findViewById(R.id.phone_progress);
+        if (progress == null) {
+            return;
         }
+        float percent = video.isLive ? 0 : Math.max(video.percentWatched, savedPercent(root.getContext(), video));
+        if (percent > 0) {
+            percent = Math.max(3f, Math.min(100f, percent)); // a sliver at least, like YouTube
+            setWeight(root.findViewById(R.id.phone_progress_fill), percent);
+            setWeight(root.findViewById(R.id.phone_progress_rest), 100f - percent);
+            progress.setVisibility(View.VISIBLE);
+        } else {
+            progress.setVisibility(View.GONE);
+        }
+    }
+
+    private static float savedPercent(android.content.Context context, Video video) {
+        if (video.videoId == null) {
+            return 0;
+        }
+        com.liskovsoft.smartyoutubetv2.common.app.models.playback.service.VideoStateService.State state =
+                com.liskovsoft.smartyoutubetv2.common.app.models.playback.service.VideoStateService.instance(context)
+                        .getByVideoId(video.videoId);
+        if (state == null || state.durationMs <= 0 || state.positionMs <= 0) {
+            return 0;
+        }
+        return state.positionMs * 100f / state.durationMs;
     }
 
     /**

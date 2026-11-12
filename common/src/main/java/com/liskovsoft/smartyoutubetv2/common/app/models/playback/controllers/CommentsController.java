@@ -24,6 +24,9 @@ public class CommentsController extends BasePlayerController {
     private Disposable mCommentsAction;
     private String mLiveChatKey;
     private String mCommentsKey;
+    private String mNewestCommentsKey; // the same comments, Newest first (phone sort menu)
+    private String mCommentsCount;
+    private boolean mSortedByNewest;
     private String mTitle;
     private Pair<String, Backup> mBackup;
 
@@ -39,9 +42,15 @@ public class CommentsController extends BasePlayerController {
     @Override
     public void onMetadata(MediaItemMetadata metadata) {
         mLiveChatKey = metadata != null && metadata.getLiveChatKey() != null ? metadata.getLiveChatKey() : null;
+        String oldCommentsKey = mCommentsKey;
         mCommentsKey = metadata != null && metadata.getCommentsKey() != null ? metadata.getCommentsKey() : null;
+        mNewestCommentsKey = metadata != null ? metadata.getNewestCommentsKey() : null;
+        mCommentsCount = metadata != null ? metadata.getCommentsCount() : null;
+        if (!Helpers.equals(oldCommentsKey, mCommentsKey)) {
+            mSortedByNewest = false; // a new video starts with Top comments
+        }
         mTitle = metadata != null ? metadata.getTitle() : null;
-        if (mBackup != null && !Helpers.equals(mBackup.first, mCommentsKey)) {
+        if (mBackup != null && !Helpers.equals(mBackup.first, mCommentsKey) && !Helpers.equals(mBackup.first, mNewestCommentsKey)) {
             mBackup = null;
         }
     }
@@ -62,6 +71,7 @@ public class CommentsController extends BasePlayerController {
         }
 
         String title = getPlayer() != null && getPlayer().getVideo() != null ? getPlayer().getVideo().getTitleFull() : mTitle;
+        final String videoId = getVideo() != null ? getVideo().videoId : null; // where a new comment goes (phone)
 
         CommentsReceiver commentsReceiver = new AbstractCommentsReceiver(getContext()) {
             @Override
@@ -75,12 +85,38 @@ public class CommentsController extends BasePlayerController {
 
             @Override
             public void onStart() {
-                if (mBackup != null && Helpers.equals(mBackup.first, mCommentsKey)) {
+                String key = currentKey();
+                if (mBackup != null && Helpers.equals(mBackup.first, key)) {
                     loadBackup(mBackup.second);
                     return;
                 }
 
-                loadComments(this, mCommentsKey);
+                loadComments(this, key);
+            }
+
+            @Override
+            public String getCommentsCount() {
+                return mCommentsCount;
+            }
+
+            @Override
+            public String getVideoId() {
+                return videoId;
+            }
+
+            @Override
+            public boolean canSortByNewest() {
+                return mNewestCommentsKey != null;
+            }
+
+            @Override
+            public boolean isSortedByNewest() {
+                return mSortedByNewest && mNewestCommentsKey != null;
+            }
+
+            @Override
+            public void setSortedByNewest(boolean newest) {
+                mSortedByNewest = newest;
             }
 
             @Override
@@ -101,6 +137,16 @@ public class CommentsController extends BasePlayerController {
                     }
 
                     @Override
+                    public String getVideoId() {
+                        return videoId;
+                    }
+
+                    @Override
+                    public String getParentCommentId() {
+                        return commentItem.getId();
+                    }
+
+                    @Override
                     public void onCommentLongClicked(CommentItem commentItem) {
                         toggleLike(this, commentItem);
                     }
@@ -118,12 +164,17 @@ public class CommentsController extends BasePlayerController {
             public void onFinish(Backup backup) {
                 super.onFinish(backup);
                 if (Helpers.equals(backupKey, mCommentsKey)) {
-                    mBackup = new Pair<>(mCommentsKey, backup);
+                    mBackup = new Pair<>(currentKey(), backup); // reopening shows the order that was open
                 }
             }
         };
 
         showDialog(commentsReceiver, title);
+    }
+
+    /** The first page of the chosen order: Top, or Newest when picked and offered */
+    private String currentKey() {
+        return mSortedByNewest && mNewestCommentsKey != null ? mNewestCommentsKey : mCommentsKey;
     }
 
     @Override
