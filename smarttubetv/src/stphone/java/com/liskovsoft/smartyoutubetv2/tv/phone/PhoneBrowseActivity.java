@@ -497,9 +497,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         for (BrowseSection section : sections) {
             TextView chip = new TextView(this);
             chip.setText(section.getTitle());
-            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
             chip.setGravity(Gravity.CENTER);
-            chip.setPadding(dp(14), 0, dp(14), 0);
+            chip.setPadding(dp(12), 0, dp(12), 0);
             chip.setBackgroundResource(R.drawable.phone_chip_bg);
             boolean selected = mCurrentSection != null && mCurrentSection.getId() == section.getId();
             chip.setSelected(selected);
@@ -517,7 +517,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 return true;
             });
 
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(32));
             params.setMarginStart(dp(4));
             params.setMarginEnd(dp(4));
             mChips.addView(chip, params);
@@ -539,14 +539,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private void addDownloadsChip() {
         TextView chip = new TextView(this);
         chip.setText(R.string.phone_downloads);
-        chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         chip.setGravity(Gravity.CENTER);
-        chip.setPadding(dp(14), 0, dp(14), 0);
+        chip.setPadding(dp(12), 0, dp(12), 0);
         chip.setBackgroundResource(R.drawable.phone_chip_bg);
         chip.setTextColor(getResources().getColor(R.color.phone_text));
         chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         chip.setOnClickListener(v -> PhoneDownloadsActivity.open(this));
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(32));
         params.setMarginStart(dp(4));
         params.setMarginEnd(dp(4));
         mChips.addView(chip, params);
