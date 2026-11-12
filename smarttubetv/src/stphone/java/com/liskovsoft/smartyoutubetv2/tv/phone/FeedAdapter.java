@@ -794,8 +794,15 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         if (hasToggle) {
             toggle.setChecked(setting.checked);
         }
-        view.findViewById(R.id.phone_setting_chevron).setVisibility(hasToggle ? View.GONE : View.VISIBLE);
+        boolean dropDown = setting != null && setting.onPick != null;
+        ImageView chevron = view.findViewById(R.id.phone_setting_chevron);
+        chevron.setVisibility(hasToggle ? View.GONE : View.VISIBLE);
+        chevron.setRotation(dropDown ? 90 : 0); // pointing down: the list opens right here
         view.setOnClickListener(v -> {
+            if (dropDown) {
+                setting.onPick.pick(value);
+                return;
+            }
             if (item.onClick != null) {
                 item.onClick.run();
             }

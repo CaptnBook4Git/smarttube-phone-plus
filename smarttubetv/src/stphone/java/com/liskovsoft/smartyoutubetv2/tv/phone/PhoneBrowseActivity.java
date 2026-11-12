@@ -404,9 +404,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         findViewById(R.id.phone_logo).setOnClickListener(v -> scrollToTopOrRefresh());
     }
 
+    // Bottom tabs as in the YouTube app: line icons, the chosen tab's icon filled, everything in the text colour
+    private static final int[] TAB_ICONS = {R.drawable.ic_phone_tab_home, R.drawable.ic_phone_tab_shorts,
+            R.drawable.ic_phone_tab_subs, R.drawable.ic_phone_bell, R.drawable.ic_phone_account};
+    private static final int[] TAB_ICONS_ON = {R.drawable.ic_phone_tab_home_on, R.drawable.ic_phone_tab_shorts_on,
+            R.drawable.ic_phone_tab_subs_on, R.drawable.ic_phone_bell, R.drawable.ic_phone_account};
+
     private void setupTabs() {
-        int[] icons = {R.drawable.ic_phone_home, R.drawable.ic_phone_shorts, R.drawable.ic_phone_subs,
-                R.drawable.ic_phone_bell, R.drawable.ic_phone_account};
+        int[] icons = TAB_ICONS;
         String[] labels = {
                 getString(R.string.header_home),
                 getString(R.string.header_shorts),
@@ -429,7 +434,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
             ImageView icon = new ImageView(this);
             icon.setImageResource(icons[i]);
-            tab.addView(icon, new LinearLayout.LayoutParams(dp(28), dp(28)));
+            tab.addView(icon, new LinearLayout.LayoutParams(dp(26), dp(26)));
 
             TextView label = new TextView(this);
             label.setText(labels[i]);
@@ -471,14 +476,18 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             boolean visible = i == TAB_YOU || (hasTab(i) && i != TAB_NOTIFICATIONS);
             tab.setVisibility(visible ? View.VISIBLE : View.GONE);
             boolean selected = i == mCurrentTab;
-            int color = getResources().getColor(selected ? R.color.phone_text : R.color.phone_icon_inactive);
+            int color = getResources().getColor(R.color.phone_text);
             LinearLayout layout = (LinearLayout) tab;
             ImageView icon = (ImageView) layout.getChildAt(0);
             // The You tab shows the account picture untinted
-            icon.setImageTintList(i == TAB_YOU && icon.getTag() != null ? null : ColorStateList.valueOf(color));
+            boolean picture = i == TAB_YOU && icon.getTag() != null;
+            if (!picture) {
+                icon.setImageResource(selected ? TAB_ICONS_ON[i] : TAB_ICONS[i]);
+            }
+            icon.setImageTintList(picture ? null : ColorStateList.valueOf(color));
             TextView label = (TextView) layout.getChildAt(1);
             label.setTextColor(color);
-            label.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
+            label.setTypeface(Typeface.create(selected ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
         }
     }
 
@@ -1017,6 +1026,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
         java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items = new ArrayList<>();
 
+        // Always first: the app updates itself from here
+        items.add(PhoneSetting.row(PhoneUpdater.settingsTitle(this), R.drawable.ic_phone_update, () -> PhoneUpdater.open(this)));
+
         items.add(PhoneSetting.header(getString(R.string.phone_settings_account)));
         addEngineSetting(items, engine, R.string.settings_accounts);
         items.add(PhoneSetting.toggle(getString(R.string.phone_incognito), PhoneIncognito.isOn(this), R.drawable.ic_phone_incognito, () -> {
@@ -1026,12 +1038,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }));
 
         items.add(PhoneSetting.header(getString(R.string.phone_settings_appearance)));
-        int appearance = PhoneTheme.get(this);
-        items.add(PhoneSetting.value(getString(R.string.phone_theme), getString(PhoneTheme.valueRes(appearance)),
-                R.drawable.ic_phone_brightness, () -> {
-                    PhoneTheme.set(this, PhoneTheme.next(appearance));
-                    recreate();
-                }));
+        items.add(PhoneSetting.dropDown(getString(R.string.phone_theme), getString(PhoneTheme.valueRes(PhoneTheme.get(this))),
+                R.drawable.ic_phone_brightness, this::pickTheme));
         addEngineSetting(items, engine, R.string.settings_main_ui);
         addEngineSetting(items, engine, R.string.settings_language_country);
 
@@ -1052,8 +1060,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         items.add(PhoneSetting.header(getString(R.string.phone_settings_backup)));
         addEngineSetting(items, engine, R.string.app_backup_restore);
 
-        items.add(PhoneSetting.header(getString(R.string.phone_settings_app)));
-        items.add(PhoneSetting.row(PhoneUpdater.settingsTitle(this), R.drawable.ic_phone_update, () -> PhoneUpdater.open(this)));
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_about)));
         items.add(PhoneSetting.row(getString(R.string.phone_about_title), R.drawable.ic_phone_info, () -> PhoneAbout.show(this)));
 
         if (!engine.isEmpty()) {
@@ -1071,6 +1078,26 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             }
         }
         return items;
+    }
+
+    /** Theme: a drop-down under the row with the three choices, the current one ticked */
+    private void pickTheme(View anchor) {
+        int current = PhoneTheme.get(this);
+        int[] modes = {PhoneTheme.DARK, PhoneTheme.LIGHT, PhoneTheme.SYSTEM};
+        android.widget.PopupMenu menu = new android.widget.PopupMenu(this, anchor, Gravity.END);
+        for (int i = 0; i < modes.length; i++) {
+            menu.getMenu().add(0, i, i, PhoneTheme.valueRes(modes[i])).setCheckable(true).setChecked(modes[i] == current);
+        }
+        menu.getMenu().setGroupCheckable(0, true, true);
+        menu.setOnMenuItemClickListener(item -> {
+            int mode = modes[item.getItemId()];
+            if (mode != current) {
+                PhoneTheme.set(this, mode);
+                recreate();
+            }
+            return true;
+        });
+        menu.show();
     }
 
     private void addEngineSetting(java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items,

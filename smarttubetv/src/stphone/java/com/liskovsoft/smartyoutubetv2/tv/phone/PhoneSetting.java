@@ -12,6 +12,12 @@ final class PhoneSetting extends SettingsItem {
     /** A switch in this state; null for a row without a switch */
     final Boolean checked;
     final boolean header;
+    /** Rows that open a drop-down under themselves: called with the row's value view, in place of onClick */
+    OnPick onPick;
+
+    interface OnPick {
+        void pick(android.view.View anchor);
+    }
 
     private PhoneSetting(String title, Runnable onClick, int icon, String value, Boolean checked, boolean header) {
         super(title, onClick, icon);
@@ -30,6 +36,13 @@ final class PhoneSetting extends SettingsItem {
 
     static PhoneSetting value(String title, String value, int icon, Runnable onClick) {
         return new PhoneSetting(title, onClick, icon, value, null, false);
+    }
+
+    /** A row whose value is picked from a drop-down list that opens under it */
+    static PhoneSetting dropDown(String title, String value, int icon, OnPick onPick) {
+        PhoneSetting setting = new PhoneSetting(title, null, icon, value, null, false);
+        setting.onPick = onPick;
+        return setting;
     }
 
     static PhoneSetting toggle(String title, boolean checked, int icon, Runnable onClick) {

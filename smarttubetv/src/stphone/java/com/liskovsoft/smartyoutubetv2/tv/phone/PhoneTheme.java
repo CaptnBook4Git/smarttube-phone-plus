@@ -28,10 +28,6 @@ final class PhoneTheme {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY, mode).apply();
     }
 
-    static int next(int mode) {
-        return mode == DARK ? LIGHT : mode == LIGHT ? SYSTEM : DARK;
-    }
-
     /** The mode's name alone ("Dark"), for the value shown on the settings row */
     static int valueRes(int mode) {
         return mode == LIGHT ? R.string.phone_theme_light : mode == SYSTEM ? R.string.phone_theme_system : R.string.phone_theme_dark;
