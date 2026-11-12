@@ -542,6 +542,10 @@ final class PhoneMiniPlayer {
                     track(event);
                     if (!mDragging && passedSlop(event)) {
                         mDragging = true;
+                        // The drag is the card's: no screen underneath (edge swipe back, pull to refresh) takes it over
+                        if (getParent() != null) {
+                            getParent().requestDisallowInterceptTouchEvent(true);
+                        }
                     }
                     if (mDragging) {
                         setTranslationX(mStartX + event.getRawX() - mDownX);
@@ -560,8 +564,14 @@ final class PhoneMiniPlayer {
                     endTouch();
                     return true;
                 case MotionEvent.ACTION_CANCEL:
+                    // The system took the touch (e.g. the finger reached the navigation area at the bottom edge):
+                    // the card is let go where it is, without a throw
+                    android.util.Log.d(TAG, "touch cancelled, dragging " + mDragging);
                     if (mDragging) {
-                        settle(0, 0);
+                        if (mVelocity != null) {
+                            mVelocity.clear();
+                        }
+                        release();
                     }
                     endTouch();
                     return true;
@@ -623,6 +633,7 @@ final class PhoneMiniPlayer {
             }
             float past = pastBottom();
             boolean flickedDown = velocityY > 900 * mDensity && velocityY > Math.abs(velocityX) && past > 0;
+            android.util.Log.d(TAG, "release: past " + Math.round(past) + " of " + getHeight() + ", velocity " + Math.round(velocityY));
             if (past > getHeight() * 0.4f || flickedDown) {
                 performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK);
                 close(true);
