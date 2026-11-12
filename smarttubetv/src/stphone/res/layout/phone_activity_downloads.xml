@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- You > Downloads: the videos and audio saved to Download/StreamTube -->
+<!-- A plain list screen with a title: You > Downloads (the videos and audio saved to Download/StreamTube) and the
+     Notifications tab -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/phone_root"
     android:layout_width="match_parent"
@@ -30,6 +31,7 @@
             android:tint="@color/phone_text" />
 
         <TextView
+            android:id="@+id/phone_screen_title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"

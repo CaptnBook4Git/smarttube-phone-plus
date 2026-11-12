@@ -59,6 +59,14 @@ final class PhoneMiniPlayer {
 
     // region Session
 
+    /** Something on the host screen changed the room at the bottom (the update banner came or went) */
+    static void replace() {
+        Card card = sCard.get();
+        if (card != null && card.getParent() != null && !card.mDragging) {
+            card.place();
+        }
+    }
+
     /** A screen that can show the card came to the front */
     static void onHostResumed(PhoneActivity host) {
         if (!host.hostsMiniPlayer()) {

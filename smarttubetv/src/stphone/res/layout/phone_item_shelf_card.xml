@@ -4,7 +4,8 @@
     android:layout_height="wrap_content"
     android:layout_marginEnd="12dp"
     android:orientation="vertical"
-    android:background="@drawable/phone_ripple">
+    android:background="@drawable/phone_ripple"
+    android:stateListAnimator="@animator/phone_press">
 
     <include layout="@layout/phone_thumb"
         android:layout_width="match_parent"

@@ -2283,6 +2283,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     // endregion
 
     private void clickButton(int buttonId) {
+        if (buttonId == R.id.action_thumbs_up || buttonId == R.id.action_thumbs_down || buttonId == R.id.action_subscribe) {
+            mRoot.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK); // a tick under the finger
+        }
         presenter().onButtonClicked(buttonId, getButtonState(buttonId));
     }
 

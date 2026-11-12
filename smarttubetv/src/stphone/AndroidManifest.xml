@@ -25,6 +25,17 @@
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" tools:node="remove" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
 
+    <!-- More TV-only leftovers, none used by the phone app:
+         the local network discovery of "Remote control" (cast target), the Bluetooth name it announced itself with,
+         Android TV's programme guide (home screen rows) and the permission guarding its search provider -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.BLUETOOTH" tools:node="remove" />
+    <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" tools:node="remove" />
+    <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" tools:node="remove" />
+    <uses-permission android:name="${applicationId}.ACCESS_VIDEO_DATA" tools:node="remove" />
+    <permission android:name="${applicationId}.ACCESS_VIDEO_DATA" tools:node="remove" />
+    <uses-feature android:name="android.hardware.microphone" tools:node="remove" />
+
     <!-- Browsing uses the phone UI in portrait. The remaining Leanback screens (player, sign-in) stay landscape. -->
     <application
         android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneApplication"
@@ -92,28 +103,36 @@
                 android:name="android.app.shortcuts"
                 android:resource="@xml/phone_shortcuts" />
         </activity>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.browse.BrowseActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.channel.ChannelActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.channeluploads.ChannelUploadsActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.playback.PlaybackActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.search.tags.SearchTagsActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.signin.SignInActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.adddevice.AddDeviceActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
+        <!-- The TV screens and the TV launcher's entry points. The phone has its own screen for each of them (see
+             PhoneApplication) and nothing opens these, so they are left out of the phone build. The one TV screen still
+             used is the web browser (links from settings pages). -->
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.browse.BrowseActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.channel.ChannelActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.channeluploads.ChannelUploadsActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.playback.PlaybackActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.search.tags.SearchTagsActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.signin.SignInActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.adddevice.AddDeviceActivity" tools:node="remove" />
         <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.webbrowser.WebBrowserActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivityOpaque" android:screenOrientation="behind" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.HomeLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.NewsLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.MusicLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.GamesLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.ChannelsLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.SubscriptionsLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.HistoryLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.PlaylistsLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.SearchLauncherActivity" android:screenOrientation="sensorLandscape" tools:replace="android:screenOrientation"/>
-        <!-- Translucent dialog: follow the activity underneath -->
-        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivity" android:screenOrientation="behind" tools:replace="android:screenOrientation"/>
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivityOpaque" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.HomeLauncherActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.NewsLauncherActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.MusicLauncherActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.GamesLauncherActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.ChannelsLauncherActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.SubscriptionsLauncherActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.HistoryLauncherActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.PlaylistsLauncherActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.launchers.SearchLauncherActivity" tools:node="remove" />
+        <activity android:name="com.liskovsoft.smartyoutubetv2.tv.ui.dialogs.AppDialogActivity" tools:node="remove" />
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneUpdateActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait" />
+        <!-- Notifications tab: new videos from subscribed channels -->
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneNotificationsActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleTop"
             android:screenOrientation="portrait" />
@@ -134,6 +153,20 @@
         <!-- TV only: starts SmartTube's remote control service at boot, screen on, power connected... -->
         <receiver
             android:name="com.liskovsoft.smartyoutubetv2.common.misc.RemoteControlReceiver"
+            tools:node="remove" />
+        <!-- TV only: the service behind "Remote control" (this device as a cast target, found over the local network) -->
+        <service
+            android:name="com.liskovsoft.smartyoutubetv2.common.misc.RemoteControlService"
+            tools:node="remove" />
+        <!-- TV only: Android TV's home screen rows and its system-wide search -->
+        <receiver
+            android:name="com.liskovsoft.leanbackassistant.channels.UpdateChannelsReceiver"
+            tools:node="remove" />
+        <activity
+            android:name="com.liskovsoft.leanbackassistant.search.SearchableActivity"
+            tools:node="remove" />
+        <provider
+            android:name="com.liskovsoft.leanbackassistant.search.VideoContentProvider"
             tools:node="remove" />
     </application>
 </manifest>

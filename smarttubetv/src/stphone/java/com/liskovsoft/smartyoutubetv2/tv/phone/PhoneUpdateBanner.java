@@ -22,6 +22,17 @@ final class PhoneUpdateBanner {
     private PhoneUpdateBanner() {
     }
 
+    private static java.lang.ref.WeakReference<View> sBanner = new java.lang.ref.WeakReference<>(null);
+
+    /** Room the banner takes above the bottom tabs on this screen, pixels (0 without a banner): the mini player rests above it */
+    static int heightOn(Activity activity) {
+        View banner = sBanner.get();
+        if (banner == null || banner.getParent() == null || banner.getContext() != activity || banner.getHeight() == 0) {
+            return 0;
+        }
+        return banner.getHeight() + (int) (12 * activity.getResources().getDisplayMetrics().density);
+    }
+
     static void show(Activity activity, int build) {
         ViewGroup content = activity.findViewById(android.R.id.content);
         if (content == null) {
@@ -87,11 +98,17 @@ final class PhoneUpdateBanner {
         View bottomBar = activity.findViewById(R.id.phone_bottom_bar);
         params.bottomMargin = (bottomBar != null ? bottomBar.getHeight() : 0) + side;
         content.addView(card, params);
+        sBanner = new java.lang.ref.WeakReference<>(card);
+        card.post(PhoneMiniPlayer::replace); // the mini player makes room
 
         Runnable hide = () -> card.animate().alpha(0f).translationY(24 * density).setDuration(200)
-                .withEndAction(() -> content.removeView(card)).start();
+                .withEndAction(() -> {
+                    content.removeView(card);
+                    PhoneMiniPlayer.replace();
+                }).start();
         View.OnClickListener open = v -> {
             content.removeView(card);
+            PhoneMiniPlayer.replace();
             PhoneUpdater.open(activity);
         };
         card.setOnClickListener(open);

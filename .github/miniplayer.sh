@@ -116,6 +116,19 @@ if [ -n "$XY" ]; then
   shot 9_settings_more
 fi
 
+# 8. The Notifications tab: its own screen (signed out here: the hint to sign in)
+XY=$(center_of_text "Notifications")
+echo "notifications tab at: $XY"
+if [ -n "$XY" ]; then
+  adb shell input tap $XY
+  sleep 4
+  shot 10_notifications
+  tasks 10_notifications
+  adb shell input keyevent KEYCODE_BACK
+  sleep 2
+  shot 11_back_from_notifications
+fi
+
 adb logcat -d -b crash > $OUT/crash.txt
 adb logcat -d | grep -E "ActivityTaskManager: (START|Displayed)|wm_finish|wm_destroy" | grep -i smarttube > $OUT/activity_log.txt
 adb logcat -d | grep -iE "PhoneMiniPlayer|exoplayer|MediaCodec.*(error|Exception)|surface.*abandon|PlaybackFragment|AndroidRuntime" | grep -v SabrStream | tail -120 > $OUT/player_log.txt
