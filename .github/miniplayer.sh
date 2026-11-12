@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Mini player check: play from Home, drag the video down, the card lands bottom right with the video playing; open
-# it again, Back into the card, close it. Frames around each step are printed to the log (base64 JPEG between
+# it again, Back into the card, move it, swipe it down to close it. Frames around each step are printed to the log (base64 JPEG between
 # ==IMG name== and ==END== lines) along with the activity stack and crashes. Files also in ./smoke.
 set -x
 PKG=org.smarttube.phone
@@ -66,7 +66,7 @@ pull_record 4_back
 shot 4_card_again
 tasks 4_card_again
 
-# 5. Drag the card to the left, then close it
+# 5. Drag the card to the left, then swipe it down off the screen: the video closes
 XY=$(center_of "Open the player")
 if [ -n "$XY" ]; then
   set -- $XY
@@ -74,12 +74,20 @@ if [ -n "$XY" ]; then
   sleep 2
   shot 5_moved
 fi
-XY=$(center_of "Close the mini player")
-echo "close at: $XY"
-if [ -n "$XY" ]; then adb shell input tap $XY; fi
-sleep 3
+XY=$(center_of "Open the player")
+echo "card before the swipe down: $XY"
+if [ -n "$XY" ]; then
+  set -- $XY
+  record 6_swipe_down 5
+  sleep 1
+  adb shell input swipe $1 $2 $1 2350 250
+  sleep 3
+  pull_record 6_swipe_down
+fi
 shot 6_closed
 tasks 6_closed
+XY=$(center_of "Open the player")
+echo "card after the swipe down: ${XY:-gone}"
 
 adb logcat -d -b crash > $OUT/crash.txt
 adb logcat -d | grep -E "ActivityTaskManager: (START|Displayed)|wm_finish|wm_destroy" | grep -i smarttube > $OUT/activity_log.txt
@@ -92,7 +100,7 @@ echo "== player"; cat $OUT/player_log.txt
 # Pictures into the log (small JPEGs), and frame strips from the recordings (10 per second)
 img() { echo "==IMG $2=="; convert "$1" -resize "$3" -quality 70 jpg:- | base64 -w0; echo; echo "==END=="; }
 for f in $OUT/*.png; do img "$f" "$(basename "$f" .png)" 270x; done
-for v in 2_minimize 3_expand 4_back; do
+for v in 2_minimize 3_expand 4_back 6_swipe_down; do
   if [ -s "$OUT/$v.mp4" ]; then
     mkdir -p "$OUT/$v"
     ffmpeg -v error -i "$OUT/$v.mp4" -vf "fps=10,scale=180:-1" "$OUT/$v/f%03d.png"

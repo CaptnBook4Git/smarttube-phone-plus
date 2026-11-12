@@ -1,14 +1,15 @@
+<!-- Filter chips, as in the YouTube app: 32dp tall rounded rectangles (not full pills) -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_selected="true">
         <shape android:shape="rectangle">
             <solid android:color="@color/phone_text"/>
-            <corners android:radius="18dp"/>
+            <corners android:radius="8dp"/>
         </shape>
     </item>
     <item>
         <shape android:shape="rectangle">
             <solid android:color="@color/phone_surface_2"/>
-            <corners android:radius="18dp"/>
+            <corners android:radius="8dp"/>
         </shape>
     </item>
 </selector>

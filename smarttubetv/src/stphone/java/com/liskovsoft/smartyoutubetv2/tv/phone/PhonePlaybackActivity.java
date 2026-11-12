@@ -53,6 +53,8 @@ import com.liskovsoft.smartyoutubetv2.tv.ui.playback.PlaybackActivity;
 public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlaybackFragment.Host, FeedAdapter.Listener {
     private static final long HIDE_CONTROLS_MS = 3_500;
     private static final long TICK_MS = 500;
+    private static final long SHORT_TICK_MS = 50;
+    private static final long DOUBLE_TAP_MS = 230;
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private PhonePlaybackFragment mPlayer;
@@ -114,7 +116,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         @Override
         public void run() {
             updateProgress();
-            mHandler.postDelayed(this, TICK_MS);
+            // A Short's picture is still over the video: look often, so the video shows the moment it plays
+            boolean waitingForShort = mShortsMode && mPoster != null && mPoster.getVisibility() == View.VISIBLE;
+            mHandler.postDelayed(this, waitingForShort ? SHORT_TICK_MS : TICK_MS);
         }
     };
 
@@ -225,6 +229,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
         mRoot.setOnApplyWindowInsetsListener((v, insets) -> {
             mStatusInset = insets.getSystemWindowInsetTop();
+            mNavInset = insets.getSystemWindowInsetBottom();
             applyLayoutMode();
             return insets;
         });
@@ -540,9 +545,21 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
         mDetails.setVisibility(withDetails ? View.VISIBLE : View.GONE);
         mMiniProgress.setVisibility(mPortrait && !pip ? View.VISIBLE : View.GONE);
+        // Shorts fill the screen: their progress line sits just above the navigation bar, not under it
+        FrameLayout.LayoutParams progressParams = (FrameLayout.LayoutParams) mMiniProgress.getLayoutParams();
+        int progressBottom = shorts ? mNavInset : 0;
+        if (progressParams.bottomMargin != progressBottom) {
+            progressParams.bottomMargin = progressBottom;
+            mMiniProgress.setLayoutParams(progressParams);
+        }
         mRoot.setPadding(0, withDetails ? mStatusInset : 0, 0, 0);
 
         mShorts.setVisibility(shorts ? View.VISIBLE : View.GONE);
+        // A tall (three button) navigation bar would cover the Short's title: lift the overlay above it
+        int shortsBottom = mNavInset > dp(30) ? mNavInset - dp(14) : 0;
+        if (mShorts.getPaddingBottom() != shortsBottom) {
+            mShorts.setPadding(0, 0, 0, shortsBottom);
+        }
         View back = findViewById(R.id.phone_shorts_back);
         FrameLayout.LayoutParams backParams = (FrameLayout.LayoutParams) back.getLayoutParams();
         backParams.topMargin = dp(6) + mStatusInset;
@@ -1491,15 +1508,20 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         long position = mPlayer.getPositionMs();
         int progress = duration > 0 ? (int) Math.max(0, Math.min(1000, position * 1000 / duration)) : 0;
 
-        mMiniProgress.setProgress(progress);
+        setMiniProgress(progress);
         updateLoading();
 
-        if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mPosterUntilFrame && !mAwaitingNewVideo && !mPaging && !mPageAnimating && position > 350
+        boolean settled = !mAwaitingNewVideo && !mPaging && !mPageAnimating;
+        if (mPoster != null && mPoster.getVisibility() == View.VISIBLE && !mPosterUntilFrame && settled
+                && position > (mShortsMode ? 150 : 350)
                 && mPlayer.getPlayWhenReady() && (!mShortsMode || newShortIsPlaying(position))) {
-            mPoster.animate().alpha(0f).setDuration(220).withEndAction(() -> {
+            mPoster.animate().alpha(0f).setDuration(mShortsMode ? 150 : 220).withEndAction(() -> {
                 mPoster.setVisibility(View.GONE);
                 updateLoading();
             }).start();
+        }
+        if (mShortsMode && settled && position > 150 && mPlayer.getPlayWhenReady()) {
+            preloadNextShort(); // this one plays: get the next one ready
         }
 
         if (mControls.getVisibility() == View.VISIBLE && !mIsSeeking) {
@@ -1507,6 +1529,26 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             updateTimeText(position, duration);
         }
         updatePlayButton();
+    }
+
+    private android.animation.ObjectAnimator mProgressAnimator;
+
+    /** Shorts are short: their line glides between updates instead of jumping twice a second */
+    private void setMiniProgress(int progress) {
+        if (mProgressAnimator != null) {
+            mProgressAnimator.cancel();
+            mProgressAnimator = null;
+        }
+        int ahead = progress - mMiniProgress.getProgress();
+        boolean playing = mPlayer != null && mPlayer.getPlayWhenReady();
+        if (mShortsMode && playing && ahead > 0 && ahead < 250) {
+            mProgressAnimator = android.animation.ObjectAnimator.ofInt(mMiniProgress, "progress", progress);
+            mProgressAnimator.setDuration(TICK_MS);
+            mProgressAnimator.setInterpolator(new android.view.animation.LinearInterpolator());
+            mProgressAnimator.start();
+        } else {
+            mMiniProgress.setProgress(progress);
+        }
     }
 
     private void updateTimeText(long position, long duration) {
@@ -1568,6 +1610,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     // TikTok style paging: the current Short follows the finger, the next one comes in right behind it
 
+    private int mNavInset;
     private float mPageStartY;
     private boolean mPaging;
     private int mPageDirection; // 1 next, -1 previous
@@ -1614,7 +1657,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             case MotionEvent.ACTION_CANCEL: {
                 if (!mPaging) {
                     if (event.getActionMasked() == MotionEvent.ACTION_UP) {
-                        togglePlay();
+                        onShortTapped(event.getX(), event.getY());
                     }
                 } else {
                     float dy = event.getRawY() - mPageStartY;
@@ -1628,7 +1671,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     boolean farEnough = Math.abs(dy) > height * 0.18f || Math.abs(velocity) > 900;
                     boolean rightWay = mPageDirection > 0 ? dy < 0 : dy > 0;
                     if (mIncoming != null && farEnough && rightWay) {
-                        commitPage();
+                        commitPage(velocity);
                     } else {
                         settlePage();
                     }
@@ -1649,13 +1692,78 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         return mPlayer != null ? mPlayer.getView() : null;
     }
 
+    // A tap pauses, two quick taps like. The pause waits a moment for a second tap.
+
+    private long mLastShortTap;
+    private final Runnable mShortSingleTap = this::togglePlay;
+
+    private void onShortTapped(float x, float y) {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - mLastShortTap < DOUBLE_TAP_MS) {
+            mHandler.removeCallbacks(mShortSingleTap);
+            likeShort(x, y);
+        } else {
+            mHandler.postDelayed(mShortSingleTap, DOUBLE_TAP_MS);
+        }
+        mLastShortTap = now; // a third quick tap is another like, not a pause
+    }
+
+    /** Double tap: likes the Short (never takes a like back) and pops a thumb where the finger was */
+    private void likeShort(float x, float y) {
+        if (getButtonState(R.id.action_thumbs_up) != PlayerUI.BUTTON_ON) {
+            clickButton(R.id.action_thumbs_up);
+        }
+        mShorts.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK);
+
+        if (!(mShorts instanceof FrameLayout)) {
+            return;
+        }
+        FrameLayout overlay = (FrameLayout) mShorts;
+        int size = dp(92);
+        ImageView thumb = new ImageView(this);
+        thumb.setImageResource(R.drawable.ic_phone_like);
+        thumb.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+        thumb.setAlpha(0f);
+        thumb.setScaleX(0.3f);
+        thumb.setScaleY(0.3f);
+        thumb.setRotation(x < overlay.getWidth() / 2f ? -12 : 12);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(size, size);
+        params.leftMargin = Math.round(x - size / 2f);
+        params.topMargin = Math.round(y - size / 2f);
+        overlay.addView(thumb, params);
+        thumb.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(160)
+                .setInterpolator(new android.view.animation.OvershootInterpolator(2.5f))
+                .withEndAction(() -> thumb.animate().alpha(0f).translationYBy(-dp(40)).scaleX(1.25f).scaleY(1.25f)
+                        .setStartDelay(220).setDuration(260)
+                        .setInterpolator(new android.view.animation.AccelerateInterpolator())
+                        .withEndAction(() -> overlay.removeView(thumb)).start())
+                .start();
+    }
+
+    // The next Short's stream info and picture are fetched while this one plays, so a swipe starts it right away
+
+    private String mPreloadedShortId;
+
+    private void preloadNextShort() {
+        Video next = nextShort();
+        if (next == null || next.videoId == null || next.videoId.equals(mPreloadedShortId)) {
+            return;
+        }
+        String videoId = next.videoId;
+        mPreloadedShortId = videoId;
+        PhoneUi.prefetchThumb(this, next, true);
+        PhoneUi.prefetchThumb(this, PhoneShortsQueue.next(next), true);
+        com.liskovsoft.sharedutils.rx.RxHelper.runAsync(
+                () -> com.liskovsoft.youtubeapi.service.YouTubeMediaItemService.preloadFormatInfo(videoId));
+    }
+
     /**
      * Right after a swipe the player can still report the previous Short's position for a moment. Only uncover the
      * video once its position fits the time since the new Short arrived, i.e. its own frames are really playing.
      */
     private boolean newShortIsPlaying(long position) {
         long shownFor = android.os.SystemClock.uptimeMillis() - mPosterSince;
-        return shownFor > 300 && position <= shownFor + 1500;
+        return shownFor > 200 && position <= shownFor + 1500;
     }
 
     private void preparePage(Video incoming) {
@@ -1681,11 +1789,17 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mIncomingPoster.setTranslationY((mPageDirection > 0 ? height : -height) + offset);
     }
 
-    private void commitPage() {
+    /** @param velocity finger speed at release, pixels per second: a quick flick turns the page quicker */
+    private void commitPage(float velocity) {
         float height = mVideoBox.getHeight();
         float target = mPageDirection > 0 ? -height : height;
         View video = playerView();
-        animatePage(target, 230, () -> {
+        float left = Math.abs(target - mShorts.getTranslationY());
+        long duration = 230;
+        if (Math.abs(velocity) > 1) {
+            duration = Math.max(130, Math.min(230, Math.round(left / Math.abs(velocity) * 1000 * 1.7f)));
+        }
+        animatePage(target, duration, () -> {
             // The new Short's thumbnail now fills the screen and stays until its video plays: it becomes the poster
             ImageView old = mPoster;
             mPoster = mIncomingPoster;
