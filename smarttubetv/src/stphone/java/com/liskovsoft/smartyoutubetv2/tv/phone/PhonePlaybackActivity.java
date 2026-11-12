@@ -1319,9 +1319,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         closePlayer();
     }
 
-    /** Android 11+ (a see-through player window); videos, not Shorts, in the portrait player */
+    /** Android 8+ (a see-through player window); videos, not Shorts, in the portrait player */
     private boolean canMinimizeToCard() {
-        return Build.VERSION.SDK_INT >= 30 && !mShortsMode && mPortrait && !isPip() && !mMinimizing
+        return Build.VERSION.SDK_INT >= 26 && !mShortsMode && mPortrait && !isPip() && !mMinimizing
                 && mVideoBox != null && mVideoBox.getWidth() > 0 && exoPlayer() != null && currentVideo() != null;
     }
 
@@ -2724,8 +2724,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         addAction(actions, R.id.action_chat, R.drawable.ic_phone_comments, getString(R.string.phone_comments));
         addAction(actions, R.id.action_share, R.drawable.ic_phone_share, getString(R.string.phone_share));
         addAction(actions, R.id.action_playlist_add, R.drawable.ic_phone_save, getString(R.string.phone_save));
-        addAction(actions, R.id.phone_action_not_interested, R.drawable.ic_phone_not_interested, getString(R.string.phone_quick_not_interested));
-        addAction(actions, R.id.phone_action_dont_recommend_channel, R.drawable.ic_phone_block_channel, getString(R.string.phone_quick_dont_recommend_short));
+        addDismissGroupAction(actions);
         addAction(actions, R.id.phone_action_download, R.drawable.ic_phone_download, getString(R.string.phone_download));
         addAction(actions, R.id.lb_control_high_quality, R.drawable.ic_phone_settings, getString(R.string.phone_quality));
         addAction(actions, R.id.action_video_speed, R.drawable.ic_phone_speed, getString(R.string.phone_speed));
@@ -2748,6 +2747,92 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 }
             }
         });
+    }
+
+    private void addDismissGroupAction(LinearLayout container) {
+        LinearLayout pill = new LinearLayout(this);
+        pill.setOrientation(LinearLayout.HORIZONTAL);
+        pill.setGravity(Gravity.CENTER_VERTICAL);
+        pill.setBackgroundResource(R.drawable.phone_pill_bg);
+        pill.setTag(R.id.phone_action_dismiss_group);
+
+        TypedValue rippleValue = new TypedValue();
+        boolean hasRipple = getTheme().resolveAttribute(android.R.attr.selectableItemBackground, rippleValue, true);
+
+        // 1. Not Interested segment
+        LinearLayout notInterestedPill = new LinearLayout(this);
+        notInterestedPill.setId(R.id.phone_action_not_interested);
+        notInterestedPill.setOrientation(LinearLayout.HORIZONTAL);
+        notInterestedPill.setGravity(Gravity.CENTER_VERTICAL);
+        notInterestedPill.setPadding(dp(12), 0, dp(10), 0);
+        if (hasRipple) {
+            notInterestedPill.setBackgroundResource(rippleValue.resourceId);
+        }
+
+        ImageView niIcon = new ImageView(this);
+        niIcon.setImageResource(R.drawable.ic_phone_not_interested);
+        niIcon.setImageTintList(ColorStateList.valueOf(getResources().getColor(R.color.phone_text)));
+        notInterestedPill.addView(niIcon, new LinearLayout.LayoutParams(dp(20), dp(20)));
+
+        TextView niText = new TextView(this);
+        niText.setText(R.string.phone_quick_not_interested);
+        niText.setTextColor(getResources().getColor(R.color.phone_text));
+        niText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        niText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        LinearLayout.LayoutParams niTextParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        niTextParams.setMarginStart(dp(8));
+        notInterestedPill.addView(niText, niTextParams);
+
+        notInterestedPill.setOnClickListener(v ->
+                PhoneQuickActions.markNotInterested(this, currentVideo(), () -> presenter().onNextClicked()));
+        notInterestedPill.setOnLongClickListener(v -> {
+            PhoneQuickActions.dontRecommendChannel(this, currentVideo(), () -> presenter().onNextClicked());
+            return true;
+        });
+        pill.addView(notInterestedPill, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // 2. Divider
+        View divider = new View(this);
+        divider.setId(R.id.phone_action_dismiss_divider);
+        divider.setBackgroundColor(getResources().getColor(R.color.phone_divider));
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(dp(1), dp(18));
+        dividerParams.gravity = Gravity.CENTER_VERTICAL;
+        pill.addView(divider, dividerParams);
+
+        // 3. Don't Recommend Channel segment
+        LinearLayout dontRecommendPill = new LinearLayout(this);
+        dontRecommendPill.setId(R.id.phone_action_dont_recommend_channel);
+        dontRecommendPill.setOrientation(LinearLayout.HORIZONTAL);
+        dontRecommendPill.setGravity(Gravity.CENTER_VERTICAL);
+        dontRecommendPill.setPadding(dp(10), 0, dp(12), 0);
+        if (hasRipple) {
+            dontRecommendPill.setBackgroundResource(rippleValue.resourceId);
+        }
+
+        ImageView drcIcon = new ImageView(this);
+        drcIcon.setImageResource(R.drawable.ic_phone_block_channel);
+        drcIcon.setImageTintList(ColorStateList.valueOf(getResources().getColor(R.color.phone_text)));
+        dontRecommendPill.addView(drcIcon, new LinearLayout.LayoutParams(dp(20), dp(20)));
+
+        TextView drcText = new TextView(this);
+        drcText.setText(R.string.phone_quick_dont_recommend_short);
+        drcText.setTextColor(getResources().getColor(R.color.phone_text));
+        drcText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        drcText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        LinearLayout.LayoutParams drcTextParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        drcTextParams.setMarginStart(dp(8));
+        dontRecommendPill.addView(drcText, drcTextParams);
+
+        dontRecommendPill.setOnClickListener(v ->
+                PhoneQuickActions.dontRecommendChannel(this, currentVideo(), () -> presenter().onNextClicked()));
+        pill.addView(dontRecommendPill, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38));
+        params.setMarginStart(dp(4));
+        params.setMarginEnd(dp(4));
+        container.addView(pill, params);
     }
 
     private void addAction(LinearLayout container, int buttonId, int icon, String label) {
@@ -2876,11 +2961,22 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         for (int i = 0; i < actions.getChildCount(); i++) {
             LinearLayout pill = (LinearLayout) actions.getChildAt(i);
             int buttonId = (Integer) pill.getTag();
-            if (buttonId == R.id.phone_action_not_interested) {
-                pill.setVisibility(PhoneQuickActions.isNotInterestedEnabled(this) ? View.VISIBLE : View.GONE);
-                continue;
-            } else if (buttonId == R.id.phone_action_dont_recommend_channel) {
-                pill.setVisibility(PhoneQuickActions.isDontRecommendChannelEnabled(this) ? View.VISIBLE : View.GONE);
+            if (buttonId == R.id.phone_action_dismiss_group) {
+                boolean showNi = PhoneQuickActions.isNotInterestedEnabled(this);
+                boolean showDrc = PhoneQuickActions.isDontRecommendChannelEnabled(this);
+                pill.setVisibility(showNi || showDrc ? View.VISIBLE : View.GONE);
+                View ni = pill.findViewById(R.id.phone_action_not_interested);
+                View drc = pill.findViewById(R.id.phone_action_dont_recommend_channel);
+                View div = pill.findViewById(R.id.phone_action_dismiss_divider);
+                if (ni != null) {
+                    ni.setVisibility(showNi ? View.VISIBLE : View.GONE);
+                }
+                if (drc != null) {
+                    drc.setVisibility(showDrc ? View.VISIBLE : View.GONE);
+                }
+                if (div != null) {
+                    div.setVisibility(showNi && showDrc ? View.VISIBLE : View.GONE);
+                }
                 continue;
             }
             boolean on = getButtonState(buttonId) == PlayerUI.BUTTON_ON;

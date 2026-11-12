@@ -87,60 +87,74 @@
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/phone_quick_not_interested"
+            android:id="@+id/phone_quick_dismiss_group"
             android:layout_width="wrap_content"
             android:layout_height="30dp"
-            android:layout_marginEnd="6dp"
-            android:paddingStart="10dp"
-            android:paddingEnd="12dp"
+            android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="@drawable/phone_pill_bg"
-            android:contentDescription="@string/phone_quick_not_interested">
+            android:background="@drawable/phone_pill_bg">
 
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:src="@drawable/ic_phone_not_interested"
-                android:tint="@color/phone_text_2"
-                android:importantForAccessibility="no"/>
-
-            <TextView
+            <LinearLayout
+                android:id="@+id/phone_quick_not_interested"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="5dp"
-                android:text="@string/phone_quick_not_interested"
-                android:textColor="@color/phone_text_2"
-                android:textSize="12sp"
-                android:fontFamily="sans-serif-medium"
-                android:singleLine="true"/>
-        </LinearLayout>
+                android:layout_height="match_parent"
+                android:paddingStart="10dp"
+                android:paddingEnd="8dp"
+                android:gravity="center_vertical"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="@string/phone_quick_not_interested">
 
-        <LinearLayout
-            android:id="@+id/phone_quick_dont_recommend_channel"
-            android:layout_width="wrap_content"
-            android:layout_height="30dp"
-            android:paddingStart="10dp"
-            android:paddingEnd="12dp"
-            android:gravity="center_vertical"
-            android:background="@drawable/phone_pill_bg"
-            android:contentDescription="@string/phone_quick_dont_recommend_channel">
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_phone_not_interested"
+                    android:tint="@color/phone_text_2"
+                    android:importantForAccessibility="no"/>
 
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:src="@drawable/ic_phone_block_channel"
-                android:tint="@color/phone_text_2"
-                android:importantForAccessibility="no"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:text="@string/phone_quick_not_interested"
+                    android:textColor="@color/phone_text_2"
+                    android:textSize="12sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:singleLine="true"/>
+            </LinearLayout>
 
-            <TextView
+            <View
+                android:id="@+id/phone_quick_dismiss_divider"
+                android:layout_width="1dp"
+                android:layout_height="14dp"
+                android:background="@color/phone_divider"/>
+
+            <LinearLayout
+                android:id="@+id/phone_quick_dont_recommend_channel"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="5dp"
-                android:text="@string/phone_quick_dont_recommend_short"
-                android:textColor="@color/phone_text_2"
-                android:textSize="12sp"
-                android:fontFamily="sans-serif-medium"
-                android:singleLine="true"/>
+                android:layout_height="match_parent"
+                android:paddingStart="8dp"
+                android:paddingEnd="10dp"
+                android:gravity="center_vertical"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="@string/phone_quick_dont_recommend_channel">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_phone_block_channel"
+                    android:tint="@color/phone_text_2"
+                    android:importantForAccessibility="no"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:text="@string/phone_quick_dont_recommend_short"
+                    android:textColor="@color/phone_text_2"
+                    android:textSize="12sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:singleLine="true"/>
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 </HorizontalScrollView>

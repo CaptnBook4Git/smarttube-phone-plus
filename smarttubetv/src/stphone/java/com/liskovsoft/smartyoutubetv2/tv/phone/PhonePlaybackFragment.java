@@ -174,7 +174,7 @@ public class PhonePlaybackFragment extends PlaybackFragment {
 
             @Override
             public void surfaceDestroyed(android.view.SurfaceHolder holder) {
-                if (!PhoneMiniPlayer.ownsSurface()) {
+                if (!PhoneMiniPlayer.ownsSurface() && !PhoneMiniPlayer.isActive()) {
                     callback.surfaceDestroyed(holder);
                 }
             }

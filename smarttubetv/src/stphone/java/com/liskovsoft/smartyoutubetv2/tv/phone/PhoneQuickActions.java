@@ -373,6 +373,8 @@ public final class PhoneQuickActions {
         View likeBtn = bar.findViewById(R.id.phone_quick_like);
         View dislikeBtn = bar.findViewById(R.id.phone_quick_dislike);
         View removeHistoryBtn = bar.findViewById(R.id.phone_quick_remove_history);
+        View dismissGroup = bar.findViewById(R.id.phone_quick_dismiss_group);
+        View dismissDivider = bar.findViewById(R.id.phone_quick_dismiss_divider);
         View notInterestedBtn = bar.findViewById(R.id.phone_quick_not_interested);
         View dontRecommendBtn = bar.findViewById(R.id.phone_quick_dont_recommend_channel);
 
@@ -409,6 +411,11 @@ public final class PhoneQuickActions {
         }
         updateRatingIcons.run();
 
+        boolean hasAuthor = !TextUtils.isEmpty(video.getAuthor())
+                || !TextUtils.isEmpty(video.channelId)
+                || (video.mediaItem != null && (video.mediaItem.getFeedbackToken2() != null || video.mediaItem.getFeedbackEndpoint() != null));
+        boolean showDontRecommendFinal = showDontRecommend && hasAuthor;
+
         if (notInterestedBtn != null) {
             notInterestedBtn.setVisibility(showNotInterested ? View.VISIBLE : View.GONE);
             notInterestedBtn.setOnClickListener(v -> markNotInterested(context, video, onRemoveVideo));
@@ -419,12 +426,17 @@ public final class PhoneQuickActions {
         }
 
         if (dontRecommendBtn != null) {
-            boolean hasAuthor = !TextUtils.isEmpty(video.getAuthor())
-                    || !TextUtils.isEmpty(video.channelId)
-                    || (video.mediaItem != null && (video.mediaItem.getFeedbackToken2() != null || video.mediaItem.getFeedbackEndpoint() != null));
-            dontRecommendBtn.setVisibility(showDontRecommend && hasAuthor ? View.VISIBLE : View.GONE);
+            dontRecommendBtn.setVisibility(showDontRecommendFinal ? View.VISIBLE : View.GONE);
             dontRecommendBtn.setOnClickListener(v ->
                     dontRecommendChannel(context, video, onRemoveAuthor != null ? onRemoveAuthor : onRemoveVideo));
+        }
+
+        if (dismissDivider != null) {
+            dismissDivider.setVisibility(showNotInterested && showDontRecommendFinal ? View.VISIBLE : View.GONE);
+        }
+
+        if (dismissGroup != null) {
+            dismissGroup.setVisibility(showNotInterested || showDontRecommendFinal ? View.VISIBLE : View.GONE);
         }
     }
 
