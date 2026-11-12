@@ -1689,12 +1689,17 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
         options.add(UiOptionItem.from(
                 PhoneUi.getLongPressSpeedTitle(this),
-                item -> PhoneUi.openLongPressSpeedSettings(this, null)
+                item -> PhoneUi.openLongPressSpeedSettings(this, this::openPlusSettings)
+        ));
+
+        options.add(UiOptionItem.from(
+                PhoneUi.getCardPreviewTypeTitle(this),
+                item -> PhoneUi.openCardPreviewSettings(this, this::openPlusSettings)
         ));
 
         options.add(UiOptionItem.from(
                 PhoneUi.getCardPreviewRandomStartTitle(this),
-                item -> PhoneUi.openCardPreviewRandomStartSettings(this, null)
+                item -> PhoneUi.openCardPreviewRandomStartSettings(this, this::openPlusSettings)
         ));
 
         for (OptionItem opt : options) {

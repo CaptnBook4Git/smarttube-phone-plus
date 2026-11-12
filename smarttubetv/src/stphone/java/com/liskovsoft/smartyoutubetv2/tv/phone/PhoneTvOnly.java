@@ -21,7 +21,6 @@ final class PhoneTvOnly {
             R.string.key_remapping,              // General: buttons of the remote
             R.string.player_ok_button_behavior,  // Player: the remote's OK button
             R.string.various_buttons,            // Interface: buttons above the TV's video grid
-            R.string.card_preview,               // Interface: animated previews on a focused TV card
             R.string.card_text_scroll_factor,    // Interface: title scrolling on a focused TV card
             R.string.video_grid_scale,           // Interface: size of the TV's video grid
     };

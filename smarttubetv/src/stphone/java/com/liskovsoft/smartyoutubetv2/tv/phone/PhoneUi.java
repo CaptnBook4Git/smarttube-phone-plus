@@ -112,6 +112,72 @@ final class PhoneUi {
         dialog.showDialog(context.getString(R.string.phone_speed_hold_title));
     }
 
+    public static String getCardPreviewTypeTitle(Context context) {
+        if (context == null) {
+            return "Kartenvorschau";
+        }
+        int type = com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.instance(context).getCardPreviewType();
+        int valRes;
+        switch (type) {
+            case com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.CARD_PREVIEW_MUTED:
+                valRes = R.string.card_preview_muted;
+                break;
+            case com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.CARD_PREVIEW_FULL:
+                valRes = R.string.card_preview_full;
+                break;
+            default:
+                valRes = R.string.option_disabled;
+                break;
+        }
+        return context.getString(R.string.card_preview) + ": " + context.getString(valRes);
+    }
+
+    public static void openCardPreviewSettings(Context context, Runnable onChanged) {
+        if (context == null) {
+            return;
+        }
+        com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter dialog =
+                com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter.instance(context);
+        com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData uiData =
+                com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.instance(context);
+        int current = uiData.getCardPreviewType();
+
+        java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionItem> opts = new java.util.ArrayList<>();
+
+        opts.add(com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem.from(
+                context.getString(R.string.card_preview_muted) + " (Empfohlen)",
+                item -> {
+                    uiData.setCardPreviewType(com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.CARD_PREVIEW_MUTED);
+                    dialog.closeDialog();
+                    if (onChanged != null) onChanged.run();
+                },
+                current == com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.CARD_PREVIEW_MUTED
+        ));
+
+        opts.add(com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem.from(
+                context.getString(R.string.card_preview_full),
+                item -> {
+                    uiData.setCardPreviewType(com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.CARD_PREVIEW_FULL);
+                    dialog.closeDialog();
+                    if (onChanged != null) onChanged.run();
+                },
+                current == com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.CARD_PREVIEW_FULL
+        ));
+
+        opts.add(com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem.from(
+                context.getString(R.string.option_disabled),
+                item -> {
+                    uiData.setCardPreviewType(com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.CARD_PREVIEW_DISABLED);
+                    dialog.closeDialog();
+                    if (onChanged != null) onChanged.run();
+                },
+                current == com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.CARD_PREVIEW_DISABLED
+        ));
+
+        dialog.appendRadioCategory(context.getString(R.string.card_preview), opts);
+        dialog.showDialog(context.getString(R.string.card_preview));
+    }
+
     public static boolean isCardPreviewRandomStart(Context context) {
         if (context == null) {
             return false;
