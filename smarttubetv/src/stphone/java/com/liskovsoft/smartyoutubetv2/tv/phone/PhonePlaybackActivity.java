@@ -37,7 +37,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
 import com.liskovsoft.smartyoutubetv2.common.app.models.data.VideoGroup;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.manager.PlayerUI;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionItem;
 import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.SeekBarSegment;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem;
+import com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter;
 import com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter;
 import com.liskovsoft.smartyoutubetv2.tv.R;
 import com.liskovsoft.smartyoutubetv2.tv.phone.widget.PhoneProgressBar;
@@ -45,7 +48,11 @@ import com.liskovsoft.smartyoutubetv2.tv.phone.widget.PhoneSeekBar;
 import com.liskovsoft.smartyoutubetv2.tv.phone.widget.RatioFrameLayout;
 import com.liskovsoft.smartyoutubetv2.tv.ui.playback.PlaybackActivity;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Phone player built around SmartTube's playback engine:
@@ -73,9 +80,12 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private ImageView mFullscreenButton;
     private TextView mControlsTitle;
     private TextView mTime;
+    private TextView mControlsChapter;
     private PhoneSeekBar mSeek;
     private PhoneProgressBar mMiniProgress;
     private List<SeekBarSegment> mSeekBarSegments;
+    private List<Video> mChapters;
+    private boolean mHasChapterSegments;
     private View mHeader;
     private View mShorts;
     private View mShortsPaused;
@@ -247,6 +257,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mFullscreenButton = findViewById(R.id.phone_ctl_fullscreen);
         mControlsTitle = findViewById(R.id.phone_ctl_title);
         mTime = findViewById(R.id.phone_ctl_time);
+        mControlsChapter = findViewById(R.id.phone_ctl_chapter);
         mSeek = findViewById(R.id.phone_ctl_seek);
         mMiniProgress = findViewById(R.id.phone_mini_progress);
         if (mSeekBarSegments != null) {
@@ -1802,6 +1813,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             scheduleAutoHide();
         });
         mFullscreenButton.setOnClickListener(v -> toggleFullscreen());
+        if (mControlsChapter != null) {
+            mControlsChapter.setOnClickListener(v -> showChaptersDialog());
+        }
         View stopBtn = findViewById(R.id.phone_ctl_stop);
         if (stopBtn != null) {
             stopBtn.setOnClickListener(v -> closePlayer());
@@ -1821,7 +1835,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser && mPlayer != null) {
                     long duration = mPlayer.getDurationMs();
-                    updateTimeText(duration * progress / 1000, duration);
+                    long targetPos = duration * progress / 1000;
+                    updateTimeText(targetPos, duration);
+                    updateControlsChapter(targetPos);
                 }
             }
 
@@ -1845,6 +1861,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     if (duration > 0) {
                         mPlayer.setPositionMs(duration * seekBar.getProgress() / 1000);
                     }
+                    updateControlsChapter(mPlayer.getPositionMs());
                 }
                 scheduleAutoHide();
             }
@@ -1927,6 +1944,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (mControls.getVisibility() == View.VISIBLE && !mIsSeeking) {
             mSeek.setProgress(progress);
             updateTimeText(position, duration);
+            updateControlsChapter(position);
+        }
+        if (!mHasChapterSegments && mChapters != null && duration > 0) {
+            updateSeekBarSegmentsFromChapters();
         }
         updatePlayButton();
     }
@@ -2724,6 +2745,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         addAction(actions, R.id.action_chat, R.drawable.ic_phone_comments, getString(R.string.phone_comments));
         addAction(actions, R.id.action_share, R.drawable.ic_phone_share, getString(R.string.phone_share));
         addAction(actions, R.id.action_playlist_add, R.drawable.ic_phone_save, getString(R.string.phone_save));
+        addAction(actions, R.id.phone_action_chapters, R.drawable.ic_phone_chapters, getString(R.string.chapters));
         addDismissGroupAction(actions);
         addAction(actions, R.id.phone_action_download, R.drawable.ic_phone_download, getString(R.string.phone_download));
         addAction(actions, R.id.lb_control_high_quality, R.drawable.ic_phone_settings, getString(R.string.phone_quality));
@@ -2868,6 +2890,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 openSpeedMenu();
             } else if (buttonId == R.id.phone_action_download) {
                 PhoneDownloads.showOptions(this, currentVideo());
+            } else if (buttonId == R.id.phone_action_chapters) {
+                showChaptersDialog();
             } else if (buttonId == R.id.phone_action_not_interested) {
                 PhoneQuickActions.markNotInterested(this, currentVideo(), () -> presenter().onNextClicked());
             } else if (buttonId == R.id.phone_action_dont_recommend_channel) {
@@ -2958,9 +2982,19 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         } else if (disliked) {
             PhoneQuickActions.setRating(video, PhoneQuickActions.RATING_DISLIKE);
         }
+        if (mChapters == null && video != null && !TextUtils.isEmpty(video.description)) {
+            List<Video> parsed = parseChaptersFromDescription(video.description);
+            if (parsed != null && !parsed.isEmpty()) {
+                setChapters(parsed);
+            }
+        }
         for (int i = 0; i < actions.getChildCount(); i++) {
             LinearLayout pill = (LinearLayout) actions.getChildAt(i);
             int buttonId = (Integer) pill.getTag();
+            if (buttonId == R.id.phone_action_chapters) {
+                pill.setVisibility(hasChapters() ? View.VISIBLE : View.GONE);
+                continue;
+            }
             if (buttonId == R.id.phone_action_dismiss_group) {
                 boolean showNi = PhoneQuickActions.isNotInterestedEnabled(this);
                 boolean showDrc = PhoneQuickActions.isDontRecommendChannelEnabled(this);
@@ -3052,11 +3086,19 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
         mDescriptionExpanded = false;
         mSeekBarSegments = null;
+        mHasChapterSegments = false;
         if (mSeek != null) {
             mSeek.setSegments(null);
         }
         if (mMiniProgress != null) {
             mMiniProgress.setSegments(null);
+        }
+        setChapters(null);
+        if (video != null && !TextUtils.isEmpty(video.description)) {
+            List<Video> parsed = parseChaptersFromDescription(video.description);
+            if (parsed != null && !parsed.isEmpty()) {
+                setChapters(parsed);
+            }
         }
         if (mAdapter != null && video != null) {
             mAdapter.setExcludedVideoId(video.videoId);
@@ -3072,8 +3114,12 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     @Override
     public void onPlayerSuggestions(VideoGroup group) {
-        if (mAdapter == null || group == null || group.isChapters()) {
-            return; // chapters stay out of the list
+        if (group != null && group.isChapters()) {
+            setChapters(group.getVideos());
+            return;
+        }
+        if (mAdapter == null || group == null) {
+            return;
         }
         Video playing = currentVideo();
         mAdapter.setExcludedVideoId(playing != null ? playing.videoId : null);
@@ -3093,6 +3139,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             mAdapter.clear();
         }
         mLastScrollEndVideo = null;
+        setChapters(null);
     }
 
     @Override
@@ -3128,6 +3175,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     @Override
     public void onPlayerSeekBarSegments(List<SeekBarSegment> segments) {
         mSeekBarSegments = segments;
+        mHasChapterSegments = (segments != null && !segments.isEmpty());
         if (mSeek != null) {
             mSeek.setSegments(segments);
         }
@@ -3161,6 +3209,173 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             mLastScrollEndVideo = lastVideo;
             presenter().onScrollEnd(lastVideo);
         }
+    }
+
+    // endregion
+
+    // region Video Chapters
+
+    private boolean hasChapters() {
+        return mChapters != null && !mChapters.isEmpty();
+    }
+
+    private void setChapters(List<Video> chapters) {
+        mChapters = (chapters != null && !chapters.isEmpty()) ? new ArrayList<>(chapters) : null;
+        if (mHeader != null) {
+            LinearLayout actions = mHeader.findViewById(R.id.phone_player_actions);
+            if (actions != null) {
+                View pill = actions.findViewWithTag(R.id.phone_action_chapters);
+                if (pill != null) {
+                    pill.setVisibility(hasChapters() ? View.VISIBLE : View.GONE);
+                }
+            }
+        }
+        if (mPlayer != null) {
+            updateControlsChapter(mPlayer.getPositionMs());
+        } else {
+            updateControlsChapter(0);
+        }
+        updateSeekBarSegmentsFromChapters();
+    }
+
+    private Video getCurrentChapter(long positionMs) {
+        if (mChapters == null || mChapters.isEmpty()) {
+            return null;
+        }
+        Video current = null;
+        for (Video chapter : mChapters) {
+            if (chapter.startTimeMs > positionMs) {
+                break;
+            }
+            current = chapter;
+        }
+        return current;
+    }
+
+    private void updateControlsChapter(long positionMs) {
+        if (mControlsChapter == null) {
+            return;
+        }
+        if (mChapters == null || mChapters.isEmpty()) {
+            mControlsChapter.setVisibility(View.GONE);
+            return;
+        }
+        Video active = getCurrentChapter(positionMs);
+        if (active != null && !TextUtils.isEmpty(active.getTitle())) {
+            mControlsChapter.setText(" • " + active.getTitle() + " ›");
+            mControlsChapter.setVisibility(View.VISIBLE);
+        } else {
+            mControlsChapter.setVisibility(View.GONE);
+        }
+    }
+
+    private void updateSeekBarSegmentsFromChapters() {
+        if (mSeekBarSegments != null || mChapters == null || mPlayer == null) {
+            return;
+        }
+        long duration = mPlayer.getDurationMs();
+        if (duration <= 0) {
+            return;
+        }
+        List<SeekBarSegment> segments = new ArrayList<>();
+        long markLength = Math.max(100L, duration / 10000);
+        for (Video ch : mChapters) {
+            if (ch.startTimeMs <= 0) {
+                continue;
+            }
+            SeekBarSegment seg = new SeekBarSegment();
+            seg.startProgress = (float) ch.startTimeMs / duration;
+            seg.endProgress = (float) Math.min(duration, ch.startTimeMs + markLength) / duration;
+            seg.color = Color.BLACK;
+            segments.add(seg);
+        }
+        if (!segments.isEmpty()) {
+            mHasChapterSegments = true;
+            if (mSeek != null) {
+                mSeek.setSegments(segments);
+            }
+            if (mMiniProgress != null) {
+                mMiniProgress.setSegments(segments);
+            }
+        }
+    }
+
+    private void showChaptersDialog() {
+        if (mChapters == null || mChapters.isEmpty()) {
+            return;
+        }
+        AppDialogPresenter dialog = AppDialogPresenter.instance(this);
+        List<OptionItem> opts = new ArrayList<>();
+        long currentPos = mPlayer != null ? mPlayer.getPositionMs() : 0;
+        Video active = getCurrentChapter(currentPos);
+
+        for (Video ch : mChapters) {
+            final long seekPos = ch.startTimeMs;
+            boolean isSelected = (active != null && ch == active);
+            String title = !TextUtils.isEmpty(ch.getTitle()) ? ch.getTitle() : getString(R.string.chapters);
+            String timeText = ch.badge != null ? ch.badge : formatTime(seekPos);
+
+            opts.add(UiOptionItem.from(
+                    title,
+                    timeText,
+                    item -> {
+                        if (mPlayer != null) {
+                            mPlayer.setPositionMs(seekPos);
+                        }
+                        dialog.closeDialog();
+                        showPhoneControls(true);
+                    },
+                    isSelected
+            ));
+        }
+
+        dialog.appendRadioCategory(getString(R.string.chapters), opts);
+        dialog.showDialog(getString(R.string.chapters));
+    }
+
+    private static final Pattern CHAPTER_LINE_PATTERN = Pattern.compile(
+            "(?:^|\\n)\\s*(?:(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2}))\\s*[-–—:]?\\s*([^\\r\\n]+)"
+    );
+
+    private List<Video> parseChaptersFromDescription(String desc) {
+        if (TextUtils.isEmpty(desc)) {
+            return null;
+        }
+        Matcher matcher = CHAPTER_LINE_PATTERN.matcher(desc);
+        List<Video> list = new ArrayList<>();
+        long lastTimeMs = -1;
+        while (matcher.find()) {
+            String hStr = matcher.group(1);
+            String mStr = matcher.group(2);
+            String sStr = matcher.group(3);
+            String title = matcher.group(4);
+            if (mStr == null || sStr == null || title == null) {
+                continue;
+            }
+            try {
+                int hours = hStr != null ? Integer.parseInt(hStr) : 0;
+                int minutes = Integer.parseInt(mStr);
+                int seconds = Integer.parseInt(sStr);
+                long timeMs = (hours * 3600L + minutes * 60L + seconds) * 1000L;
+                if (timeMs <= lastTimeMs) {
+                    continue;
+                }
+                lastTimeMs = timeMs;
+                Video ch = new Video();
+                ch.isChapter = true;
+                ch.title = title.trim();
+                ch.startTimeMs = timeMs;
+                ch.badge = hours > 0
+                        ? String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+                        : String.format(Locale.US, "%d:%02d", minutes, seconds);
+                list.add(ch);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        if (list.size() >= 2 && list.get(0).startTimeMs <= 60_000L) {
+            return list;
+        }
+        return null;
     }
 
     // endregion

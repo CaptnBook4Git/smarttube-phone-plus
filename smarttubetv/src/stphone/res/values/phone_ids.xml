@@ -7,4 +7,6 @@
     <item name="phone_action_dont_recommend_channel" type="id" />
     <item name="phone_action_dismiss_group" type="id" />
     <item name="phone_action_dismiss_divider" type="id" />
+    <item name="phone_action_chapters" type="id" />
+    <item name="phone_ctl_chapter" type="id" />
 </resources>
