@@ -548,15 +548,13 @@ final class PhoneMiniPlayer {
                         }
                     }
                     if (mDragging) {
-                        setTranslationX(mStartX + event.getRawX() - mDownX);
-                        setTranslationY(mStartY + event.getRawY() - mDownY);
-                        // Below its resting line the card fades: letting go there closes it
-                        setAlpha(1f - 0.6f * Math.min(1f, pastBottom() / (getHeight() * 0.8f)));
+                        follow(event);
                     }
                     return true;
                 case MotionEvent.ACTION_UP:
                     track(event);
                     if (mDragging) {
+                        follow(event); // where the finger lifted, not where the last move was reported
                         release();
                     } else {
                         expand();
@@ -594,6 +592,13 @@ final class PhoneMiniPlayer {
             }
             mVelocity = VelocityTracker.obtain();
             track(event);
+        }
+
+        private void follow(MotionEvent event) {
+            setTranslationX(mStartX + event.getRawX() - mDownX);
+            setTranslationY(mStartY + event.getRawY() - mDownY);
+            // Below its resting line the card fades: letting go there closes it
+            setAlpha(1f - 0.6f * Math.min(1f, pastBottom() / (getHeight() * 0.8f)));
         }
 
         private void endTouch() {
