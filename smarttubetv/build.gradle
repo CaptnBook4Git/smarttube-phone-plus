@@ -282,6 +282,8 @@ dependencies {
     // Phone UI: channel picture lookups through SmartTube's OkHttp client
     stphoneImplementation 'com.squareup.okhttp3:okhttp:' + okhttpVersion
     stphoneImplementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0' // pull to refresh on Home
+    // New-video notifications: a WorkManager worker needs ListenableFuture to compile (already in the app through :common)
+    stphoneImplementation 'com.google.guava:guava:' + guavaVersion
 
     implementation 'androidx.work:work-runtime:' + workVersion
 }
