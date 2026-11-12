@@ -102,16 +102,19 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private boolean mIsSpeedBoostActive;
     private float mOriginalPlaybackSpeed = 1.0f;
     private boolean mExpandDragging;
+    private static final int SPEED_BOOST_TIMEOUT_MS = 600;
     private TextView mSpeedPill;
 
     private final Runnable mSpeedBoostRunnable = () -> {
-        if (mPlayer == null || !mPlayer.getPlayWhenReady() || isFinishing() || isDestroyed()) {
+        if (mPlayer == null || !mPlayer.getPlayWhenReady() || isFinishing() || isDestroyed()
+                || (mControls != null && mControls.getVisibility() == View.VISIBLE)) {
             return;
         }
-        mIsSpeedBoostActive = true;
-        mOriginalPlaybackSpeed = mPlayer.getSpeed();
+        float current = mPlayer.getSpeed();
+        mOriginalPlaybackSpeed = (current > 0f && current <= 2.0f) ? current : 1.0f;
         float targetSpeed = PhoneUi.getLongPressSpeed(this);
-        mPlayer.setSpeed(targetSpeed);
+        mIsSpeedBoostActive = true;
+        mPlayer.setSpeedTemporary(targetSpeed);
         try {
             mVideoBox.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
         } catch (Throwable ignored) {
@@ -353,6 +356,14 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             sInstance = null;
         }
         cancelPlaybackNotification();
+        mHandler.removeCallbacks(mSpeedBoostRunnable);
+        if (mIsSpeedBoostActive) {
+            mIsSpeedBoostActive = false;
+            if (mPlayer != null) {
+                mPlayer.setSpeedTemporary(mOriginalPlaybackSpeed > 0 ? mOriginalPlaybackSpeed : 1.0f);
+            }
+            hideSpeedBoostHud();
+        }
         if (mPlayPauseReceiver != null) {
             try {
                 unregisterReceiver(mPlayPauseReceiver);
@@ -922,6 +933,15 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private boolean routeTouch(MotionEvent event) {
 
         if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            if (mIsSpeedBoostActive) {
+                mIsSpeedBoostActive = false;
+                if (mPlayer != null) {
+                    mPlayer.setSpeedTemporary(mOriginalPlaybackSpeed > 0 ? mOriginalPlaybackSpeed : 1.0f);
+                }
+                hideSpeedBoostHud();
+            }
+            mHandler.removeCallbacks(mSpeedBoostRunnable);
+
             Rect box = new Rect();
             mVideoBox.getGlobalVisibleRect(box);
             boolean onVideo = box.contains((int) event.getRawX(), (int) event.getRawY());
@@ -935,9 +955,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 mDragStartX = event.getRawX();
                 mDragStartTime = event.getEventTime();
                 mExpandDragging = false;
-                mHandler.removeCallbacks(mSpeedBoostRunnable);
                 if (mPlayer != null && mPlayer.getPlayWhenReady() && !mShortsMode) {
-                    mHandler.postDelayed(mSpeedBoostRunnable, android.view.ViewConfiguration.getLongPressTimeout());
+                    mHandler.postDelayed(mSpeedBoostRunnable, SPEED_BOOST_TIMEOUT_MS);
                 }
             }
         }
@@ -954,6 +973,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             int slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop();
             if (dx > slop || Math.abs(dy) > slop) {
                 mHandler.removeCallbacks(mSpeedBoostRunnable);
+                if (mIsSpeedBoostActive) {
+                    mIsSpeedBoostActive = false;
+                    if (mPlayer != null) {
+                        mPlayer.setSpeedTemporary(mOriginalPlaybackSpeed > 0 ? mOriginalPlaybackSpeed : 1.0f);
+                    }
+                    hideSpeedBoostHud();
+                }
             }
             if (mTouchStartedOnVideo && !isTrueFullscreen && !mShortsMode && !mShrinkDragging) {
                 if (dy < -slop * 1.5f && Math.abs(dy) > dx * 1.3f) {
@@ -1017,7 +1043,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             if (mIsSpeedBoostActive) {
                 mIsSpeedBoostActive = false;
                 if (mPlayer != null) {
-                    mPlayer.setSpeed(mOriginalPlaybackSpeed);
+                    mPlayer.setSpeedTemporary(mOriginalPlaybackSpeed > 0 ? mOriginalPlaybackSpeed : 1.0f);
                 }
                 hideSpeedBoostHud();
                 mRouteTouchToPlayer = null;
@@ -1043,6 +1069,17 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     }
                 }
                 return true;
+            }
+
+            // Direct tap on bare video toggles phone controls reliably
+            float dx = Math.abs(event.getRawX() - mDragStartX);
+            float dy = Math.abs(event.getRawY() - mDragStartY);
+            int slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop();
+            long dt = event.getEventTime() - mDragStartTime;
+            if (action == MotionEvent.ACTION_UP && mTouchStartedOnVideo && !mShrinkDragging && dx <= slop && dy <= slop && dt < 450) {
+                if (mControls != null && mControls.getVisibility() != View.VISIBLE) {
+                    showPhoneControls(true);
+                }
             }
             mRouteTouchToPlayer = null;
             mTouchStartedOnVideo = false;

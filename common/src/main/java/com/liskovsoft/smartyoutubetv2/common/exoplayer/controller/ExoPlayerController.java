@@ -480,6 +480,16 @@ public class ExoPlayerController implements Player.EventListener, LiveStateProvi
         }
     }
 
+    public void setSpeedTemporary(float speed) {
+        if (mPlayer != null && speed > 0) {
+            if (PlayerTweaksData.instance(mContext).isAudioTimeStretchingEnabled()) {
+                mPlayer.setPlaybackParameters(new PlaybackParameters(speed, mPlayer.getPlaybackParameters().pitch));
+            } else {
+                mPlayer.setPlaybackParameters(new PlaybackParameters(speed, speed));
+            }
+        }
+    }
+
     public float getPitch() {
         if (mPlayer != null) {
             return mPlayer.getPlaybackParameters().pitch;

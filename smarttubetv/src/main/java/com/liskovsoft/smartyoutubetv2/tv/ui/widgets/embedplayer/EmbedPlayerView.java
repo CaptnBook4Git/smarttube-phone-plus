@@ -412,6 +412,13 @@ public class EmbedPlayerView extends PlayerView implements PlaybackView {
     }
 
     @Override
+    public void setSpeedTemporary(float speed) {
+        if (mExoPlayerController != null) {
+            mExoPlayerController.setSpeedTemporary(speed);
+        }
+    }
+
+    @Override
     public float getSpeed() {
         if (mExoPlayerController == null) {
             return 1f;

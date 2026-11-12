@@ -37,6 +37,7 @@ public interface PlayerEngine extends PlayerConstants {
     boolean isInPIPMode();
     boolean containsMedia();
     void setSpeed(float speed);
+    void setSpeedTemporary(float speed);
     float getSpeed();
     void setPitch(float pitch);
     float getPitch();

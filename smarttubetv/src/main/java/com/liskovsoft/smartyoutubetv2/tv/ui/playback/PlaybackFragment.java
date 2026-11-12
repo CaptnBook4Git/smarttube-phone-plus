@@ -1101,6 +1101,13 @@ public class PlaybackFragment extends SeekModePlaybackFragment implements Playba
     }
 
     @Override
+    public void setSpeedTemporary(float speed) {
+        if (mExoPlayerController != null) {
+            mExoPlayerController.setSpeedTemporary(speed);
+        }
+    }
+
+    @Override
     public float getPitch() {
         return mExoPlayerController.getPitch();
     }
