@@ -995,36 +995,90 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         hideMessage();
         mSettingsGroup = group;
-        // Phone only setting on top of SmartTube's settings
-        java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items = new ArrayList<>();
-        int appearance = PhoneTheme.get(this);
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                getString(PhoneTheme.titleRes(appearance)), () -> {
-                    PhoneTheme.set(this, PhoneTheme.next(appearance));
-                    recreate();
-                }, R.drawable.ic_phone_brightness));
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                PhoneIncognito.settingsTitle(this), () -> {
-                    PhoneIncognito.toggle(this);
-                    refreshIncognito();
-                    refreshSettingsRows();
-                }, R.drawable.ic_phone_incognito));
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                getString(R.string.phone_open_links), this::openLinkSettings, R.drawable.ic_phone_link));
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                PhoneNotifications.settingsTitle(this), () -> PhoneNotifications.open(this), R.drawable.ic_phone_bell));
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                PhoneUpdater.settingsTitle(this), () -> PhoneUpdater.open(this), R.drawable.ic_phone_update));
-        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
-                getString(R.string.phone_about_title), () -> PhoneAbout.show(this), R.drawable.ic_phone_info));
+        mAdapter.setSettings(groupedSettings(group));
+    }
+
+    /**
+     * The Settings list in groups with headings: SmartTube's settings pages (found by their titles) next to the
+     * phone's own rows. TV-only pages are left out, and SmartTube's About page too (its updater and voice search
+     * bridge aren't part of this app; "About StreamTube" is the phone's). A page this list doesn't know (added
+     * upstream later) lands in a last group, so nothing gets lost.
+     */
+    private java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> groupedSettings(SettingsGroup group) {
+        java.util.Map<String, com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> engine = new java.util.LinkedHashMap<>();
         if (group.getItems() != null) {
             for (com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem item : group.getItems()) {
-                if (!PhoneTvOnly.isSetting(this, item.title)) {
-                    items.add(item);
+                if (item != null && item.title != null && !PhoneTvOnly.isSetting(this, item.title)) {
+                    engine.put(item.title, item);
                 }
             }
         }
-        mAdapter.setSettings(items);
+        engine.remove(getString(R.string.settings_about));
+
+        java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items = new ArrayList<>();
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_account)));
+        addEngineSetting(items, engine, R.string.settings_accounts);
+        items.add(PhoneSetting.toggle(getString(R.string.phone_incognito), PhoneIncognito.isOn(this), R.drawable.ic_phone_incognito, () -> {
+            PhoneIncognito.toggle(this);
+            refreshIncognito();
+            refreshSettingsRows();
+        }));
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_appearance)));
+        int appearance = PhoneTheme.get(this);
+        items.add(PhoneSetting.value(getString(R.string.phone_theme), getString(PhoneTheme.valueRes(appearance)),
+                R.drawable.ic_phone_brightness, () -> {
+                    PhoneTheme.set(this, PhoneTheme.next(appearance));
+                    recreate();
+                }));
+        addEngineSetting(items, engine, R.string.settings_main_ui);
+        addEngineSetting(items, engine, R.string.settings_language_country);
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_playback)));
+        addEngineSetting(items, engine, R.string.settings_player);
+        addEngineSetting(items, engine, R.string.subtitle_category_title);
+        addEngineSetting(items, engine, R.string.content_block_provider);
+        addEngineSetting(items, engine, R.string.dearrow_provider);
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_general)));
+        addEngineSetting(items, engine, R.string.settings_general);
+        addEngineSetting(items, engine, R.string.settings_search);
+        items.add(PhoneSetting.row(getString(R.string.phone_open_links), R.drawable.ic_phone_link, this::openLinkSettings));
+        items.add(PhoneSetting.value(getString(R.string.phone_notifications),
+                getString(PhoneNotifications.isEnabled(this) ? R.string.phone_value_on : R.string.phone_value_off),
+                R.drawable.ic_phone_bell, () -> PhoneNotifications.open(this)));
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_backup)));
+        addEngineSetting(items, engine, R.string.app_backup_restore);
+
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_app)));
+        items.add(PhoneSetting.row(PhoneUpdater.settingsTitle(this), R.drawable.ic_phone_update, () -> PhoneUpdater.open(this)));
+        items.add(PhoneSetting.row(getString(R.string.phone_about_title), R.drawable.ic_phone_info, () -> PhoneAbout.show(this)));
+
+        if (!engine.isEmpty()) {
+            items.add(PhoneSetting.header(getString(R.string.phone_settings_more)));
+            items.addAll(engine.values());
+        }
+
+        // A heading with no rows under it (its pages are missing in this SmartTube version) is dropped
+        for (int i = items.size() - 1; i >= 0; i--) {
+            boolean header = items.get(i) instanceof PhoneSetting && ((PhoneSetting) items.get(i)).header;
+            boolean lastOrBeforeHeader = i == items.size() - 1
+                    || (items.get(i + 1) instanceof PhoneSetting && ((PhoneSetting) items.get(i + 1)).header);
+            if (header && lastOrBeforeHeader) {
+                items.remove(i);
+            }
+        }
+        return items;
+    }
+
+    private void addEngineSetting(java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> items,
+            java.util.Map<String, com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> engine, int titleRes) {
+        com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem item = engine.remove(getString(titleRes));
+        if (item != null) {
+            items.add(item);
+        }
     }
 
     @Override

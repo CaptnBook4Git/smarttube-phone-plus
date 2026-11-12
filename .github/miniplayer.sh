@@ -89,6 +89,33 @@ tasks 6_closed
 XY=$(center_of "Open the player")
 echo "card after the swipe down: ${XY:-gone}"
 
+# 7. You > Settings: the grouped settings list, top and bottom
+center_of_text() {
+  adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1
+  adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep " text=\"$1\"" | head -1 \
+    | sed -E 's/.*bounds="\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]".*/\1 \2 \3 \4/' \
+    | awk '{ printf "%d %d", ($1+$3)/2, ($2+$4)/2 }'
+}
+XY=$(center_of_text "You")
+if [ -n "$XY" ]; then adb shell input tap $XY; else adb shell input tap 945 2280; fi
+sleep 6
+shot 7_you
+for i in 1 2 3 4; do
+  XY=$(center_of_text "Settings")
+  if [ -n "$XY" ]; then break; fi
+  adb shell input swipe 900 265 250 265 300
+  sleep 1
+done
+echo "settings chip at: $XY"
+if [ -n "$XY" ]; then
+  adb shell input tap $XY
+  sleep 4
+  shot 8_settings
+  adb shell input swipe 540 1800 540 700 400
+  sleep 2
+  shot 9_settings_more
+fi
+
 adb logcat -d -b crash > $OUT/crash.txt
 adb logcat -d | grep -E "ActivityTaskManager: (START|Displayed)|wm_finish|wm_destroy" | grep -i smarttube > $OUT/activity_log.txt
 adb logcat -d | grep -iE "PhoneMiniPlayer|exoplayer|MediaCodec.*(error|Exception)|surface.*abandon|PlaybackFragment|AndroidRuntime" | grep -v SabrStream | tail -120 > $OUT/player_log.txt

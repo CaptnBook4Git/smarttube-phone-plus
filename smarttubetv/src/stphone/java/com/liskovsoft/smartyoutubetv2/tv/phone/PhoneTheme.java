@@ -32,8 +32,9 @@ final class PhoneTheme {
         return mode == DARK ? LIGHT : mode == LIGHT ? SYSTEM : DARK;
     }
 
-    static int titleRes(int mode) {
-        return mode == LIGHT ? R.string.phone_appearance_light : mode == SYSTEM ? R.string.phone_appearance_system : R.string.phone_appearance_dark;
+    /** The mode's name alone ("Dark"), for the value shown on the settings row */
+    static int valueRes(int mode) {
+        return mode == LIGHT ? R.string.phone_theme_light : mode == SYSTEM ? R.string.phone_theme_system : R.string.phone_theme_dark;
     }
 
     /**

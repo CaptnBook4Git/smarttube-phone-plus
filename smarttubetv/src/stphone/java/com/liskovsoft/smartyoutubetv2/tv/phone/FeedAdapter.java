@@ -55,6 +55,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int VT_SECTION_HEADER = 7;
     private static final int VT_CUSTOM_HEADER = 8;
     private static final int VT_ROW = 9;
+    private static final int VT_SETTING_HEADER = 10;
 
     private static final Object HEADER_ITEM = new Object();
     private View mHeaderView;
@@ -590,7 +591,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         } else if (item instanceof Strip) {
             return VT_STRIP;
         } else if (item instanceof SettingsItem) {
-            return VT_SETTING;
+            return item instanceof PhoneSetting && ((PhoneSetting) item).header ? VT_SETTING_HEADER : VT_SETTING;
         } else if (item instanceof ShortsHeader) {
             return VT_SECTION_HEADER;
         } else if (item instanceof ShortTile) {
@@ -654,6 +655,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 return new Holder(inflater.inflate(R.layout.phone_item_row, parent, false));
             case VT_SETTING:
                 return new Holder(inflater.inflate(R.layout.phone_item_setting, parent, false));
+            case VT_SETTING_HEADER:
+                return new Holder(inflater.inflate(R.layout.phone_item_setting_header, parent, false));
             case VT_SECTION_HEADER:
                 return new Holder(inflater.inflate(R.layout.phone_item_section_header, parent, false));
             case VT_VIDEO:
@@ -697,6 +700,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             ((ShelfHolder) holder).bind(((Strip) item).group, true);
         } else if (type == VT_SETTING) {
             bindSetting(holder.itemView, (SettingsItem) item);
+        } else if (type == VT_SETTING_HEADER) {
+            ((TextView) holder.itemView).setText(((SettingsItem) item).title);
         } else if (type == VT_SECTION_HEADER) {
             String title = ((ShortsHeader) item).group.ref.getTitle();
             ((TextView) holder.itemView.findViewById(R.id.phone_title)).setText(
@@ -777,6 +782,19 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         } else {
             icon.setVisibility(View.INVISIBLE);
         }
+        // Phone rows: the current value or a switch on the right; an arrow only for rows that open something
+        PhoneSetting setting = item instanceof PhoneSetting ? (PhoneSetting) item : null;
+        TextView value = view.findViewById(R.id.phone_setting_value);
+        android.widget.Switch toggle = view.findViewById(R.id.phone_setting_switch);
+        boolean hasValue = setting != null && setting.value != null;
+        boolean hasToggle = setting != null && setting.checked != null;
+        value.setVisibility(hasValue ? View.VISIBLE : View.GONE);
+        value.setText(hasValue ? setting.value : null);
+        toggle.setVisibility(hasToggle ? View.VISIBLE : View.GONE);
+        if (hasToggle) {
+            toggle.setChecked(setting.checked);
+        }
+        view.findViewById(R.id.phone_setting_chevron).setVisibility(hasToggle ? View.GONE : View.VISIBLE);
         view.setOnClickListener(v -> {
             if (item.onClick != null) {
                 item.onClick.run();
