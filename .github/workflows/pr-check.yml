@@ -35,6 +35,18 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleStphoneRelease
 
+      # The release publishes the arm64, armeabi-v7a (arm32) and universal APKs: all three must be built
+      - name: Check the APKs
+        run: |
+          OUT=smarttubetv/build/outputs/apk/stphone/release
+          ls -l $OUT
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
+          for ABI in arm64-v8a armeabi-v7a universal; do
+            APK=$(ls $OUT/*_$ABI.apk)
+            echo "$APK"
+            $BT/aapt dump badging "$APK" | grep native-code
+          done
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

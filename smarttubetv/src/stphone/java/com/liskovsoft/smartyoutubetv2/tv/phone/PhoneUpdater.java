@@ -45,9 +45,11 @@ final class PhoneUpdater {
     static final String REPO = "shreyas-bangera/smarttube-phone";
     private static final String TAG = "PhoneUpdater";
     private static final String LATEST_URL = "https://api.github.com/repos/" + REPO + "/releases/latest";
-    // Each release carries the versioned file (StreamTube-Phone-<version>-arm64.apk) and the same APK under fixed
-    // names: StreamTube-arm64.apk (this one, the direct download link) and SmartTube-Phone-arm64.apk (old builds)
-    private static final String APK_NAME = "StreamTube-arm64.apk";
+    // Each release carries one APK per processor (arm64, arm32, universal), each as the versioned file
+    // (StreamTube-Phone-<version>-arm64.apk) and under a fixed name (StreamTube-arm64.apk, the direct download link).
+    // The arm64 APK also goes out as SmartTube-Phone-arm64.apk for old builds.
+    private static final String APK_ARCH = deviceArch();
+    private static final String APK_NAME = "StreamTube-" + APK_ARCH + ".apk";
     private static final int BASE_VERSION_CODE = 2462;
     private static final String ACTION_INSTALL_STATUS = "org.smarttube.phone.INSTALL_STATUS";
 
@@ -438,7 +440,7 @@ final class PhoneUpdater {
                 JSONObject asset = assets.getJSONObject(i);
                 String name = asset.optString("name");
                 // The versioned file (StreamTube-Phone-32.72.81-arm64.apk); the fixed name is the same APK
-                boolean versioned = name.startsWith("StreamTube-Phone-") && name.endsWith("-arm64.apk");
+                boolean versioned = name.startsWith("StreamTube-Phone-") && name.endsWith("-" + APK_ARCH + ".apk");
                 if (versioned || (APK_NAME.equals(name) && TextUtils.isEmpty(release.apkUrl))) {
                     release.apkUrl = asset.optString("browser_download_url");
                     release.size = asset.optLong("size", 0);
@@ -451,6 +453,24 @@ final class PhoneUpdater {
         release.publishedAt = parseDate(json.optString("published_at", ""));
         parseNotes(json.optString("body", ""), release.notes);
         return release;
+    }
+
+    /**
+     * The APK for this phone: arm64 on 64-bit ARM, arm32 on 32-bit ARM, otherwise (x86 emulators, Chromebooks) the
+     * universal one. Same package and key, so a phone can move from one to another as an ordinary update.
+     */
+    private static String deviceArch() {
+        for (String abi : Build.SUPPORTED_64_BIT_ABIS) {
+            if ("arm64-v8a".equals(abi)) {
+                return "arm64";
+            }
+        }
+        for (String abi : Build.SUPPORTED_32_BIT_ABIS) {
+            if ("armeabi-v7a".equals(abi)) {
+                return Build.SUPPORTED_64_BIT_ABIS.length == 0 ? "arm32" : "universal";
+            }
+        }
+        return "universal";
     }
 
     /** "- change" lines from the release text (the build workflow lists the commits since the previous build) */

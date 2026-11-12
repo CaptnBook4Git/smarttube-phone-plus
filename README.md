@@ -102,13 +102,21 @@
 ## Requirements
 
 - An Android phone with Android 8.0 or newer (the in-app mini player needs Android 11 or newer; older versions use a floating window instead)
-- A 64-bit ARM processor (arm64-v8a). This covers almost every phone made since 2017, including all recent Samsung, Pixel, OnePlus, Xiaomi and Motorola phones.
+- An ARM processor, 64-bit or 32-bit. Pick the APK for your phone:
+
+| APK | For |
+|---|---|
+| [StreamTube-arm64.apk](https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/StreamTube-arm64.apk) | Almost every phone made since 2017, including all recent Samsung, Pixel, OnePlus, Xiaomi and Motorola phones. Start with this one. |
+| [StreamTube-arm32.apk](https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/StreamTube-arm32.apk) | Older or budget phones with a 32-bit processor (armeabi-v7a), where the arm64 APK says "App not installed". |
+| [StreamTube-universal.apk](https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/StreamTube-universal.apk) | Any device, including x86 emulators and Chromebooks. It's a bigger download. |
+
+Not sure? Install the universal APK. The in-app updater then picks the right APK for your phone.
 
 It installs as its own app, so it can sit next to the official YouTube app without conflicts.
 
 ## Install
 
-1. On your phone, open this link: **[StreamTube-arm64.apk](https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/StreamTube-arm64.apk)**
+1. On your phone, open this link: **[StreamTube-arm64.apk](https://github.com/shreyas-bangera/smarttube-phone/releases/latest/download/StreamTube-arm64.apk)** (or the arm32 or universal APK, see [Requirements](#requirements))
 2. When the download finishes, tap the notification (or open the file from your Downloads folder).
 3. The first time, Android asks for permission to install apps from your browser. Tap **Settings**, turn on **Allow from this source**, then go back.
 4. Tap **Install**. If Google Play Protect warns about an unknown app, tap **More details** and then **Install anyway**. This warning appears for apps that don't come from the Play Store.
