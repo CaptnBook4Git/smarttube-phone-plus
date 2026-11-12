@@ -364,7 +364,9 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
                         rows.add(new Row(ROW_SWITCH, first.getTitle(), first.getDescription(), first, category, first.isSelected()));
                         break;
                     default:
-                        rows.add(new Row(ROW_CATEGORY, category.title, selectedSummary(category), null, category, false));
+                        if (!PhoneTvOnly.isCategory(this, category.title)) {
+                            rows.add(new Row(ROW_CATEGORY, category.title, selectedSummary(category), null, category, false));
+                        }
                         break;
                 }
             }

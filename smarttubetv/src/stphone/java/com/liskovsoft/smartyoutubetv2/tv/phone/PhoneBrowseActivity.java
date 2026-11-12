@@ -1018,7 +1018,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
                 getString(R.string.phone_about_title), () -> PhoneAbout.show(this), R.drawable.ic_phone_info));
         if (group.getItems() != null) {
-            items.addAll(group.getItems());
+            for (com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem item : group.getItems()) {
+                if (!PhoneTvOnly.isSetting(this, item.title)) {
+                    items.add(item);
+                }
+            }
         }
         mAdapter.setSettings(items);
     }
