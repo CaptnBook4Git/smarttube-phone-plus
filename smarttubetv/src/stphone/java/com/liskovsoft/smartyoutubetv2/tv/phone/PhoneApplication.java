@@ -40,6 +40,14 @@ public class PhoneApplication extends MainApplication {
     }
 
     private void applyPhoneDefaults() {
+        // "Remote control" (this device as a cast target) is a TV feature the phone build doesn't carry. A backup made
+        // on a TV can still have it switched on: off, so the player doesn't keep listening for a remote.
+        com.liskovsoft.smartyoutubetv2.common.prefs.RemoteControlData remote =
+                com.liskovsoft.smartyoutubetv2.common.prefs.RemoteControlData.instance(this);
+        if (remote.isDeviceLinkEnabled()) {
+            remote.enableDeviceLink(false);
+        }
+
         // Sheets open below the video on phones, so never shrink the video aside for them (a TV layout feature: the TV
         // settings panel covers the right part of the screen)
         com.liskovsoft.smartyoutubetv2.common.prefs.PlayerTweaksData tweaks =
