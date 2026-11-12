@@ -119,20 +119,23 @@ public class PhoneSeekBar extends SeekBar {
         float progressX = left + progressFraction * width;
         float bufferX = left + bufferFraction * width;
 
-        // 1. Background track (full width)
+        canvas.save();
         mRect.set(left, top, right, bottom);
-        canvas.drawRoundRect(mRect, cornerRadius, cornerRadius, mBgPaint);
+        canvas.clipRect(mRect);
+
+        // 1. Background track (full width)
+        canvas.drawRect(mRect, mBgPaint);
 
         // 2. Buffered progress
         if (bufferX > left) {
             mRect.set(left, top, Math.min(right, bufferX), bottom);
-            canvas.drawRoundRect(mRect, cornerRadius, cornerRadius, mBufferPaint);
+            canvas.drawRect(mRect, mBufferPaint);
         }
 
         // 3. Watched progress (red)
         if (progressX > left) {
             mRect.set(left, top, Math.min(right, progressX), bottom);
-            canvas.drawRoundRect(mRect, cornerRadius, cornerRadius, mProgressPaint);
+            canvas.drawRect(mRect, mProgressPaint);
         }
 
         // 4. SponsorBlock segments
@@ -144,13 +147,15 @@ public class PhoneSeekBar extends SeekBar {
             float segEnd = Math.max(0f, Math.min(1f, segment.endProgress));
             float sLeft = left + segStart * width;
             float sRight = left + segEnd * width;
-            if (sRight - sLeft < 2f * density) {
-                sRight = sLeft + 2f * density;
+            if (sRight - sLeft < 2.5f * density) {
+                sRight = sLeft + 2.5f * density;
             }
             mSegmentPaint.setColor(segment.color);
+            mSegmentPaint.setAlpha(255);
             mRect.set(sLeft, top, sRight, bottom);
-            canvas.drawRoundRect(mRect, cornerRadius, cornerRadius, mSegmentPaint);
+            canvas.drawRect(mRect, mSegmentPaint);
         }
+        canvas.restore();
 
         // 5. Scrubber thumb circle ("Punkt")
         float thumbRadius = (mIsDragging ? 7.5f : 6.0f) * density;

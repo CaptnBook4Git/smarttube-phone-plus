@@ -98,6 +98,25 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
     };
     private boolean mTouchStartedOnVideo;
+    private boolean mIsSpeedBoostActive;
+    private float mOriginalPlaybackSpeed = 1.0f;
+    private boolean mExpandDragging;
+    private TextView mSpeedPill;
+
+    private final Runnable mSpeedBoostRunnable = () -> {
+        if (mPlayer == null || !mPlayer.getPlayWhenReady() || isFinishing() || isDestroyed()) {
+            return;
+        }
+        mIsSpeedBoostActive = true;
+        mOriginalPlaybackSpeed = mPlayer.getSpeed();
+        float targetSpeed = PhoneUi.getLongPressSpeed(this);
+        mPlayer.setSpeed(targetSpeed);
+        try {
+            mVideoBox.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        } catch (Throwable ignored) {
+        }
+        showSpeedBoostHud(targetSpeed);
+    };
     private int mStatusInset;
     private boolean mDescriptionExpanded;
     private Video mLastScrollEndVideo;
@@ -914,6 +933,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 mDragStartY = event.getRawY();
                 mDragStartX = event.getRawX();
                 mDragStartTime = event.getEventTime();
+                mExpandDragging = false;
+                mHandler.removeCallbacks(mSpeedBoostRunnable);
+                if (mPlayer != null && mPlayer.getPlayWhenReady() && !mShortsMode) {
+                    mHandler.postDelayed(mSpeedBoostRunnable, android.view.ViewConfiguration.getLongPressTimeout());
+                }
             }
         }
 
@@ -923,21 +947,32 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         boolean isTrueFullscreen = (!mPortrait && !tablet) || mTabletFullscreen;
         boolean allowShrink = (mPortrait || isTabletSplit) && !mShortsMode;
 
+        if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
+            float dx = Math.abs(event.getRawX() - mDragStartX);
+            float dy = event.getRawY() - mDragStartY;
+            int slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop();
+            if (dx > slop || Math.abs(dy) > slop) {
+                mHandler.removeCallbacks(mSpeedBoostRunnable);
+            }
+            if (mTouchStartedOnVideo && !isTrueFullscreen && !mShortsMode && !mShrinkDragging) {
+                if (dy < -slop * 1.5f && Math.abs(dy) > dx * 1.3f) {
+                    mExpandDragging = true;
+                    float progress = Math.min(1f, (-dy) / dp(240));
+                    mVideoBox.setPivotX(mVideoBox.getWidth() / 2f);
+                    mVideoBox.setPivotY(mVideoBox.getHeight() / 2f);
+                    mVideoBox.setScaleX(1f + progress * 0.16f);
+                    mVideoBox.setScaleY(1f + progress * 0.16f);
+                    if (mDetails != null) {
+                        mDetails.setAlpha(Math.max(0f, 1f - progress * 1.3f));
+                    }
+                    return true;
+                }
+            }
+        }
+
         // Swipe the video down to shrink the player: the video follows the finger into the mini player
         if ((mShrinkDragging || mTouchStartedOnVideo) && allowShrink && handleShrinkDrag(event)) {
             return true;
-        }
-
-        // Swipe UP on the video to expand into Fullscreen (YouTube style)
-        if (mTouchStartedOnVideo && !isTrueFullscreen && !mShortsMode && event.getActionMasked() == MotionEvent.ACTION_UP) {
-            float dy = event.getRawY() - mDragStartY;
-            float dx = Math.abs(event.getRawX() - mDragStartX);
-            if (dy < -dp(50) && Math.abs(dy) > dx * 1.3f) {
-                mRouteTouchToPlayer = null;
-                mTouchStartedOnVideo = false;
-                toggleFullscreen();
-                return true;
-            }
         }
 
         // Swipe DOWN on a fullscreen video to exit Fullscreen (YouTube style)
@@ -964,6 +999,37 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+            mHandler.removeCallbacks(mSpeedBoostRunnable);
+            if (mIsSpeedBoostActive) {
+                mIsSpeedBoostActive = false;
+                if (mPlayer != null) {
+                    mPlayer.setSpeed(mOriginalPlaybackSpeed);
+                }
+                hideSpeedBoostHud();
+                mRouteTouchToPlayer = null;
+                mTouchStartedOnVideo = false;
+                return true;
+            }
+            if (mExpandDragging) {
+                mExpandDragging = false;
+                mTouchStartedOnVideo = false;
+                mRouteTouchToPlayer = null;
+                float dy = event.getRawY() - mDragStartY;
+                if (action == MotionEvent.ACTION_UP && dy < -dp(50)) {
+                    mVideoBox.setScaleX(1f);
+                    mVideoBox.setScaleY(1f);
+                    if (mDetails != null) {
+                        mDetails.setAlpha(1f);
+                    }
+                    toggleFullscreen();
+                } else {
+                    mVideoBox.animate().scaleX(1f).scaleY(1f).setDuration(180).start();
+                    if (mDetails != null) {
+                        mDetails.animate().alpha(1f).setDuration(180).start();
+                    }
+                }
+                return true;
+            }
             mRouteTouchToPlayer = null;
             mTouchStartedOnVideo = false;
             if (mShrinkDragging) {
@@ -1088,7 +1154,22 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     }
                     Rect box = new Rect();
                     mVideoBox.getGlobalVisibleRect(box);
-                    mLevelMode = mLevelStartX < box.centerX() ? LEVEL_BRIGHTNESS : LEVEL_VOLUME;
+                    float boxWidth = Math.max(1, box.width());
+                    float leftZone = box.left + boxWidth * 0.20f;
+                    float rightZone = box.left + boxWidth * 0.80f;
+
+                    if (mLevelStartX <= leftZone) {
+                        mLevelMode = LEVEL_BRIGHTNESS;
+                    } else if (mLevelStartX >= rightZone) {
+                        mLevelMode = LEVEL_VOLUME;
+                    } else {
+                        // Middle 60%: not brightness or volume. Downward swipe exits fullscreen
+                        if (dy > slop && dy > Math.abs(dx) * 1.3f) {
+                            toggleFullscreen();
+                            return true;
+                        }
+                        return false;
+                    }
                     mLevelStartValue = mLevelMode == LEVEL_BRIGHTNESS ? currentBrightness() : currentVolume();
                     mLevelStartY = event.getRawY();
 
@@ -1136,6 +1217,40 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         int percent = Math.round(value * 100);
         mLevelBar.setProgress(percent);
         mLevelText.setText(percent + "%");
+    }
+
+    private void showSpeedBoostHud(float speed) {
+        if (mSpeedPill == null && mVideoBox != null) {
+            mSpeedPill = new TextView(this);
+            mSpeedPill.setTextColor(Color.WHITE);
+            mSpeedPill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            mSpeedPill.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            mSpeedPill.setBackgroundResource(R.drawable.phone_badge_bg);
+            mSpeedPill.setPadding(dp(12), dp(6), dp(12), dp(6));
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            lp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+            lp.topMargin = dp(24);
+            mSpeedPill.setLayoutParams(lp);
+            mVideoBox.addView(mSpeedPill);
+        }
+        if (mSpeedPill != null) {
+            String speedStr = (speed == (int) speed)
+                    ? String.format(java.util.Locale.US, "%dx »»", (int) speed)
+                    : String.format(java.util.Locale.US, "%.2fx »»", speed);
+            mSpeedPill.setText(speedStr);
+            mSpeedPill.setVisibility(View.VISIBLE);
+            mSpeedPill.setAlpha(0f);
+            mSpeedPill.animate().alpha(1f).setDuration(120).start();
+        }
+    }
+
+    private void hideSpeedBoostHud() {
+        if (mSpeedPill != null && mSpeedPill.getVisibility() == View.VISIBLE) {
+            mSpeedPill.animate().alpha(0f).setDuration(120).withEndAction(() -> mSpeedPill.setVisibility(View.GONE)).start();
+        }
     }
 
     private float currentBrightness() {
@@ -1198,6 +1313,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             scheduleAutoHide();
         });
         mFullscreenButton.setOnClickListener(v -> toggleFullscreen());
+        View stopBtn = findViewById(R.id.phone_ctl_stop);
+        if (stopBtn != null) {
+            stopBtn.setOnClickListener(v -> closePlayer());
+        }
         findViewById(R.id.phone_ctl_collapse).setOnClickListener(v -> onBackPressed());
         findViewById(R.id.phone_ctl_settings).setOnClickListener(v -> clickButton(R.id.lb_control_high_quality));
         findViewById(R.id.phone_ctl_cc).setOnClickListener(v -> clickButton(R.id.lb_control_closed_captioning));

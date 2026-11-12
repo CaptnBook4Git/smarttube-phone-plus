@@ -160,14 +160,7 @@ class ShelfAdapter extends RecyclerView.Adapter<ShelfAdapter.Holder> {
                     false);
         }
 
-        view.setOnClickListener(v -> {
-            PhoneUi.rememberClick(view);
-            mListener.onVideoClicked(video);
-        });
-        view.setOnLongClickListener(v -> {
-            mListener.onVideoLongClicked(video);
-            return true;
-        });
+        PhoneCardPreviewManager.bind(view, video, () -> mListener.onVideoClicked(video));
     }
 
     static final class Holder extends RecyclerView.ViewHolder {

@@ -167,4 +167,10 @@
     <string name="phone_grid_3_cols">3 Spalten</string>
     <string name="phone_grid_4_cols">4 Spalten</string>
     <string name="phone_grid_5_cols">5 Spalten</string>
+    <string name="phone_close">Schließen</string>
+    <string name="phone_stop">Wiedergabe beenden</string>
+    <string name="phone_speed_hold_title">Geschwindigkeit bei Halten</string>
+    <string name="phone_preview_start_title">Kartenvorschau Startpunkt</string>
+    <string name="phone_preview_start_beginning">Von Beginn</string>
+    <string name="phone_preview_start_random">Zufällige Stelle</string>
 </resources>

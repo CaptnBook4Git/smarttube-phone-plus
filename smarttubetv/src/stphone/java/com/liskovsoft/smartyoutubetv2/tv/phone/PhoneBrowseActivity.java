@@ -335,7 +335,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mTopAvatar = findViewById(R.id.phone_top_avatar);
         if (PhoneUi.isTablet(this)) {
             mTopAvatar.setVisibility(View.VISIBLE);
-            mTopAvatar.setOnClickListener(v -> AccountSelectionPresenter.instance(this).show(true));
+            mTopAvatar.setOnClickListener(this::showAccountDropdown);
         } else {
             mTopAvatar.setVisibility(View.GONE);
             mTopAvatar.setOnClickListener(v -> selectTab(TAB_YOU));
@@ -380,6 +380,90 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 }
             });
         }
+    }
+
+    private void showAccountDropdown(View anchor) {
+        if (isFinishing() || isDestroyed() || anchor == null) {
+            return;
+        }
+
+        com.liskovsoft.mediaserviceinterfaces.SignInService signInService =
+                com.liskovsoft.youtubeapi.service.YouTubeServiceManager.instance().getSignInService();
+        java.util.List<com.liskovsoft.mediaserviceinterfaces.oauth.Account> accounts =
+                signInService != null ? signInService.getAccounts() : null;
+
+        View dropdownView = getLayoutInflater().inflate(R.layout.phone_account_dropdown, null);
+        android.widget.PopupWindow popup = new android.widget.PopupWindow(
+                dropdownView,
+                dp(280),
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                true
+        );
+        popup.setElevation(dp(12));
+        popup.setOutsideTouchable(true);
+
+        android.widget.LinearLayout listContainer = dropdownView.findViewById(R.id.phone_dropdown_accounts_list);
+        if (accounts != null && !accounts.isEmpty()) {
+            for (com.liskovsoft.mediaserviceinterfaces.oauth.Account account : accounts) {
+                View item = getLayoutInflater().inflate(R.layout.phone_account_item, listContainer, false);
+                ImageView avatar = item.findViewById(R.id.phone_account_avatar);
+                TextView name = item.findViewById(R.id.phone_account_name);
+                TextView email = item.findViewById(R.id.phone_account_email);
+                View check = item.findViewById(R.id.phone_account_check);
+
+                if (name != null) name.setText(account.getName());
+                if (email != null) {
+                    if (TextUtils.isEmpty(account.getEmail())) {
+                        email.setVisibility(View.GONE);
+                    } else {
+                        email.setVisibility(View.VISIBLE);
+                        email.setText(account.getEmail());
+                    }
+                }
+                if (avatar != null) {
+                    if (account.getAvatarImageUrl() != null) {
+                        PhoneUi.loadAvatar(avatar, account.getAvatarImageUrl());
+                    } else {
+                        avatar.setImageDrawable(new AvatarCache.LetterDrawable(account.getName()));
+                    }
+                }
+                if (check != null) {
+                    check.setVisibility(account.isSelected() ? View.VISIBLE : View.INVISIBLE);
+                }
+
+                item.setOnClickListener(v -> {
+                    popup.dismiss();
+                    AccountSelectionPresenter.instance(this).selectAccount(account);
+                });
+                listContainer.addView(item);
+            }
+        }
+
+        View noAccount = dropdownView.findViewById(R.id.phone_dropdown_no_account);
+        if (noAccount != null) {
+            noAccount.setOnClickListener(v -> {
+                popup.dismiss();
+                AccountSelectionPresenter.instance(this).selectAccount(null);
+            });
+        }
+
+        View addAccount = dropdownView.findViewById(R.id.phone_dropdown_add_account);
+        if (addAccount != null) {
+            addAccount.setOnClickListener(v -> {
+                popup.dismiss();
+                YTSignInPresenter.instance(this).start();
+            });
+        }
+
+        View manageAccounts = dropdownView.findViewById(R.id.phone_dropdown_manage_accounts);
+        if (manageAccounts != null) {
+            manageAccounts.setOnClickListener(v -> {
+                popup.dismiss();
+                AccountSettingsPresenter.instance(this).show();
+            });
+        }
+
+        popup.showAsDropDown(anchor, -dp(240), dp(4));
     }
 
     private void setupTabs() {
@@ -470,12 +554,21 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             return;
         }
 
-        if (mCurrentTab != TAB_HOME && mCurrentTab != TAB_YOU && sections.size() <= 1) {
-            mChipsScroll.setVisibility(View.GONE);
-            updateSavedListFilterBar();
-            return;
+        int youVisibleCount = 0;
+        if (mCurrentTab == TAB_YOU) {
+            for (BrowseSection s : sections) {
+                if (s.getId() != MediaGroup.TYPE_SETTINGS) {
+                    youVisibleCount++;
+                }
+            }
+            if (youVisibleCount <= 1) {
+                mChipsScroll.setVisibility(View.GONE);
+                updateSavedListFilterBar();
+                return;
+            }
         }
-        if (mCurrentTab == TAB_YOU && sections.isEmpty()) {
+
+        if (mCurrentTab != TAB_HOME && mCurrentTab != TAB_YOU && sections.size() <= 1) {
             mChipsScroll.setVisibility(View.GONE);
             updateSavedListFilterBar();
             return;
@@ -614,6 +707,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         } else {
             // Other tabs (You, etc.)
             for (BrowseSection section : sections) {
+                if (section.getId() == MediaGroup.TYPE_SETTINGS) {
+                    continue; // Settings is accessible via top-right gear icon
+                }
                 TextView chip = new TextView(this);
                 chip.setText(section.getTitle());
                 chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
@@ -1345,6 +1441,20 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                     PhoneTheme.set(this, PhoneTheme.next(appearance));
                     recreate();
                 }, R.drawable.ic_phone_brightness));
+        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
+                PhoneUi.getLongPressSpeedTitle(this), () -> PhoneUi.openLongPressSpeedSettings(this, () -> {
+                    if (mSettingsGroup != null) {
+                        updateSection(mSettingsGroup);
+                    }
+                }),
+                R.drawable.ic_phone_speed));
+        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
+                PhoneUi.getCardPreviewRandomStartTitle(this), () -> PhoneUi.openCardPreviewRandomStartSettings(this, () -> {
+                    if (mSettingsGroup != null) {
+                        updateSection(mSettingsGroup);
+                    }
+                }),
+                R.drawable.ic_phone_play));
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
                 PhoneNotifications.settingsTitle(this), () -> PhoneNotifications.open(this), R.drawable.ic_phone_bell));
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(

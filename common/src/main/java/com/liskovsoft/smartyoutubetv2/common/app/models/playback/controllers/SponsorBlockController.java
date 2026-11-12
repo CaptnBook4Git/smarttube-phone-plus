@@ -234,6 +234,13 @@ public class SponsorBlockController extends BasePlayerController {
 
         long positionMs = getPlayer().getPositionMs();
 
+        if (mOriginalSegments != null && getPlayer() != null && getPlayer().getDurationMs() > 0 && getSponsorBlockData().isColorMarkersEnabled()) {
+            List<SeekBarSegment> segs = toSeekBarSegments(mOriginalSegments);
+            if (segs != null && !segs.isEmpty()) {
+                getPlayer().setSeekBarSegments(segs);
+            }
+        }
+
         List<SponsorSegment> foundSegments = findMatchedSegments(positionMs, mActiveSegments, false);
 
         applyActions(foundSegments);
@@ -315,6 +322,14 @@ public class SponsorBlockController extends BasePlayerController {
             return null;
         }
 
+        long durationMs = getPlayer() != null ? getPlayer().getDurationMs() : 0;
+        if (durationMs <= 0 && getVideo() != null) {
+            durationMs = getVideo().getDurationMs();
+        }
+        if (durationMs <= 0) {
+            return null;
+        }
+
         List<SeekBarSegment> result = new ArrayList<>();
 
         for (SponsorSegment sponsorSegment : segments) {
@@ -323,10 +338,16 @@ public class SponsorBlockController extends BasePlayerController {
             }
 
             SeekBarSegment seekBarSegment = new SeekBarSegment();
-            float startRatio = (float) sponsorSegment.getStartMs() / getPlayer().getDurationMs(); // Range: [0, 1]
-            float endRatio = (float) sponsorSegment.getEndMs() / getPlayer().getDurationMs(); // Range: [0, 1]
-            seekBarSegment.startProgress = startRatio;
-            seekBarSegment.endProgress = endRatio;
+            float startRatio = (float) sponsorSegment.getStartMs() / durationMs; // Range: [0, 1]
+            float endRatio = (float) sponsorSegment.getEndMs() / durationMs; // Range: [0, 1]
+            if (Float.isNaN(startRatio) || Float.isInfinite(startRatio) || Float.isNaN(endRatio) || Float.isInfinite(endRatio)) {
+                continue;
+            }
+            seekBarSegment.startProgress = Math.max(0f, Math.min(1f, startRatio));
+            seekBarSegment.endProgress = Math.max(0f, Math.min(1f, endRatio));
+            if (seekBarSegment.endProgress <= seekBarSegment.startProgress) {
+                continue;
+            }
             seekBarSegment.color = ContextCompat.getColor(getContext(), getSponsorBlockData().getColorRes(sponsorSegment.getCategory()));
             result.add(seekBarSegment);
         }

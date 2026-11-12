@@ -48,6 +48,127 @@ final class PhoneUi {
 
     private static final String PREF_NAME = "phone_ui_prefs";
     private static final String KEY_GRID_COLUMNS = "feed_grid_columns";
+    private static final String KEY_LONG_PRESS_SPEED = "phone_long_press_speed";
+    private static final String KEY_CARD_PREVIEW_RANDOM_START = "phone_card_preview_random_start";
+
+    public static float getLongPressSpeed(Context context) {
+        if (context == null) {
+            return 2.0f;
+        }
+        return context.getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .getFloat(KEY_LONG_PRESS_SPEED, 2.0f);
+    }
+
+    public static void setLongPressSpeed(Context context, float speed) {
+        if (context == null) {
+            return;
+        }
+        context.getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .edit().putFloat(KEY_LONG_PRESS_SPEED, speed).apply();
+    }
+
+    public static String getLongPressSpeedTitle(Context context) {
+        if (context == null) {
+            return "Geschwindigkeit bei Halten: 2x";
+        }
+        float speed = getLongPressSpeed(context);
+        String speedStr = (speed == (int) speed) ? String.format(java.util.Locale.US, "%dx", (int) speed) : String.format(java.util.Locale.US, "%.2fx", speed);
+        return context.getString(R.string.phone_speed_hold_title) + ": " + speedStr;
+    }
+
+    public static void openLongPressSpeedSettings(Context context, Runnable onChanged) {
+        if (context == null) {
+            return;
+        }
+        com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter dialog =
+                com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter.instance(context);
+
+        float current = getLongPressSpeed(context);
+        java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionItem> opts = new java.util.ArrayList<>();
+
+        float[] choices = {1.25f, 1.5f, 1.75f, 2.0f, 2.5f, 3.0f};
+
+        for (float speedVal : choices) {
+            String label = (speedVal == (int) speedVal)
+                    ? String.format(java.util.Locale.US, "%dx", (int) speedVal)
+                    : String.format(java.util.Locale.US, "%.2fx", speedVal);
+            if (speedVal == 2.0f) {
+                label += " (Standard)";
+            }
+            opts.add(com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem.from(
+                    label,
+                    item -> {
+                        setLongPressSpeed(context, speedVal);
+                        dialog.closeDialog();
+                        if (onChanged != null) {
+                            onChanged.run();
+                        }
+                    },
+                    Math.abs(current - speedVal) < 0.05f
+            ));
+        }
+
+        dialog.appendRadioCategory(context.getString(R.string.phone_speed_hold_title), opts);
+        dialog.showDialog(context.getString(R.string.phone_speed_hold_title));
+    }
+
+    public static boolean isCardPreviewRandomStart(Context context) {
+        if (context == null) {
+            return false;
+        }
+        return context.getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .getBoolean(KEY_CARD_PREVIEW_RANDOM_START, false);
+    }
+
+    public static void setCardPreviewRandomStart(Context context, boolean random) {
+        if (context == null) {
+            return;
+        }
+        context.getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .edit().putBoolean(KEY_CARD_PREVIEW_RANDOM_START, random).apply();
+    }
+
+    public static String getCardPreviewRandomStartTitle(Context context) {
+        if (context == null) {
+            return "Kartenvorschau Startpunkt";
+        }
+        boolean random = isCardPreviewRandomStart(context);
+        return context.getString(R.string.phone_preview_start_title) + ": " +
+                context.getString(random ? R.string.phone_preview_start_random : R.string.phone_preview_start_beginning);
+    }
+
+    public static void openCardPreviewRandomStartSettings(Context context, Runnable onChanged) {
+        if (context == null) {
+            return;
+        }
+        com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter dialog =
+                com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter.instance(context);
+
+        boolean current = isCardPreviewRandomStart(context);
+        java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionItem> opts = new java.util.ArrayList<>();
+
+        opts.add(com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem.from(
+                context.getString(R.string.phone_preview_start_beginning) + " (Standard)",
+                item -> {
+                    setCardPreviewRandomStart(context, false);
+                    dialog.closeDialog();
+                    if (onChanged != null) onChanged.run();
+                },
+                !current
+        ));
+        opts.add(com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem.from(
+                context.getString(R.string.phone_preview_start_random),
+                item -> {
+                    setCardPreviewRandomStart(context, true);
+                    dialog.closeDialog();
+                    if (onChanged != null) onChanged.run();
+                },
+                current
+        ));
+
+        dialog.appendRadioCategory(context.getString(R.string.phone_preview_start_title), opts);
+        dialog.showDialog(context.getString(R.string.phone_preview_start_title));
+    }
 
     public static int getCustomColumns(Context context) {
         if (context == null) {

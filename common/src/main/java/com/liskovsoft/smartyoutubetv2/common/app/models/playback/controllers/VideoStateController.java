@@ -476,8 +476,8 @@ public class VideoStateController extends BasePlayerController {
     }
 
     private void saveState() {
-        // Skip mini player, but don't save for the previews (mute enabled)
-        if (isMutedEmbed()) {
+        // Skip previews completely: card previews must never be saved to history or watch progress
+        if (isEmbedPlayer()) {
             return;
         }
 
@@ -583,7 +583,7 @@ public class VideoStateController extends BasePlayerController {
     private void updateHistory() {
         Video video = getVideo();
 
-        if (video == null || mIncognito || getPlayer() == null || !getPlayer().containsMedia()
+        if (video == null || mIncognito || isEmbedPlayer() || getPlayer() == null || !getPlayer().containsMedia()
                 || (video.isRemote && getRemoteControlData().isRemoteHistoryDisabled())
                 || getGeneralData().getHistoryState() == GeneralData.HISTORY_DISABLED) {
             return;

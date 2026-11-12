@@ -147,8 +147,21 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         findViewById(R.id.phone_dialog_root).setOnClickListener(v -> finish());
         mBack.setOnClickListener(v -> goBack());
 
+        View closeBtn = findViewById(R.id.phone_sheet_close);
+        if (closeBtn != null) {
+            closeBtn.setOnClickListener(v -> finish());
+        }
+
         View sheet = findViewById(R.id.phone_sheet);
+        View handle = findViewById(R.id.phone_sheet_handle);
+
         if (splitPane != null) {
+            if (handle != null) {
+                handle.setVisibility(View.GONE);
+            }
+            sheet.setBackgroundColor(getResources().getColor(R.color.phone_bg));
+            sheet.setPadding(0, 0, 0, 0);
+
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) sheet.getLayoutParams();
             lp.width = splitPane.width();
             lp.height = ViewGroup.LayoutParams.MATCH_PARENT;
@@ -164,8 +177,10 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
 
         final int sheetBottom = sheet.getPaddingBottom();
         findViewById(R.id.phone_dialog_root).setOnApplyWindowInsetsListener((v, insets) -> {
-            sheet.setPadding(sheet.getPaddingLeft(), sheet.getPaddingTop(), sheet.getPaddingRight(),
-                    sheetBottom + insets.getSystemWindowInsetBottom());
+            if (splitPane == null) {
+                sheet.setPadding(sheet.getPaddingLeft(), sheet.getPaddingTop(), sheet.getPaddingRight(),
+                        sheetBottom + insets.getSystemWindowInsetBottom());
+            }
             return insets;
         });
 
