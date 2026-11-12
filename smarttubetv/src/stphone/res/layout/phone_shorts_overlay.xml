@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Shorts: full screen vertical video. Swipe up/down for next/previous, tap to pause. -->
+<!-- Shorts: full screen vertical video. Swipe up/down for next/previous, tap to pause, double tap to like. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/phone_shorts"
     android:layout_width="match_parent"

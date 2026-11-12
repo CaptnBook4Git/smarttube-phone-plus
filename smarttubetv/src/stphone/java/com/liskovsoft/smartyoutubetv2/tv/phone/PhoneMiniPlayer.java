@@ -17,7 +17,10 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
+import android.view.HapticFeedbackConstants;
+import android.view.VelocityTracker;
 import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
@@ -143,11 +146,20 @@ final class PhoneMiniPlayer {
     }
 
     private static void close() {
+        close(false);
+    }
+
+    /** @param swipedDown the card was thrown off the bottom of the screen: it keeps going that way */
+    private static void close(boolean swipedDown) {
         PhonePlaybackActivity player = sPlayer.get();
         Card card = sCard.get();
         sStill = null;
         if (card != null) {
-            card.animateAway();
+            if (swipedDown) {
+                card.slideAway();
+            } else {
+                card.animateAway();
+            }
         }
         sActive = false;
         sPlayer = new WeakReference<>(null);
@@ -247,6 +259,7 @@ final class PhoneMiniPlayer {
         private float mStartY;
         private boolean mDragging;
         private ValueAnimator mMove;
+        private VelocityTracker mVelocity;
 
         private final Runnable mTick = new Runnable() {
             @Override
@@ -453,6 +466,18 @@ final class PhoneMiniPlayer {
             animate().alpha(0f).scaleX(0.85f).scaleY(0.85f).setDuration(180).withEndAction(this::remove).start();
         }
 
+        /** Swiped down: off the bottom of the screen, fading */
+        void slideAway() {
+            mHandler.removeCallbacksAndMessages(null);
+            if (mMove != null) {
+                mMove.cancel();
+            }
+            float bottom = mHost.getWindow().getDecorView().getHeight();
+            animate().translationY(bottom).alpha(0f).setDuration(180)
+                    .setInterpolator(new android.view.animation.AccelerateInterpolator(1.2f))
+                    .withEndAction(this::remove).start();
+        }
+
         // region Surface
 
         @Override
@@ -494,7 +519,7 @@ final class PhoneMiniPlayer {
 
         // endregion
 
-        // region Touch: tap opens, drag moves
+        // region Touch: tap opens, drag moves, swipe down closes
 
         @Override
         public boolean onInterceptTouchEvent(MotionEvent event) {
@@ -503,6 +528,7 @@ final class PhoneMiniPlayer {
                 startTouch(event);
                 return false;
             }
+            track(event);
             return event.getActionMasked() == MotionEvent.ACTION_MOVE && passedSlop(event);
         }
 
@@ -513,27 +539,31 @@ final class PhoneMiniPlayer {
                     startTouch(event);
                     return true;
                 case MotionEvent.ACTION_MOVE:
+                    track(event);
                     if (!mDragging && passedSlop(event)) {
                         mDragging = true;
                     }
                     if (mDragging) {
                         setTranslationX(mStartX + event.getRawX() - mDownX);
                         setTranslationY(mStartY + event.getRawY() - mDownY);
+                        // Below its resting line the card fades: letting go there closes it
+                        setAlpha(1f - 0.6f * Math.min(1f, pastBottom() / (getHeight() * 0.8f)));
                     }
                     return true;
                 case MotionEvent.ACTION_UP:
+                    track(event);
                     if (mDragging) {
-                        settle();
+                        release();
                     } else {
                         expand();
                     }
-                    mDragging = false;
+                    endTouch();
                     return true;
                 case MotionEvent.ACTION_CANCEL:
                     if (mDragging) {
-                        settle();
+                        settle(0, 0);
                     }
-                    mDragging = false;
+                    endTouch();
                     return true;
                 default:
                     return true;
@@ -549,6 +579,56 @@ final class PhoneMiniPlayer {
             mStartX = getTranslationX();
             mStartY = getTranslationY();
             mDragging = false;
+            if (mVelocity != null) {
+                mVelocity.recycle();
+            }
+            mVelocity = VelocityTracker.obtain();
+            track(event);
+        }
+
+        private void endTouch() {
+            mDragging = false;
+            if (mVelocity != null) {
+                mVelocity.recycle();
+                mVelocity = null;
+            }
+        }
+
+        /** Finger speed in screen coordinates (the card itself moves under the finger) */
+        private void track(MotionEvent event) {
+            if (mVelocity == null) {
+                return;
+            }
+            MotionEvent onScreen = MotionEvent.obtain(event);
+            onScreen.setLocation(event.getRawX(), event.getRawY());
+            mVelocity.addMovement(onScreen);
+            onScreen.recycle();
+        }
+
+        /** How far the card is below the lowest spot it can rest on, pixels (0 when above it) */
+        private float pastBottom() {
+            View root = mHost.getWindow().getDecorView();
+            float lowest = root.getHeight() - mHost.miniPlayerBottomOffset() - getHeight() - 8 * mDensity;
+            return Math.max(0f, getTranslationY() - lowest);
+        }
+
+        /** Let go: dragged or flicked off the bottom closes the video, anything else glides to a side */
+        private void release() {
+            float velocityX = 0;
+            float velocityY = 0;
+            if (mVelocity != null) {
+                mVelocity.computeCurrentVelocity(1000);
+                velocityX = mVelocity.getXVelocity();
+                velocityY = mVelocity.getYVelocity();
+            }
+            float past = pastBottom();
+            boolean flickedDown = velocityY > 900 * mDensity && velocityY > Math.abs(velocityX) && past > 0;
+            if (past > getHeight() * 0.4f || flickedDown) {
+                performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK);
+                close(true);
+            } else {
+                settle(velocityX, velocityY);
+            }
         }
 
         private boolean passedSlop(MotionEvent event) {
@@ -556,24 +636,31 @@ final class PhoneMiniPlayer {
             return Math.abs(event.getRawX() - mDownX) > slop || Math.abs(event.getRawY() - mDownY) > slop;
         }
 
-        /** Let go: glide to the nearest side, kept clear of the bars */
-        private void settle() {
+        /**
+         * Glides to a side, kept clear of the bars. A throw carries on where it was heading (the side and the height it
+         * would reach) and lands with a small bounce.
+         */
+        private void settle(float velocityX, float velocityY) {
             View root = mHost.getWindow().getDecorView();
             float margin = 12 * mDensity;
-            float centerX = getTranslationX() + getWidth() / 2f;
+            float carry = 0.18f; // seconds the throw keeps going
+            float centerX = getTranslationX() + getWidth() / 2f + velocityX * carry;
             float targetX = centerX < root.getWidth() / 2f ? margin : root.getWidth() - getWidth() - margin;
-            float[] target = clamp(targetX, getTranslationY(), getWidth(), getHeight());
+            float[] target = clamp(targetX, getTranslationY() + velocityY * carry, getWidth(), getHeight());
             float fromX = getTranslationX();
             float fromY = getTranslationY();
+            float fromAlpha = getAlpha();
             sCardX = target[0];
             sCardY = target[1];
+            boolean thrown = Math.hypot(velocityX, velocityY) > 600 * mDensity;
             mMove = ValueAnimator.ofFloat(0f, 1f);
-            mMove.setDuration(220);
-            mMove.setInterpolator(new DecelerateInterpolator(1.5f));
+            mMove.setDuration(thrown ? 320 : 240);
+            mMove.setInterpolator(thrown ? new OvershootInterpolator(0.9f) : new DecelerateInterpolator(1.8f));
             mMove.addUpdateListener(a -> {
                 float f = (float) a.getAnimatedValue();
                 setTranslationX(fromX + (target[0] - fromX) * f);
                 setTranslationY(fromY + (target[1] - fromY) * f);
+                setAlpha(fromAlpha + (1f - fromAlpha) * Math.min(1f, a.getAnimatedFraction() * 2f));
             });
             mMove.start();
         }

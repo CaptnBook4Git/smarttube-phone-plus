@@ -49,6 +49,36 @@ index a633990..c5e160c 100644
      boolean isUpcoming();
      String getChannelId();
      String getParams();
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/app/AppService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/app/AppService.java
+index 522cb28..df25e52 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/app/AppService.java
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/app/AppService.java
+@@ -24,6 +24,7 @@ public class AppService {
+     private static AppService sInstance;
+     private final AppServiceCore mAppServiceCore;
+     private String mClientPlaybackNonce;
++    private boolean mKeepClientPlaybackNonce;
+ 
+     private AppService() {
+         mAppServiceCore = new AppServiceCoreCached();
+@@ -157,9 +158,17 @@ public class AppService {
+     }
+ 
+     public void resetClientPlaybackNonce() {
++        if (mKeepClientPlaybackNonce) {
++            return; // a video info fetched ahead of time: the playing video keeps its nonce
++        }
+         mClientPlaybackNonce = null;
+     }
+ 
++    /** While set, fetching a video info doesn't start a new nonce (the info is for later, see FormatInfoWrapper) */
++    public void setKeepClientPlaybackNonce(boolean keep) {
++        mKeepClientPlaybackNonce = keep;
++    }
++
+     /**
+      * Constant used in {@link AuthApi}
+      */
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
 index ad4bafa..fe4cd9f 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
@@ -568,6 +598,22 @@ index 0000000..fa503c1
 +        return RxHelper.fromCallable(() -> getDownloadInfo(videoId));
 +    }
 +}
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java
+index 69c0a61..b11e397 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java
+@@ -74,6 +74,11 @@ public class YouTubeMediaItemService implements MediaItemService {
+         return FormatInfoWrapper.getFormatInfo(videoId, clickTrackingParams);
+     }
+ 
++    /** Fetches a video's info ahead of time, see {@link FormatInfoWrapper#preloadFormatInfo} (blocking: not for the UI thread) */
++    public static void preloadFormatInfo(String videoId) {
++        FormatInfoWrapper.preloadFormatInfo(videoId);
++    }
++
+     @Override
+     public Observable<MediaItemFormatInfo> getFormatInfoObserve(MediaItem item) {
+         return RxHelper.fromCallable(() -> getFormatInfo(item));
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/data/YouTubeMediaItemFormatInfo.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/data/YouTubeMediaItemFormatInfo.java
 index c470585..493dc71 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/data/YouTubeMediaItemFormatInfo.java
@@ -597,6 +643,85 @@ index c470585..493dc71 100644
          if (mStoryboardSpec == null) {
              return null;
          }
+diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt
+index e3be953..1152cca 100644
+--- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt
++++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt
+@@ -13,6 +13,7 @@ import com.liskovsoft.youtubeapi.videoinfo.V2.VideoInfoService
+ 
+ internal object FormatInfoWrapper {
+     private var mCachedFormatInfo: MediaItemFormatInfo? = null
++    private var mPreloadedFormatInfo: MediaItemFormatInfo? = null
+     private var mTryInnertubeFirst: Boolean = false
+     private val mInnertubeResult = object { var isUnplayable: Boolean = false; var client: AppClient? = null }
+     private val mInnertubeProvider: (String, String?) -> MediaItemFormatInfo? =
+@@ -34,6 +35,13 @@ internal object FormatInfoWrapper {
+ 
+         try {
+             synchronized(lock) {
++                takePreloadedFormatInfo(videoId)?.let {
++                    // Same as a fresh info: its own nonce (history), then the usual cache
++                    AppService.instance().resetClientPlaybackNonce()
++                    setCachedFormatInfo(it, clickTrackingParams)
++                    return it
++                }
++
+                 return selectPlaybackFormatInfo(videoId, clickTrackingParams)
+             }
+         } finally {
+@@ -41,6 +49,44 @@ internal object FormatInfoWrapper {
+         }
+     }
+ 
++    /**
++     * Fetches a video's info ahead of time (the phone's next Short), so opening it doesn't wait for the network.
++     * The playing video isn't disturbed: its cached info and its playback nonce (watch history) stay as they are.
++     */
++    @JvmStatic
++    fun preloadFormatInfo(videoId: String?) {
++        if (videoId == null)
++            return
++
++        synchronized(lock) {
++            if (getCachedFormatInfo(videoId) != null || mPreloadedFormatInfo?.getVideoId() == videoId)
++                return
++
++            val playing = mCachedFormatInfo
++            AppService.instance().setKeepClientPlaybackNonce(true)
++            try {
++                mCachedFormatInfo = null
++                mPreloadedFormatInfo = selectPlaybackFormatInfo(videoId, null)?.takeIf { !it.isUnplayable() }
++            } catch (e: Exception) {
++                mPreloadedFormatInfo = null // best effort: opened the usual way later
++            } finally {
++                AppService.instance().setKeepClientPlaybackNonce(false)
++                mCachedFormatInfo = playing
++            }
++        }
++    }
++
++    private fun takePreloadedFormatInfo(videoId: String): MediaItemFormatInfo? {
++        val preloaded = mPreloadedFormatInfo ?: return null
++
++        if (preloaded.getVideoId() != videoId)
++            return null
++
++        mPreloadedFormatInfo = null
++
++        return preloaded.takeIf { it.isCacheActual() }
++    }
++
+     @JvmStatic
+     fun switchNextClient(force: Boolean) {
+         if (mTryInnertubeFirst && !mInnertubeResult.isUnplayable) {
+@@ -63,6 +109,7 @@ internal object FormatInfoWrapper {
+     @JvmStatic
+     fun invalidateCache() {
+         mCachedFormatInfo = null
++        mPreloadedFormatInfo = null
+     }
+ 
+     @JvmStatic
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java
 index 29e7de1..6f18421 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/videoinfo/V2/VideoInfoService.java

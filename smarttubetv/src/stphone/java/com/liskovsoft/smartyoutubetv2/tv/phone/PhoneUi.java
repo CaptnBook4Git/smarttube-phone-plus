@@ -119,10 +119,15 @@ final class PhoneUi {
 
     /** Fetches a card thumbnail into the disk cache ahead of time (no decoding, no memory used) */
     static void prefetchThumb(Context context, Video video) {
+        prefetchThumb(context, video, video != null && video.isShorts);
+    }
+
+    /** @param vertical the full height picture of a Short (items of a Shorts list don't always carry the flag) */
+    static void prefetchThumb(Context context, Video video, boolean vertical) {
         if (video == null || TextUtils.isEmpty(video.videoId) || video.isChannel() || !isAlive(context)) {
             return;
         }
-        String url = "https://i.ytimg.com/vi/" + video.videoId + (video.isShorts ? "/oar2.jpg" : "/hq720.jpg");
+        String url = "https://i.ytimg.com/vi/" + video.videoId + (vertical ? "/oar2.jpg" : "/hq720.jpg");
         try {
             Glide.with(context).downloadOnly().load(url).submit();
         } catch (Throwable ignored) {
