@@ -160,7 +160,27 @@ class ShelfAdapter extends RecyclerView.Adapter<ShelfAdapter.Holder> {
                     false);
         }
 
-        PhoneCardPreviewManager.bind(view, video, () -> mListener.onVideoClicked(video));
+        view.setOnClickListener(v -> {
+            PhoneUi.rememberClick(view);
+            mListener.onVideoClicked(video);
+        });
+        view.setOnLongClickListener(v -> {
+            int previewType = com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.instance(view.getContext()).getCardPreviewType();
+            if (previewType == com.liskovsoft.smartyoutubetv2.common.prefs.MainUIData.CARD_PREVIEW_DISABLED) {
+                return true;
+            }
+            android.widget.ImageView thumb = view.findViewById(R.id.phone_thumb);
+            if (thumb != null && video.previewUrl != null) {
+                com.bumptech.glide.Glide.with(view.getContext())
+                        .load(video.previewUrl)
+                        .into(thumb);
+            }
+            return true;
+        });
+        View more = view.findViewById(R.id.phone_more);
+        if (more != null) {
+            more.setOnClickListener(v -> mListener.onVideoLongClicked(video));
+        }
     }
 
     static final class Holder extends RecyclerView.ViewHolder {

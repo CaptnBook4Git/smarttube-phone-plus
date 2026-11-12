@@ -1448,11 +1448,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                 item -> PhoneUi.openLongPressSpeedSettings(this, null)
         ));
 
-        options.add(UiOptionItem.from(
-                PhoneUi.getCardPreviewRandomStartTitle(this),
-                item -> PhoneUi.openCardPreviewRandomStartSettings(this, null)
-        ));
-
         int appearance = PhoneTheme.get(this);
         options.add(UiOptionItem.from(
                 getString(PhoneTheme.titleRes(appearance)),
