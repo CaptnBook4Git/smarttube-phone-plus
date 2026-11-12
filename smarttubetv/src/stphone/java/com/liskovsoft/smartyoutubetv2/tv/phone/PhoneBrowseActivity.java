@@ -221,8 +221,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     @Override
     protected int miniPlayerBottomOffset() {
         // Above the tabs (they include the navigation bar)
-        return mBottomBar != null && mBottomBar.getVisibility() == View.VISIBLE && mBottomBar.getHeight() > 0
+        int tabs = mBottomBar != null && mBottomBar.getVisibility() == View.VISIBLE && mBottomBar.getHeight() > 0
                 ? mBottomBar.getHeight() : super.miniPlayerBottomOffset();
+        return tabs + PhoneUpdateBanner.heightOn(this); // and above the "Update available" banner
     }
 
     @Override
@@ -471,6 +472,12 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                     scrollToTopOrRefresh();
                 } else {
                     selectTab(index);
+                    // The chosen tab's icon pops
+                    View tabIcon = ((LinearLayout) v).getChildAt(0);
+                    tabIcon.setScaleX(0.8f);
+                    tabIcon.setScaleY(0.8f);
+                    tabIcon.animate().scaleX(1f).scaleY(1f).setDuration(220)
+                            .setInterpolator(new android.view.animation.OvershootInterpolator(3f)).start();
                 }
             });
 
