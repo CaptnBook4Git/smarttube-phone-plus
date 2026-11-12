@@ -493,6 +493,23 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         return location[1] + activity.mVideoBox.getHeight();
     }
 
+    /**
+     * In tablet split view, returns the screen bounds of the right details pane so dialogs/comments
+     * can attach directly inside that column without covering the video on the left.
+     */
+    static Rect tabletSplitRightPaneRect() {
+        PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
+        if (activity == null || activity.isFinishing() || activity.mStopped || activity.isPip()
+                || activity.mPortrait || !PhoneUi.isTablet(activity)
+                || activity.mTabletFullscreen || activity.mShortsMode
+                || activity.mDetails == null || activity.mDetails.getWidth() == 0) {
+            return null;
+        }
+        int[] loc = new int[2];
+        activity.mDetails.getLocationOnScreen(loc);
+        return new Rect(loc[0], loc[1], loc[0] + activity.mDetails.getWidth(), loc[1] + activity.mDetails.getHeight());
+    }
+
     private boolean isPip() {
         return Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode();
     }
@@ -558,10 +575,21 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (mPortrait && mPlayer != null) {
             mPlayer.setResizeMode(com.google.android.exoplayer2.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT);
         }
-        // Full screen: keep the seek bar and time clear of the screen edges
+        // Full screen / tablet: keep the seek bar and time clear of the screen edges & gesture bar
         View bottom = findViewById(R.id.phone_ctl_bottom);
-        int side = isTrueFullscreen ? dp(28) : 0;
-        bottom.setPadding(side, 0, side, isTrueFullscreen ? dp(48) : 0);
+        int side;
+        int bottomPad;
+        if (isTrueFullscreen) {
+            side = tablet ? dp(36) : dp(28);
+            bottomPad = dp(48);
+        } else if (tablet) {
+            side = dp(16);
+            bottomPad = isTabletSplit ? dp(28) : dp(16);
+        } else {
+            side = 0;
+            bottomPad = 0;
+        }
+        bottom.setPadding(side, 0, side, bottomPad);
         mFullscreenButton.setImageResource(isTrueFullscreen ? R.drawable.ic_phone_fullscreen_exit : R.drawable.ic_phone_fullscreen);
 
         if (shorts || pip) {
@@ -882,11 +910,46 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             boolean controlsVisible = mControls != null && mControls.getVisibility() == View.VISIBLE;
             mTouchStartedOnVideo = onVideo && !controlsVisible && !onTimeline;
             mRouteTouchToPlayer = onVideo && !mShortsMode && !controlsVisible;
+            if (mTouchStartedOnVideo) {
+                mDragStartY = event.getRawY();
+                mDragStartX = event.getRawX();
+                mDragStartTime = event.getEventTime();
+            }
         }
 
-        // Swipe the video down to shrink the player (portrait, regular videos): the video follows the finger
-        if ((mShrinkDragging || mTouchStartedOnVideo) && mPortrait && !mShortsMode && handleShrinkDrag(event)) {
+        boolean tablet = PhoneUi.isTablet(this);
+        boolean isLandscapeTablet = tablet && !mPortrait;
+        boolean isTabletSplit = isLandscapeTablet && !mTabletFullscreen && !mShortsMode;
+        boolean isTrueFullscreen = (!mPortrait && !tablet) || mTabletFullscreen;
+        boolean allowShrink = (mPortrait || isTabletSplit) && !mShortsMode;
+
+        // Swipe the video down to shrink the player: the video follows the finger into the mini player
+        if ((mShrinkDragging || mTouchStartedOnVideo) && allowShrink && handleShrinkDrag(event)) {
             return true;
+        }
+
+        // Swipe UP on the video to expand into Fullscreen (YouTube style)
+        if (mTouchStartedOnVideo && !isTrueFullscreen && !mShortsMode && event.getActionMasked() == MotionEvent.ACTION_UP) {
+            float dy = event.getRawY() - mDragStartY;
+            float dx = Math.abs(event.getRawX() - mDragStartX);
+            if (dy < -dp(50) && Math.abs(dy) > dx * 1.3f) {
+                mRouteTouchToPlayer = null;
+                mTouchStartedOnVideo = false;
+                toggleFullscreen();
+                return true;
+            }
+        }
+
+        // Swipe DOWN on a fullscreen video to exit Fullscreen (YouTube style)
+        if (mTouchStartedOnVideo && isTrueFullscreen && !mShortsMode && event.getActionMasked() == MotionEvent.ACTION_UP) {
+            float dy = event.getRawY() - mDragStartY;
+            float dx = Math.abs(event.getRawX() - mDragStartX);
+            if (dy > dp(60) && dy > dx * 1.3f) {
+                mRouteTouchToPlayer = null;
+                mTouchStartedOnVideo = false;
+                toggleFullscreen();
+                return true;
+            }
         }
 
         boolean result;

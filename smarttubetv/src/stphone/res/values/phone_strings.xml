@@ -160,4 +160,11 @@
     <string name="phone_list_temp_toast">Applied temporarily</string>
     <string name="phone_list_deleted_toast">List deleted</string>
     <string name="phone_list_empty_query">Please enter a search query</string>
+    <string name="phone_grid_settings_title">Grid-Größe / Spalten</string>
+    <string name="phone_grid_auto">Automatisch</string>
+    <string name="phone_grid_1_col">1 Spalte</string>
+    <string name="phone_grid_2_cols">2 Spalten</string>
+    <string name="phone_grid_3_cols">3 Spalten</string>
+    <string name="phone_grid_4_cols">4 Spalten</string>
+    <string name="phone_grid_5_cols">5 Spalten</string>
 </resources>

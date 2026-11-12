@@ -345,6 +345,13 @@ public final class PhoneQuickActions {
         }
 
         Activity activity = getActivity(context);
+        boolean isChannelScreen = activity instanceof PhoneChannelActivity
+                || activity instanceof PhoneChannelUploadsActivity
+                || (video != null && video.belongsToChannel());
+        if (isChannelScreen) {
+            bar.setVisibility(View.GONE);
+            return;
+        }
         boolean isPlayback = activity instanceof PhonePlaybackActivity;
         boolean isHistory = !isPlayback
                 && video.belongsToHistory()

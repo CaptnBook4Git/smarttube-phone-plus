@@ -46,6 +46,74 @@ final class PhoneUi {
         metrics.ydpi = system.ydpi;
     }
 
+    private static final String PREF_NAME = "phone_ui_prefs";
+    private static final String KEY_GRID_COLUMNS = "feed_grid_columns";
+
+    public static int getCustomColumns(Context context) {
+        if (context == null) {
+            return 0;
+        }
+        return context.getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .getInt(KEY_GRID_COLUMNS, 0);
+    }
+
+    public static void setCustomColumns(Context context, int columns) {
+        if (context == null) {
+            return;
+        }
+        context.getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .edit().putInt(KEY_GRID_COLUMNS, columns).apply();
+    }
+
+    public static String getGridSettingsTitle(Context context) {
+        if (context == null) {
+            return "Grid-Größe / Spalten";
+        }
+        int custom = getCustomColumns(context);
+        if (custom == 0) {
+            return context.getString(R.string.phone_grid_settings_title) + ": " + context.getString(R.string.phone_grid_auto);
+        }
+        return context.getString(R.string.phone_grid_settings_title) + ": " + custom;
+    }
+
+    public static void openGridSettings(Context context, Runnable onChanged) {
+        if (context == null) {
+            return;
+        }
+        com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter dialog =
+                com.liskovsoft.smartyoutubetv2.common.app.presenters.AppDialogPresenter.instance(context);
+
+        int current = getCustomColumns(context);
+        java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.OptionItem> opts = new java.util.ArrayList<>();
+
+        int[][] choices = {
+                {0, R.string.phone_grid_auto},
+                {1, R.string.phone_grid_1_col},
+                {2, R.string.phone_grid_2_cols},
+                {3, R.string.phone_grid_3_cols},
+                {4, R.string.phone_grid_4_cols},
+                {5, R.string.phone_grid_5_cols}
+        };
+
+        for (int[] pair : choices) {
+            final int colVal = pair[0];
+            opts.add(com.liskovsoft.smartyoutubetv2.common.app.models.playback.ui.UiOptionItem.from(
+                    context.getString(pair[1]),
+                    item -> {
+                        setCustomColumns(context, colVal);
+                        dialog.closeDialog();
+                        if (onChanged != null) {
+                            onChanged.run();
+                        }
+                    },
+                    current == colVal
+            ));
+        }
+
+        dialog.appendRadioCategory(context.getString(R.string.phone_grid_settings_title), opts);
+        dialog.showDialog(context.getString(R.string.phone_grid_settings_title));
+    }
+
     public static boolean isTablet(Context context) {
         if (context == null) {
             return false;
@@ -56,6 +124,10 @@ final class PhoneUi {
     public static int calculateVideoColumns(Context context) {
         if (context == null) {
             return 1;
+        }
+        int custom = getCustomColumns(context);
+        if (custom > 0) {
+            return custom;
         }
         int widthDp = context.getResources().getConfiguration().screenWidthDp;
         int smallestWidthDp = context.getResources().getConfiguration().smallestScreenWidthDp;

@@ -2,6 +2,7 @@ package com.liskovsoft.smartyoutubetv2.tv.phone;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -128,9 +129,15 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         });
 
         // Over the player in portrait: the sheet starts below the video, which stays clear and undimmed (like YouTube).
-        // No blur behind sheets: it also redrew the playing video small and off to the side.
+        // Over the player in tablet split view: the sheet opens in the right details column, leaving the video on the left untouched.
+        Rect splitPane = PhonePlaybackActivity.tabletSplitRightPaneRect();
         mVideoLimit = PhonePlaybackActivity.sheetTopLimit();
-        if (mVideoLimit > 0) {
+        if (splitPane != null) {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            View root = findViewById(R.id.phone_dialog_root);
+            root.setPadding(0, splitPane.top, 0, 0);
+            mListFrame.setMaxScreenFraction(1f);
+        } else if (mVideoLimit > 0) {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             View root = findViewById(R.id.phone_dialog_root);
             root.setPadding(root.getPaddingLeft(), mVideoLimit, root.getPaddingRight(), root.getPaddingBottom());
@@ -141,7 +148,13 @@ public class PhoneDialogActivity extends MotherActivity implements AppDialogView
         mBack.setOnClickListener(v -> goBack());
 
         View sheet = findViewById(R.id.phone_sheet);
-        if (PhoneUi.isTablet(this)) {
+        if (splitPane != null) {
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) sheet.getLayoutParams();
+            lp.width = splitPane.width();
+            lp.height = ViewGroup.LayoutParams.MATCH_PARENT;
+            lp.gravity = Gravity.END | Gravity.BOTTOM;
+            sheet.setLayoutParams(lp);
+        } else if (PhoneUi.isTablet(this)) {
             int maxSheetWidth = (int) (560 * getResources().getDisplayMetrics().density);
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) sheet.getLayoutParams();
             lp.width = Math.min(getResources().getDisplayMetrics().widthPixels, maxSheetWidth);

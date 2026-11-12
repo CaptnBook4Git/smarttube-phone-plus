@@ -333,7 +333,13 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             accountSettingsBtn.setOnClickListener(v -> openAppSettings());
         }
         mTopAvatar = findViewById(R.id.phone_top_avatar);
-        mTopAvatar.setOnClickListener(v -> selectTab(TAB_YOU));
+        if (PhoneUi.isTablet(this)) {
+            mTopAvatar.setVisibility(View.VISIBLE);
+            mTopAvatar.setOnClickListener(v -> AccountSelectionPresenter.instance(this).show(true));
+        } else {
+            mTopAvatar.setVisibility(View.GONE);
+            mTopAvatar.setOnClickListener(v -> selectTab(TAB_YOU));
+        }
         mSignInCard = getLayoutInflater().inflate(R.layout.phone_signin_card, mList, false);
         mSignInCard.findViewById(R.id.phone_signin_card_button).setOnClickListener(v -> YTSignInPresenter.instance(this).start());
         mSubsHeader = new PhoneSubscriptionsHeader(this, mList, new PhoneSubscriptionsHeader.Callback() {
@@ -687,6 +693,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         boolean signedIn = account != null && !account.isEmpty();
 
         if (mTopAvatar != null) {
+            if (PhoneUi.isTablet(this)) {
+                mTopAvatar.setVisibility(View.VISIBLE);
+            }
             if (signedIn && account.getAvatarImageUrl() != null) {
                 mTopAvatar.setImageTintList(null);
                 PhoneUi.loadAvatar(mTopAvatar, account.getAvatarImageUrl());
@@ -1320,6 +1329,17 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
                     }
                 }),
                 R.drawable.ic_phone_not_interested));
+        items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
+                PhoneUi.getGridSettingsTitle(this), () -> PhoneUi.openGridSettings(this, () -> {
+                    updateLayoutColumns();
+                    if (mAdapter != null) {
+                        mAdapter.notifyItemRangeChanged(0, mAdapter.getItemCount());
+                    }
+                    if (mSettingsGroup != null) {
+                        updateSection(mSettingsGroup);
+                    }
+                }),
+                R.drawable.ic_phone_settings));
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
                 getString(PhoneTheme.titleRes(appearance)), () -> {
                     PhoneTheme.set(this, PhoneTheme.next(appearance));
