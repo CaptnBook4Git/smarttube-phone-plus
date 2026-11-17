@@ -112,7 +112,11 @@ jobs:
             echo "| StreamTube-universal.apk | Any device, also x86 emulators and Chromebooks (bigger download) |"
             echo ""
             echo "What's new"
-            if [ -n "$PREV" ]; then
+            # Written for people using the app (.github/whats-new.md, when it was updated for this release);
+            # otherwise the change titles since the previous build
+            if [ -n "$PREV" ] && ! git diff --quiet "$PREV" HEAD -- .github/whats-new.md; then
+              grep -E '^- ' .github/whats-new.md
+            elif [ -n "$PREV" ]; then
               git log --no-merges --format='- %s' "$PREV..HEAD" | grep -viE '^- (CI|README|Smoke|Emulator)' \
               | sed -E "s/[[:space:]]*(exactly[[:space:]]+)?(as|like)[[:space:]]+(in[[:space:]]+)?NewTube('s)?//Ig" \
               | grep -vi 'newtube' | head -n 30 || true
