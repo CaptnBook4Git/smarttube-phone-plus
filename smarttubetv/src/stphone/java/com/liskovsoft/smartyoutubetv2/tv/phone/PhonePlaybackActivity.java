@@ -2103,7 +2103,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             label.setGravity(Gravity.CENTER);
             label.setIncludeFontPadding(false);
             // As on Home's bar: each label shrinks to fit its fifth instead of running into the next one
-            label.setAutoSizeTextTypeUniformWithConfiguration(7, 11, 1, TypedValue.COMPLEX_UNIT_SP);
+            label.setAutoSizeTextTypeUniformWithConfiguration(7, 10, 1, TypedValue.COMPLEX_UNIT_SP); // YouTube's 10sp, smaller only if it doesn't fit
             LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                     (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14, getResources().getDisplayMetrics()));
             labelParams.leftMargin = dp(2);

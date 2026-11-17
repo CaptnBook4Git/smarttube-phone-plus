@@ -563,7 +563,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             label.setIncludeFontPadding(false);
             // Each label stays inside its own fifth of the bar: on narrow phones or with a bigger font size, "Subscriptions"
             // and "Notifications" shrink to fit instead of running into each other
-            label.setAutoSizeTextTypeUniformWithConfiguration(7, 11, 1, TypedValue.COMPLEX_UNIT_SP);
+            label.setAutoSizeTextTypeUniformWithConfiguration(7, 10, 1, TypedValue.COMPLEX_UNIT_SP); // YouTube's 10sp, smaller only if it doesn't fit
             LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14,
                     getResources().getDisplayMetrics()));
@@ -656,7 +656,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             boolean selected = mCurrentSection != null && mCurrentSection.getId() == section.getId();
             chip.setSelected(selected);
             chip.setTextColor(getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
-            chip.setTypeface(PhoneUi.medium(chip.getContext()));
+            chip.setTypeface(PhoneUi.regular(chip.getContext()));
             chip.setOnClickListener(v -> {
                 if (mCurrentSection == null || mCurrentSection.getId() != section.getId()) {
                     focusSection(section);
