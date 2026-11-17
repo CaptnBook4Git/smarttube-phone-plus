@@ -24,6 +24,81 @@ final class PhoneDebugLog {
     private PhoneDebugLog() {
     }
 
+    private static final String[] TAGS = {
+            "PhonePip:V", "PhonePlayback:V", "PhoneMiniPlayer:V", "PhoneShorts:V", "PhoneNewVideos:V", "PhoneUpdater:V", "ViewManager:V",
+            "PlaybackActivity:V", "PlaybackFragment:V", "PlaybackPresenter:V", "ExoPlayerImpl:V",
+            "ExoPlayerImplInternal:V", "MediaCodecVideoRenderer:V", "AndroidRuntime:E", "*:S"};
+    private static final long FILE_LIMIT = 300_000;
+    private static java.io.File sFile;
+    private static java.io.File sOlder;
+
+    /**
+     * From app start, the app's own log lines are also written to a file (two files of 300 KB at most, the older one
+     * replaced): what happened before the app was closed or killed is still there the next time the log is shared.
+     */
+    static void record(android.content.Context context) {
+        if (sFile != null) {
+            return;
+        }
+        sFile = new java.io.File(context.getFilesDir(), "debug_log.txt");
+        sOlder = new java.io.File(context.getFilesDir(), "debug_log.1.txt");
+        Thread thread = new Thread(() -> {
+            Process process = null;
+            try {
+                String[] command = new String[TAGS.length + 5];
+                System.arraycopy(new String[] {"logcat", "-v", "time", "-T", "1"}, 0, command, 0, 5);
+                System.arraycopy(TAGS, 0, command, 5, TAGS.length);
+                process = Runtime.getRuntime().exec(command);
+                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                java.io.FileWriter writer = new java.io.FileWriter(sFile, true);
+                writer.write("---- app started " + new java.util.Date() + " ----\n");
+                writer.flush();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (!wanted(line)) {
+                        continue;
+                    }
+                    writer.write(line);
+                    writer.write('\n');
+                    writer.flush();
+                    if (sFile.length() > FILE_LIMIT) {
+                        writer.close();
+                        sOlder.delete();
+                        sFile.renameTo(sOlder);
+                        writer = new java.io.FileWriter(sFile, true);
+                    }
+                }
+                writer.close();
+            } catch (Exception e) {
+                android.util.Log.d("PhonePip", "debug log file: " + e);
+            } finally {
+                if (process != null) {
+                    process.destroy();
+                }
+            }
+        }, "debug-log-file");
+        thread.setDaemon(true);
+        thread.setPriority(Thread.MIN_PRIORITY);
+        thread.start();
+    }
+
+    /** The saved lines, oldest first; empty if nothing was saved */
+    private static void readSaved(ArrayDeque<String> lines) {
+        for (java.io.File file : new java.io.File[] {sOlder, sFile}) {
+            if (file == null || !file.exists()) {
+                continue;
+            }
+            try (BufferedReader reader = new BufferedReader(new java.io.FileReader(file))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    lines.addLast(line);
+                }
+            } catch (Exception ignored) {
+                // what could be read is enough
+            }
+        }
+    }
+
     static void share(Activity activity) {
         Handler main = new Handler(Looper.getMainLooper());
         new Thread(() -> {
@@ -52,14 +127,31 @@ final class PhoneDebugLog {
                 .append(" | Android ").append(Build.VERSION.RELEASE).append(" (").append(Build.VERSION.SDK_INT).append(")\n\n");
         ArrayDeque<String> lines = new ArrayDeque<>();
         int size = 0;
+        readSaved(lines);
+        if (lines.size() > 20) {
+            // The saved file: it goes back before the app's last restart
+            for (String line : lines) {
+                size += line.length() + 1;
+            }
+            while (size > MAX_CHARS && !lines.isEmpty()) {
+                size -= lines.removeFirst().length() + 1; // keep the newest
+            }
+            StringBuilder saved = new StringBuilder(header);
+            for (String line : lines) {
+                saved.append(line).append('\n');
+            }
+            return saved.toString();
+        }
+        lines.clear();
+        size = 0;
         Process process = null;
         try {
             // Only the app's own lines (phones like ColorOS write thousands of system lines a second): the whole buffer,
             // so earlier runs of the app (before a restart) are in it too
-            process = Runtime.getRuntime().exec(new String[] {"logcat", "-d", "-v", "time",
-                    "PhonePip:V", "PhonePlayback:V", "PhoneMiniPlayer:V", "PhoneShorts:V", "PhoneNewVideos:V", "PhoneUpdater:V", "ViewManager:V",
-                    "PlaybackActivity:V", "PlaybackFragment:V", "PlaybackPresenter:V", "ExoPlayerImpl:V",
-                    "ExoPlayerImplInternal:V", "MediaCodecVideoRenderer:V", "AndroidRuntime:E", "*:S"});
+            String[] command = new String[TAGS.length + 4];
+            System.arraycopy(new String[] {"logcat", "-d", "-v", "time"}, 0, command, 0, 4);
+            System.arraycopy(TAGS, 0, command, 4, TAGS.length);
+            process = Runtime.getRuntime().exec(command);
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
