@@ -174,5 +174,23 @@
     <string name="phone_downloads_delete_failed">Não foi possível excluir. Exclua-o pelo app Arquivos (Download/StreamTube).</string>
     <string name="phone_debug_log">Compartilhar log de depuração</string>
     <string name="phone_pip_blocked">Desativado nas configurações do Android</string>
-    <string name="phone_prev_next_buttons">Botões anterior / próximo no player</string>
+    <string name="phone_settings_customize">Personalizar</string>
+    <string name="phone_tweak_you">Você</string>
+    <string name="phone_tweak_you_summary">Onde sua conta e biblioteca são abertas</string>
+    <string name="phone_tweak_you_bottom">Barra inferior</string>
+    <string name="phone_tweak_you_top">Em cima, ao lado da pesquisa</string>
+    <string name="phone_tweak_prev_next">Botões anterior e próximo</string>
+    <string name="phone_tweak_prev_next_summary">Mostrados no player. Desative para não tocá-los sem querer ao avançar</string>
+    <string name="phone_customize_intro">Deixe o StreamTube do seu jeito. As mudanças valem na hora.</string>
+    <string name="phone_customize_layout">Layout</string>
+    <string name="phone_customize_player">Player</string>
+    <string name="phone_customize_summary">Aba Você, botões do player e mais</string>
+    <string name="phone_whats_new">Novidades</string>
+    <string name="phone_whats_new_summary">Os recursos mais recentes, explicados</string>
+    <string name="phone_whats_new_title">Novidades do StreamTube</string>
+    <string name="phone_whats_new_updated">O StreamTube foi atualizado. Veja o que mudou:</string>
+    <string name="phone_whats_new_see_all">Ver tudo</string>
+    <string name="phone_whats_new_got_it">Entendi</string>
+    <string name="phone_whats_new_badge">Novo</string>
+    <string name="phone_whats_new_version">Versão %1$s</string>
 </resources>

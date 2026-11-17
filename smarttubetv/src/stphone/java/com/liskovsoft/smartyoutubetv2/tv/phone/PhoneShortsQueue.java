@@ -185,6 +185,123 @@ final class PhoneShortsQueue {
         return indexOf(videos(), video) >= 0;
     }
 
+    private static final java.util.concurrent.ExecutorService AHEAD = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private static final java.util.Set<String> sAsked = java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<>());
+
+    /**
+     * While a Short plays: the next two get their stream info now (as MeeTube does), so a swipe starts them without
+     * waiting for YouTube. One at a time, after the playing Short's own request; each asked for once.
+     */
+    static void prefetchAhead(android.content.Context context, Video current) {
+        android.content.Context app = context.getApplicationContext();
+        Video next = next(current);
+        Video afterNext = next != null ? next(next) : null;
+        for (Video video : new Video[] {next, afterNext}) {
+            if (video == null || video.videoId == null || !sAsked.add(video.videoId)) {
+                continue;
+            }
+            if (sAsked.size() > 40) {
+                java.util.Iterator<String> oldest = sAsked.iterator();
+                oldest.next();
+                oldest.remove();
+            }
+            PhoneUi.prefetchThumb(app, video, true);
+            String videoId = video.videoId;
+            AHEAD.execute(() -> {
+                long start = android.os.SystemClock.elapsedRealtime();
+                try {
+                    com.liskovsoft.mediaserviceinterfaces.data.MediaItemFormatInfo info =
+                            com.liskovsoft.youtubeapi.service.YouTubeMediaItemService.preloadFormatInfo(videoId);
+                    long infoMs = android.os.SystemClock.elapsedRealtime() - start;
+                    String media = mediaAhead(app, info);
+                    android.util.Log.d("PhoneShorts", "ahead " + videoId + " info in " + infoMs + " ms, " + media + " in "
+                            + (android.os.SystemClock.elapsedRealtime() - start - infoMs) + " ms");
+                } catch (Throwable e) {
+                    android.util.Log.d("PhoneShorts", "ahead " + videoId + ": " + e);
+                }
+            });
+        }
+    }
+
+    private static volatile String sVideoItag;
+    private static volatile int sVideoHeight;
+    private static volatile String sVideoMime;
+    private static volatile String sAudioItag;
+    private static final int AHEAD_SECONDS = 4;
+
+    /** The formats the playing Short plays in: the next Shorts most likely play in the same ones */
+    static void rememberFormats(com.google.android.exoplayer2.Format video, com.google.android.exoplayer2.Format audio) {
+        if (video != null && video.id != null) {
+            sVideoItag = video.id;
+            sVideoHeight = video.height;
+            sVideoMime = video.sampleMimeType;
+        }
+        if (audio != null && audio.id != null) {
+            sAudioItag = audio.id;
+        }
+    }
+
+    /**
+     * A Short's first seconds, before it's swiped to: streamed as files (DASH), they're downloaded into a small disk
+     * cache in the formats the playing Short uses; streamed live (SABR), the connection to its server is opened.
+     */
+    private static String mediaAhead(android.content.Context app,
+                                     com.liskovsoft.mediaserviceinterfaces.data.MediaItemFormatInfo info) {
+        if (info == null || info.isUnplayable()) {
+            return "no info";
+        }
+        com.liskovsoft.smartyoutubetv2.common.exoplayer.ExoMediaSourceFactory factory =
+                new com.liskovsoft.smartyoutubetv2.common.exoplayer.ExoMediaSourceFactory(app);
+        if (!info.containsDashFormats()) {
+            String url = info.getServerAbrStreamingUrl();
+            factory.warmUp(url);
+            return url != null ? "sabr, connected" : "no media";
+        }
+        List<com.liskovsoft.mediaserviceinterfaces.data.MediaFormat> picked = new ArrayList<>();
+        com.liskovsoft.mediaserviceinterfaces.data.MediaFormat video = null;
+        com.liskovsoft.mediaserviceinterfaces.data.MediaFormat audio = null;
+        com.liskovsoft.mediaserviceinterfaces.data.MediaFormat sameHeight = null;
+        for (com.liskovsoft.mediaserviceinterfaces.data.MediaFormat format : info.getAdaptiveFormats()) {
+            if (format == null || format.getITag() == null) {
+                continue;
+            }
+            String mime = format.getMimeType() != null ? format.getMimeType() : "";
+            if (format.getITag().equals(sVideoItag)) {
+                video = format;
+            } else if (format.getITag().equals(sAudioItag)) {
+                audio = format;
+            } else if (sameHeight == null && sVideoHeight > 0 && format.getHeight() == sVideoHeight && sVideoMime != null
+                    && mime.startsWith("video/") && sameFamily(mime, sVideoMime)) {
+                sameHeight = format;
+            }
+        }
+        if (video == null) {
+            video = sameHeight;
+        }
+        if (video != null) {
+            picked.add(video);
+        }
+        if (audio != null) {
+            picked.add(audio);
+        }
+        if (picked.isEmpty()) {
+            factory.warmUp(info.getAdaptiveFormats().isEmpty() ? null : info.getAdaptiveFormats().get(0).getUrl());
+            return "dash, connected";
+        }
+        long bytes = factory.prefetchStart(info, picked, AHEAD_SECONDS);
+        return "dash " + (bytes / 1024) + " KB of " + (video != null ? video.getITag() : "-") + "+" + (audio != null ? audio.getITag() : "-");
+    }
+
+    /** "video/webm; codecs=vp9" and "video/x-vnd.on2.vp9": the same kind of video */
+    private static boolean sameFamily(String mime, String exoMime) {
+        String m = mime.toLowerCase();
+        String e = exoMime.toLowerCase();
+        if (e.contains("vp9")) return m.contains("vp9") || m.contains("vp09");
+        if (e.contains("av01")) return m.contains("av01");
+        if (e.contains("avc")) return m.contains("avc");
+        return false;
+    }
+
     static Video next(Video current) {
         List<Video> list = videos();
         int index = indexOf(list, current);

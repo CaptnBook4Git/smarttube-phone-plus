@@ -119,6 +119,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         public void run() {
             updateProgress();
             syncPlaybackService();
+            logShortTiming();
+            peekTick();
+            shortsAutoAdvance();
             // A Short's picture is still over the video: look often, so the video shows the moment it plays
             boolean waitingForShort = mShortsMode && mPoster != null && mPoster.getVisibility() == View.VISIBLE;
             mHandler.postDelayed(this, waitingForShort ? SHORT_TICK_MS : TICK_MS);
@@ -175,6 +178,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mIncomingPoster.setVisibility(View.GONE);
         mVideoBox.addView(mIncomingPoster, 2, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // The next Short, loaded in a second hidden player (above both pictures, below the Shorts overlay)
+        mPeek = new PhoneShortsPeek(this, mVideoBox, 3);
         // Spinning circle over the thumbnail while the video loads, and while it buffers
         mLoading = new android.widget.ProgressBar(this);
         mLoading.setIndeterminate(true);
@@ -356,6 +361,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     protected void onDestroy() {
         if (sInstance != null && sInstance.get() == this) {
             sInstance = null;
+        }
+        if (mPeek != null) {
+            mPeek.release(exoPlayer());
         }
         unregisterPipReceiver();
         stopPlaybackService();
@@ -1296,8 +1304,12 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mPoster.setTranslationY(0);
         mPoster.setVisibility(View.VISIBLE);
         mPosterSince = android.os.SystemClock.uptimeMillis();
-        mPosterUntilFrame = false; // a new video: black with the spinner until it plays
-        com.bumptech.glide.Glide.with(this).clear(mPoster); // no thumbnail, only the loading spinner
+        mPosterUntilFrame = false;
+        if (mShortsMode || isShort(video)) {
+            PhoneUi.loadThumb(mPoster, video, true); // a Short: its picture until it plays, never a black screen
+        } else {
+            com.bumptech.glide.Glide.with(this).clear(mPoster); // a new video: black with the spinner until it plays
+        }
         mPoster.setImageDrawable(null);
         updateLoading();
     }
@@ -1315,6 +1327,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         boolean buffering = exo != null && exo.getPlaybackState() == com.google.android.exoplayer2.Player.STATE_BUFFERING;
         boolean covered = mPoster != null && mPoster.getVisibility() == View.VISIBLE;
         boolean show = wantsToPlay && (covered || buffering) && !isPip() && !mMinimizing && !mMinimized
+                && (mPeek == null || !mPeek.isActive())
                 && (mControls == null || mControls.getVisibility() != View.VISIBLE);
         if (show == (mLoading.getVisibility() == View.VISIBLE)) {
             return;
@@ -1970,7 +1983,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         boolean playing = mPlayer.getPlayWhenReady();
         mPlayButton.setImageResource(playing ? R.drawable.ic_phone_pause : R.drawable.ic_phone_play);
         if (mShortsPaused != null) {
-            mShortsPaused.setVisibility(mShortsMode && !playing ? View.VISIBLE : View.GONE);
+            // (not while the hidden player hands over: the main one waits paused for a moment then)
+            boolean handingOver = mPeek != null && mPeek.isActive();
+            mShortsPaused.setVisibility(mShortsMode && !playing && !handingOver ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -2088,6 +2103,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 R.string.phone_tab_notifications, R.string.phone_tab_you};
         String[] targets = {"tab_home", null, "subscriptions", "tab_notifications", "tab_you"};
         for (int i = 0; i < icons.length; i++) {
+            if ("tab_you".equals(targets[i]) && PhoneTweaks.youOnTop(this)) {
+                continue; // Customize > You: it's at the top of Home, not in the bottom bar
+            }
             LinearLayout tab = new LinearLayout(this);
             tab.setOrientation(LinearLayout.VERTICAL);
             tab.setGravity(Gravity.CENTER);
@@ -2371,6 +2389,116 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
      * Right after a swipe the player can still report the previous Short's position for a moment. Only uncover the
      * video once its position fits the time since the new Short arrived, i.e. its own frames are really playing.
      */
+   private boolean mShortReadyLogged;
+    private PhoneShortsPeek mPeek;
+    private String mPeekShortId;
+
+    /**
+     * The hidden player: hands over to the main player once that has the Short; otherwise, while a Short plays, loads
+     * the next one so the next swipe starts at once.
+     */
+    private void peekTick() {
+        if (mPeek == null) {
+            return;
+        }
+        com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+        if (mPeek.isActive()) {
+            if (!mShortsMode || mStopped || isPip() || mMinimized) {
+                mPeek.end(exo, "left the Shorts");
+                return;
+            }
+            Video video = currentVideo();
+            mPeek.tick(exo, !mAwaitingNewVideo && video != null && video.videoId != null && video.videoId.equals(mPeekShortId));
+            return;
+        }
+        if (mShortsMode && !mStopped && !isPip() && !mMinimized && !mAwaitingNewVideo && exo != null
+                && exo.getPlayWhenReady() && exo.getPlaybackState() == com.google.android.exoplayer2.Player.STATE_READY) {
+            Video next = PhoneShortsQueue.next(currentVideo());
+            if (next == null) {
+                next = nextShort();
+            }
+            if (next != null) {
+                mPeek.prepare(next.videoId);
+            }
+        }
+    }
+
+    private String mAutoAdvancedFor;
+
+    /**
+     * A Short that has played to the end moves on to the next Short, like a swipe (the player's own "autoplay" would
+     * open the next suggested video, a regular one, and leave the Shorts)
+     */
+    private void shortsAutoAdvance() {
+        if (!mShortsMode || mPaging || mPageAnimating || mAwaitingNewVideo || isPip() || mMinimized || mStopped) {
+            return;
+        }
+        com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+        Video video = currentVideo();
+        if (exo == null || video == null || video.videoId == null || !exo.getPlayWhenReady()
+                || (mPeek != null && mPeek.isActive()) || video.videoId.equals(mAutoAdvancedFor)) {
+            return;
+        }
+        long duration = exo.getDuration();
+        if (duration <= 0 || duration == com.google.android.exoplayer2.C.TIME_UNSET) {
+            return;
+        }
+        long left = duration - exo.getCurrentPosition();
+        if (left > 1_100) {
+            return;
+        }
+        String videoId = video.videoId;
+        mAutoAdvancedFor = videoId;
+        mHandler.postDelayed(() -> {
+            Video now = currentVideo();
+            if (!mShortsMode || mPaging || mPageAnimating || mAwaitingNewVideo || mStopped || isPip() || mMinimized
+                    || now == null || !videoId.equals(now.videoId)) {
+                return;
+            }
+            Video next = nextShort();
+            if (next == null) {
+                return; // no next Short: the player does what it does at the end
+            }
+            android.util.Log.d("PhoneShorts", "ended: on to " + next.videoId);
+            mPageDirection = 1;
+            mIncoming = next;
+            preparePage(next);
+            commitPage(0);
+        }, Math.max(0, left - 150));
+    }
+
+    /** The main player has the Short now and draws it: its picture is no longer needed */
+    private void afterPeek() {
+        if (mPoster != null) {
+            mPoster.animate().cancel();
+            mPoster.setVisibility(View.GONE);
+        }
+        mPosterUntilFrame = false;
+        updateLoading();
+    }
+
+
+    /** Debug log: how long a Short took from the swipe to being ready to play, and to its picture showing */
+    private void logShortTiming() {
+        if (!mShortsMode || mShortOpenedAt <= 0) {
+            return;
+        }
+        com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+        long since = android.os.SystemClock.elapsedRealtime() - mShortOpenedAt;
+        if (exo != null && !mShortReadyLogged && !mAwaitingNewVideo
+                && exo.getPlaybackState() == com.google.android.exoplayer2.Player.STATE_READY) {
+            mShortReadyLogged = true;
+            android.util.Log.d("PhoneShorts", "ready after " + since + " ms");
+            PhoneShortsQueue.rememberFormats(exo.getVideoFormat(), exo.getAudioFormat());
+        }
+        if (mShortReadyLogged && (mPoster == null || mPoster.getVisibility() != View.VISIBLE)) {
+            android.util.Log.d("PhoneShorts", "picture after " + since + " ms");
+            mShortOpenedAt = 0;
+        } else if (since > 15_000) {
+            mShortOpenedAt = 0;
+        }
+    }
+
     private boolean newShortIsPlaying(long position) {
         long shownFor = android.os.SystemClock.uptimeMillis() - mPosterSince;
         return shownFor > 200 && position <= shownFor + 1500;
@@ -2430,6 +2558,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             if (mIncoming != null) {
                 refreshShorts(mIncoming);
                 mSwipedTo = mIncoming;
+                // Loaded ahead in the hidden player: it plays now, the main player catches up behind it
+                if (mPeek.takeOver(mIncoming.videoId, exoPlayer(), this::afterPeek)) {
+                    mPeekShortId = mIncoming.videoId;
+                }
                 String expected = mIncoming.videoId;
                 mExpectedVideoId = expected;
                 // Safety net: never wait forever if the player reports the Short under another id
@@ -2520,11 +2652,19 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mPageAnimating = false;
     }
 
+    /** When the Short on screen was swiped to (its first frame is timed from here, for the debug log) */
+    private long mShortOpenedAt;
+
     private void openShort(Video video) {
         if (video == null) {
             return;
         }
         android.util.Log.d("PhoneShorts", "open " + video.videoId);
+        if (mPeek != null && mPeek.isActive() && !video.videoId.equals(mPeekShortId)) {
+            mPeek.end(exoPlayer(), "another Short opened");
+        }
+        mShortOpenedAt = android.os.SystemClock.elapsedRealtime();
+        mShortReadyLogged = false;
         presenter().openVideo(video);
         if (PhoneShortsQueue.hasOwnFeed()) {
             PhoneShortsQueue.markPlayed(video); // also loads the next page near the end
@@ -3223,6 +3363,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         refreshDetails();
         if (mShortsMode) {
             preloadNextShorts();
+            // The next two Shorts: stream info and, where possible, their first seconds or a ready connection
+            PhoneShortsQueue.prefetchAhead(this, video);
         }
         if (mDetails != null) {
             mDetails.scrollToPosition(0);

@@ -19,7 +19,7 @@ import java.util.ArrayDeque;
  * through the share sheet. An app reads only its own log lines; no permission needed.
  */
 final class PhoneDebugLog {
-    private static final int MAX_CHARS = 90_000; // well within what a share intent carries
+    private static final int MAX_CHARS = 24_000; // the newest part: short enough to paste into a chat in one go
 
     private PhoneDebugLog() {
     }
@@ -27,7 +27,7 @@ final class PhoneDebugLog {
     private static final String[] TAGS = {
             "PhonePip:V", "PhonePlayback:V", "PhoneMiniPlayer:V", "PhoneShorts:V", "PhoneNewVideos:V", "PhoneUpdater:V", "ViewManager:V",
             "PlaybackActivity:V", "PlaybackFragment:V", "PlaybackPresenter:V", "ExoPlayerImpl:V",
-            "ExoPlayerImplInternal:V", "MediaCodecVideoRenderer:V", "AndroidRuntime:E", "*:S"};
+            "ExoPlayerImplInternal:W", "MediaCodecVideoRenderer:V", "AndroidRuntime:E", "*:S"};
     private static final long FILE_LIMIT = 300_000;
     private static java.io.File sFile;
     private static java.io.File sOlder;
@@ -179,6 +179,8 @@ final class PhoneDebugLog {
     }
 
     private static boolean wanted(String line) {
-        return !line.startsWith("--------- beginning of");
+        // Leave out the lines that repeat many times and say little (they pushed the useful ones out of the log)
+        return !line.startsWith("--------- beginning of") && !line.contains("Continue row")
+                && !line.contains("player window off") && !line.contains("player window armed");
     }
 }

@@ -14,6 +14,21 @@ final class PhoneSetting extends SettingsItem {
     final boolean header;
     /** Rows that open a drop-down under themselves: called with the row's value view, in place of onClick */
     OnPick onPick;
+    /** A short line under the title saying what the setting does; null for none */
+    String summary;
+    /** A dot before the arrow: something new to see behind this row */
+    boolean badge;
+
+    PhoneSetting badge(boolean show) {
+        badge = show;
+        return this;
+    }
+
+    /** Adds the line under the title */
+    PhoneSetting summary(String text) {
+        summary = text;
+        return this;
+    }
 
     interface OnPick {
         void pick(android.view.View anchor);

@@ -174,5 +174,23 @@
     <string name="phone_downloads_delete_title">Delete this download?</string>
     <string name="phone_downloads_deleted">Download deleted</string>
     <string name="phone_downloads_delete_failed">Couldn\'t delete it. Delete it from the Files app (Download/StreamTube).</string>
-    <string name="phone_prev_next_buttons">Previous / next buttons in the player</string>
+    <string name="phone_settings_customize">Customize</string>
+    <string name="phone_tweak_you">You</string>
+    <string name="phone_tweak_you_summary">Where your account and library open from</string>
+    <string name="phone_tweak_you_bottom">Bottom bar</string>
+    <string name="phone_tweak_you_top">Top, next to search</string>
+    <string name="phone_tweak_prev_next">Previous and next buttons</string>
+    <string name="phone_tweak_prev_next_summary">Shown in the player. Turn off so you don\'t tap them by accident while skipping</string>
+    <string name="phone_customize_intro">Make StreamTube work the way you like. Changes apply right away.</string>
+    <string name="phone_customize_layout">Layout</string>
+    <string name="phone_customize_player">Player</string>
+    <string name="phone_customize_summary">You tab, player buttons and more</string>
+    <string name="phone_whats_new">What\'s new</string>
+    <string name="phone_whats_new_summary">The latest features, explained</string>
+    <string name="phone_whats_new_title">What\'s new in StreamTube</string>
+    <string name="phone_whats_new_updated">StreamTube was updated. Here\'s what changed:</string>
+    <string name="phone_whats_new_see_all">See all</string>
+    <string name="phone_whats_new_got_it">Got it</string>
+    <string name="phone_whats_new_badge">New</string>
+    <string name="phone_whats_new_version">Version %1$s</string>
 </resources>

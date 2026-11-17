@@ -111,6 +111,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         CrashReport.showIfAny(this);
         mList.postDelayed(() -> PhoneRebrandBanner.showIfPending(this), 900); // once, after the rename to StreamTube
         mList.postDelayed(this::askNotificationPermission, 1500);
+        mList.postDelayed(() -> PhoneWhatsNew.showAfterUpdate(this), 1200); // once after an update
         handleShortcut(getIntent(), 0);
     }
 
@@ -190,7 +191,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         mIsFirstResume = false;
         updateAccountViews(); // also the tabs: the bell's dot for new videos
-        refreshSettingsRows(); // back from Android's notification settings
+        refreshSettingsRows(); // back from Android's notification settings (and What's new read: its dot goes)
+        updateTabs(); // Customize > You may have moved
         refreshIncognito();
         PhoneNewVideos.schedule(this); // the background look at the Subscriptions feed (kept if already planned)
         if (sectionById(MediaGroup.TYPE_SHORTS) != null) {
@@ -604,13 +606,18 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     }
 
     private void updateTabs() {
+        if (mTopAvatar != null) {
+            // Customize > You: the account picture next to search opens the You page
+            mTopAvatar.setVisibility(PhoneTweaks.youOnTop(this) ? View.VISIBLE : View.GONE);
+        }
         for (int i = 0; i < TAB_COUNT; i++) {
             View tab = mTabViews[i];
             if (tab == null) {
                 continue;
             }
             // Notifications is the app's own list of new videos (PhoneNewVideos), not a SmartTube section
-            boolean visible = i == TAB_YOU || i == TAB_NOTIFICATIONS || hasTab(i);
+            boolean visible = i == TAB_YOU ? !PhoneTweaks.youOnTop(this) // Customize > You: at the top or here, never both
+                    : i == TAB_NOTIFICATIONS || hasTab(i);
             tab.setVisibility(visible ? View.VISIBLE : View.GONE);
             boolean selected = i == mCurrentTab;
             int color = getResources().getColor(R.color.phone_text);
@@ -1241,6 +1248,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
         // Always first: the app updates itself from here
         items.add(PhoneSetting.row(PhoneUpdater.settingsTitle(this), R.drawable.ic_phone_update, () -> PhoneUpdater.open(this)));
+        items.add(PhoneSetting.row(getString(R.string.phone_whats_new), R.drawable.ic_phone_info, () -> PhoneWhatsNewActivity.open(this))
+                .summary(getString(R.string.phone_whats_new_summary)).badge(PhoneWhatsNew.hasUnread(this)));
 
         items.add(PhoneSetting.header(getString(R.string.phone_settings_account)));
         addEngineSetting(items, engine, R.string.settings_accounts);
@@ -1256,6 +1265,10 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         addEngineSetting(items, engine, R.string.settings_main_ui);
         addEngineSetting(items, engine, R.string.settings_language_country);
 
+        // Customize: every tweak of the app on its own page (PhoneCustomizeActivity)
+        items.add(PhoneSetting.row(getString(R.string.phone_settings_customize), R.drawable.ic_phone_tune,
+                () -> PhoneCustomizeActivity.open(this)).summary(getString(R.string.phone_customize_summary)));
+
         items.add(PhoneSetting.header(getString(R.string.phone_settings_playback)));
         addEngineSetting(items, engine, R.string.settings_player);
         if (android.os.Build.VERSION.SDK_INT >= 26 && !PhonePip.systemAllows(this)) {
@@ -1263,11 +1276,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             items.add(PhoneSetting.value(getString(R.string.phone_pip), getString(R.string.phone_pip_blocked),
                     R.drawable.ic_phone_collapse, () -> PhonePip.openSystemSettings(this)));
         }
-        items.add(PhoneSetting.toggle(getString(R.string.phone_prev_next_buttons), PhonePlaybackActivity.showPrevNext(this),
-                R.drawable.ic_phone_next, () -> {
-                    PhonePlaybackActivity.setShowPrevNext(this, !PhonePlaybackActivity.showPrevNext(this));
-                    refreshSettingsRows();
-                }));
         addEngineSetting(items, engine, R.string.subtitle_category_title);
         addEngineSetting(items, engine, R.string.content_block_provider);
         addEngineSetting(items, engine, R.string.dearrow_provider);

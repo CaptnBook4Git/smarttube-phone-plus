@@ -772,7 +772,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         bindClicks(view, video);
     }
 
-    private void bindSetting(View view, SettingsItem item) {
+    /** A settings row (phone_item_setting): also used by the Customize page */
+    static void bindSetting(View view, SettingsItem item) {
         ImageView icon = view.findViewById(R.id.phone_thumb);
         TextView title = view.findViewById(R.id.phone_title);
         title.setText(item.title);
@@ -784,6 +785,12 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         // Phone rows: the current value or a switch on the right; an arrow only for rows that open something
         PhoneSetting setting = item instanceof PhoneSetting ? (PhoneSetting) item : null;
+        TextView summary = view.findViewById(R.id.phone_setting_summary);
+        if (summary != null) {
+            boolean hasSummary = setting != null && setting.summary != null;
+            summary.setVisibility(hasSummary ? View.VISIBLE : View.GONE);
+            summary.setText(hasSummary ? setting.summary : null);
+        }
         TextView value = view.findViewById(R.id.phone_setting_value);
         android.widget.Switch toggle = view.findViewById(R.id.phone_setting_switch);
         boolean hasValue = setting != null && setting.value != null;
@@ -793,6 +800,10 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         toggle.setVisibility(hasToggle ? View.VISIBLE : View.GONE);
         if (hasToggle) {
             toggle.setChecked(setting.checked);
+        }
+        View dot = view.findViewById(R.id.phone_setting_dot);
+        if (dot != null) {
+            dot.setVisibility(setting != null && setting.badge ? View.VISIBLE : View.GONE); // e.g. What's new unread
         }
         boolean dropDown = setting != null && setting.onPick != null;
         ImageView chevron = view.findViewById(R.id.phone_setting_chevron);
