@@ -57,7 +57,7 @@ final class PhoneDebugLog {
             // Only the app's own lines (phones like ColorOS write thousands of system lines a second): the whole buffer,
             // so earlier runs of the app (before a restart) are in it too
             process = Runtime.getRuntime().exec(new String[] {"logcat", "-d", "-v", "time",
-                    "PhonePip:V", "PhoneMiniPlayer:V", "PhoneShorts:V", "PhoneNewVideos:V", "PhoneUpdater:V", "ViewManager:V",
+                    "PhonePip:V", "PhonePlayback:V", "PhoneMiniPlayer:V", "PhoneShorts:V", "PhoneNewVideos:V", "PhoneUpdater:V", "ViewManager:V",
                     "PlaybackActivity:V", "PlaybackFragment:V", "PlaybackPresenter:V", "ExoPlayerImpl:V",
                     "ExoPlayerImplInternal:V", "MediaCodecVideoRenderer:V", "AndroidRuntime:E", "*:S"});
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));

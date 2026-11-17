@@ -12,6 +12,8 @@
 
     <!-- Settings, Check for updates: installs new releases from GitHub -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Background playback: the processor and Wi-Fi stay awake while a video plays with the screen off -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Permissions the TV app uses and the phone app never does. Removed from the phone build: together they read like
          the profile of harmful software (draw over other apps, start at boot, delete apps, microphone, privileged
@@ -154,6 +156,11 @@
         <receiver
             android:name="com.liskovsoft.smartyoutubetv2.common.misc.RemoteControlReceiver"
             tools:node="remove" />
+        <!-- A video is playing: Android keeps the app's network going in the background (see PhonePlaybackService) -->
+        <service
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhonePlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <!-- TV only: the service behind "Remote control" (this device as a cast target, found over the local network) -->
         <service
             android:name="com.liskovsoft.smartyoutubetv2.common.misc.RemoteControlService"
