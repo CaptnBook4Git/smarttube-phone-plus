@@ -258,6 +258,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         cancelPlaybackNotification();
         applySystemBars();
         refreshPlaybackMode(); // the playback mode sheet may have changed it
+        applyPrevNextButtons();
         mHandler.removeCallbacks(mTicker);
         mHandler.post(mTicker);
         refreshDetails();
@@ -1365,6 +1366,28 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
         if (activity != null && !activity.isDestroyed() && activity.mPlayer != null) {
             activity.mPlayer.setVideoTrackDisabled(!PhonePip.isAppVisible());
+        }
+    }
+
+    private static final String PLAYER_PREFS = "phone_player";
+    private static final String KEY_PREV_NEXT = "prev_next_buttons";
+
+    /** Settings > Playback > Previous / next buttons: off hides them, so a double tap to seek never lands on one */
+    static boolean showPrevNext(android.content.Context context) {
+        return context.getSharedPreferences(PLAYER_PREFS, MODE_PRIVATE).getBoolean(KEY_PREV_NEXT, true);
+    }
+
+    static void setShowPrevNext(android.content.Context context, boolean show) {
+        context.getSharedPreferences(PLAYER_PREFS, MODE_PRIVATE).edit().putBoolean(KEY_PREV_NEXT, show).apply();
+    }
+
+    private void applyPrevNextButtons() {
+        int visibility = showPrevNext(this) ? View.VISIBLE : View.GONE;
+        View previous = findViewById(R.id.phone_ctl_prev);
+        View next = findViewById(R.id.phone_ctl_next);
+        if (previous != null && next != null) {
+            previous.setVisibility(visibility);
+            next.setVisibility(visibility);
         }
     }
 

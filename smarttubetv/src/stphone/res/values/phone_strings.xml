@@ -174,4 +174,5 @@
     <string name="phone_downloads_delete_title">Delete this download?</string>
     <string name="phone_downloads_deleted">Download deleted</string>
     <string name="phone_downloads_delete_failed">Couldn\'t delete it. Delete it from the Files app (Download/StreamTube).</string>
+    <string name="phone_prev_next_buttons">Previous / next buttons in the player</string>
 </resources>
