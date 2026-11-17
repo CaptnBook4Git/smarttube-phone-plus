@@ -277,22 +277,44 @@ final class PhoneNewVideos {
     static void refreshChannels(Context context, boolean force) {
         SharedPreferences prefs = prefs(context);
         long age = System.currentTimeMillis() - prefs.getLong(KEY_CHANNELS_AT, 0);
-        if (!force && age < CHANNELS_MAX_AGE_MS && !TextUtils.isEmpty(prefs.getString(KEY_CHANNELS, ""))) {
-            return;
-        }
-        MediaGroup group = YouTubeServiceManager.instance().getContentService().getSubscribedChannels();
-        List<MediaItem> items = group != null ? group.getMediaItems() : null;
-        if (items == null || items.isEmpty()) {
+        // KEY_CHANNELS_V: lists saved before the channel ids were read from the web guide are taken again
+        boolean current = prefs.getInt("channels_v", 0) == 2;
+        if (!force && current && age < CHANNELS_MAX_AGE_MS && !TextUtils.isEmpty(prefs.getString(KEY_CHANNELS, ""))) {
             return;
         }
         Set<String> ids = new LinkedHashSet<>();
+        // The web guide's list has the channel ids. (The TV list SmartTube shows has none: with it this list stayed
+        // empty, and the background check had nothing to look at once the app was closed.)
+        try {
+            addChannelIds(ids, YouTubeServiceManager.instance().getContentService().getSubscribedChannelsWithIds());
+        } catch (Throwable e) {
+            Log.e(TAG, "channels (guide): " + e);
+        }
+        if (ids.isEmpty()) {
+            addChannelIds(ids, YouTubeServiceManager.instance().getContentService().getSubscribedChannels());
+        }
+        if (ids.isEmpty()) {
+            // The channels of the videos on the Subscriptions feed: those that upload, at least
+            addChannelIds(ids, YouTubeServiceManager.instance().getContentService().getSubscriptions());
+        }
+        Log.d(TAG, "channels: " + ids.size());
+        if (ids.isEmpty()) {
+            return; // the old list stays
+        }
+        prefs.edit().putInt("channels_v", 2).putString(KEY_CHANNELS, TextUtils.join(",", ids)).putLong(KEY_CHANNELS_AT, System.currentTimeMillis()).apply();
+    }
+
+    private static void addChannelIds(Set<String> ids, MediaGroup group) {
+        List<MediaItem> items = group != null ? group.getMediaItems() : null;
+        if (items == null) {
+            return;
+        }
         for (MediaItem item : items) {
-            if (item != null && !TextUtils.isEmpty(item.getChannelId())) {
-                ids.add(item.getChannelId());
+            String id = item != null ? item.getChannelId() : null;
+            if (!TextUtils.isEmpty(id) && id.startsWith("UC")) {
+                ids.add(id);
             }
         }
-        prefs.edit().putString(KEY_CHANNELS, TextUtils.join(",", ids)).putLong(KEY_CHANNELS_AT, System.currentTimeMillis()).apply();
-        Log.d(TAG, "channels: " + ids.size());
     }
 
     private static String[] channels(Context context) {
