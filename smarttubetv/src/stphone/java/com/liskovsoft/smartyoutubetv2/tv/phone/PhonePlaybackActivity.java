@@ -1360,6 +1360,14 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         return mPlayer != null ? mPlayer.getExoPlayer() : null;
     }
 
+    /** Sound only while none of the app's screens is visible (see PhonePlaybackFragment.setVideoTrackDisabled) */
+    static void syncBackgroundVideo() {
+        PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
+        if (activity != null && !activity.isDestroyed() && activity.mPlayer != null) {
+            activity.mPlayer.setVideoTrackDisabled(!PhonePip.isAppVisible());
+        }
+    }
+
     static com.google.android.exoplayer2.SimpleExoPlayer currentExoPlayer() {
         PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
         return activity != null && !activity.isDestroyed() ? activity.exoPlayer() : null;

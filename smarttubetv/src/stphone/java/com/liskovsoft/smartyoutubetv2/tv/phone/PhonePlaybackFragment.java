@@ -144,6 +144,28 @@ public class PhonePlaybackFragment extends PlaybackFragment {
         }
     }
 
+    /**
+     * Sound only while nothing of the app is on screen (screen off, another app in front): the video track is switched
+     * off, so no picture is downloaded or decoded for nobody. With the picture decoded into a texture no one draws,
+     * the decoder filled up and playback got stuck after a while. Back on screen the picture returns at the next key
+     * frame. Safe to call again and again (a restarted engine has a new selector).
+     */
+    public void setVideoTrackDisabled(boolean disabled) {
+        com.google.android.exoplayer2.trackselection.DefaultTrackSelector selector = mCurrentTrackSelector;
+        if (selector == null) {
+            return;
+        }
+        try {
+            int video = com.liskovsoft.smartyoutubetv2.common.exoplayer.selector.TrackSelectorManager.RENDERER_INDEX_VIDEO;
+            if (selector.getParameters().getRendererDisabled(video) != disabled) {
+                selector.setParameters(selector.buildUponParameters().setRendererDisabled(video, disabled));
+                android.util.Log.d("PhonePlayback", disabled ? "in the background: sound only" : "on screen again: picture back");
+            }
+        } catch (RuntimeException e) {
+            android.util.Log.d("PhonePlayback", "video track: " + e);
+        }
+    }
+
     // region The video's picture: the one shared texture (see PhoneVideoSurface)
 
     private android.view.TextureView mVideoView;

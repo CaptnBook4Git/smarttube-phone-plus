@@ -76,6 +76,7 @@ public class PhonePlaybackService extends Service {
         public void run() {
             SimpleExoPlayer exo = PhonePlaybackActivity.currentExoPlayer();
             boolean playing = exo != null && exo.getPlayWhenReady();
+            PhonePlaybackActivity.syncBackgroundVideo(); // also after an engine restart in the background
             holdLocks(playing);
             long now = android.os.SystemClock.elapsedRealtime();
             if (playing) {

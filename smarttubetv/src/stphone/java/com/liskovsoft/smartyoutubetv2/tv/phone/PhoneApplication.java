@@ -199,6 +199,7 @@ public class PhoneApplication extends MainApplication {
             @Override
             public void onActivityStarted(android.app.Activity activity) {
                 lifecycle(activity, "started");
+                PhonePip.onVisibilityChanged(true);
                 if (!(activity instanceof PhonePlaybackActivity)) {
                     PhonePip.onScreenStarted();
                 }
@@ -212,6 +213,7 @@ public class PhoneApplication extends MainApplication {
             @Override
             public void onActivityStopped(android.app.Activity activity) {
                 lifecycle(activity, "stopped");
+                PhonePip.onVisibilityChanged(false);
                 if (!(activity instanceof PhonePlaybackActivity)) {
                     PhonePip.onScreenStopped(activity);
                 }
