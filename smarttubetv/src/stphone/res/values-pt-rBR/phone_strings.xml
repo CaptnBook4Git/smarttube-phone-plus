@@ -174,4 +174,5 @@
     <string name="phone_downloads_delete_failed">Não foi possível excluir. Exclua-o pelo app Arquivos (Download/StreamTube).</string>
     <string name="phone_debug_log">Compartilhar log de depuração</string>
     <string name="phone_pip_blocked">Desativado nas configurações do Android</string>
+    <string name="phone_prev_next_buttons">Botões anterior / próximo no player</string>
 </resources>

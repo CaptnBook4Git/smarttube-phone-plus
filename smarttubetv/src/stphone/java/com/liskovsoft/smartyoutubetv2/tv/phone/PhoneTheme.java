@@ -36,15 +36,34 @@ final class PhoneTheme {
     /**
      * Context with the chosen day/night mode applied (used in attachBaseContext).
      */
+    /**
+     * Android 12+ (and ColorOS's bolder text) thickens every font, also the app's own Roboto: titles came out
+     * noticeably bolder than in the YouTube app, which keeps its text at its normal weight. The app does the same.
+     */
+    static void clearFontWeightAdjustment(Configuration config) {
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            config.fontWeightAdjustment = 0;
+        }
+    }
+
+    private static int fontWeightAdjustment(Configuration config) {
+        return android.os.Build.VERSION.SDK_INT >= 31 ? config.fontWeightAdjustment : 0;
+    }
+
     static Context wrap(Context base) {
         if (base == null) {
             return null;
         }
         int mode = get(base);
-        if (mode == SYSTEM || (mode == DARK) == isNight(base)) {
+        boolean adjusted = fontWeightAdjustment(base.getResources().getConfiguration()) != 0;
+        if (!adjusted && (mode == SYSTEM || (mode == DARK) == isNight(base))) {
             return base; // already what the phone uses: leave the context untouched
         }
         Configuration config = new Configuration(base.getResources().getConfiguration());
+        clearFontWeightAdjustment(config);
+        if (mode == SYSTEM || (mode == DARK) == isNight(base)) {
+            return base.createConfigurationContext(config);
+        }
         config.uiMode = (config.uiMode & ~Configuration.UI_MODE_NIGHT_MASK)
                 | (mode == LIGHT ? Configuration.UI_MODE_NIGHT_NO : Configuration.UI_MODE_NIGHT_YES);
         return base.createConfigurationContext(config);
@@ -56,14 +75,18 @@ final class PhoneTheme {
      */
     static void apply(android.app.Activity activity) {
         int mode = get(activity);
-        if (mode == SYSTEM) {
-            return;
-        }
-        int wanted = mode == LIGHT ? Configuration.UI_MODE_NIGHT_NO : Configuration.UI_MODE_NIGHT_YES;
         android.content.res.Resources resources = activity.getResources();
         Configuration config = new Configuration(resources.getConfiguration());
-        if ((config.uiMode & Configuration.UI_MODE_NIGHT_MASK) != wanted) {
-            config.uiMode = (config.uiMode & ~Configuration.UI_MODE_NIGHT_MASK) | wanted;
+        boolean changed = fontWeightAdjustment(config) != 0; // SmartTube's re-applied configuration brings it back
+        clearFontWeightAdjustment(config);
+        if (mode != SYSTEM) {
+            int wanted = mode == LIGHT ? Configuration.UI_MODE_NIGHT_NO : Configuration.UI_MODE_NIGHT_YES;
+            if ((config.uiMode & Configuration.UI_MODE_NIGHT_MASK) != wanted) {
+                config.uiMode = (config.uiMode & ~Configuration.UI_MODE_NIGHT_MASK) | wanted;
+                changed = true;
+            }
+        }
+        if (changed) {
             resources.updateConfiguration(config, resources.getDisplayMetrics());
         }
     }

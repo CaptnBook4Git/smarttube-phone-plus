@@ -23,6 +23,7 @@ public class PhoneApplication extends MainApplication {
     public void onCreate() {
         super.onCreate();
         CrashReport.install(this);
+        PhoneUi.init(this);
         PhoneDebugLog.record(this); // the app's own log lines, kept across restarts for Settings > Share debug log
         PhoneRebrandBanner.init(this); // before the phone defaults: tells an update from SmartTube from a new install
         // Videos open faster: formats requested on tap, playback after 0.5 s of media, recommendations alongside
@@ -194,7 +195,16 @@ public class PhoneApplication extends MainApplication {
             }
 
             @Override
+            public void onActivityPreCreated(android.app.Activity activity, android.os.Bundle state) {
+                // Every screen's text in Roboto, as the YouTube app (before the screen inflates its layout)
+                activity.getTheme().applyStyle(com.liskovsoft.smartyoutubetv2.tv.R.style.PhoneFont, true);
+            }
+
+            @Override
             public void onActivityCreated(android.app.Activity activity, android.os.Bundle state) {
+                if (android.os.Build.VERSION.SDK_INT < 29) {
+                    activity.getTheme().applyStyle(com.liskovsoft.smartyoutubetv2.tv.R.style.PhoneFont, true); // no "pre created" call before Android 10
+                }
             }
 
             @Override

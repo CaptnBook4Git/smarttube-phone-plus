@@ -40,4 +40,8 @@
         <item name="android:taskToBackEnterAnimation">@anim/phone_screen_close_enter</item>
         <item name="android:taskToBackExitAnimation">@anim/phone_player_close_exit</item>
     </style>
+    <!-- Applied to every screen: Roboto, like the YouTube app (not the phone's own system font) -->
+    <style name="PhoneFont">
+        <item name="android:fontFamily">@font/roboto</item>
+    </style>
 </resources>

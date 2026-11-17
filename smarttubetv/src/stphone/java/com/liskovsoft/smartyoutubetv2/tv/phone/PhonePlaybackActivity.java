@@ -258,6 +258,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         cancelPlaybackNotification();
         applySystemBars();
         refreshPlaybackMode(); // the playback mode sheet may have changed it
+        applyPrevNextButtons();
         mHandler.removeCallbacks(mTicker);
         mHandler.post(mTicker);
         refreshDetails();
@@ -1368,6 +1369,28 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
     }
 
+    private static final String PLAYER_PREFS = "phone_player";
+    private static final String KEY_PREV_NEXT = "prev_next_buttons";
+
+    /** Settings > Playback > Previous / next buttons: off hides them, so a double tap to seek never lands on one */
+    static boolean showPrevNext(android.content.Context context) {
+        return context.getSharedPreferences(PLAYER_PREFS, MODE_PRIVATE).getBoolean(KEY_PREV_NEXT, true);
+    }
+
+    static void setShowPrevNext(android.content.Context context, boolean show) {
+        context.getSharedPreferences(PLAYER_PREFS, MODE_PRIVATE).edit().putBoolean(KEY_PREV_NEXT, show).apply();
+    }
+
+    private void applyPrevNextButtons() {
+        int visibility = showPrevNext(this) ? View.VISIBLE : View.GONE;
+        View previous = findViewById(R.id.phone_ctl_prev);
+        View next = findViewById(R.id.phone_ctl_next);
+        if (previous != null && next != null) {
+            previous.setVisibility(visibility);
+            next.setVisibility(visibility);
+        }
+    }
+
     static com.google.android.exoplayer2.SimpleExoPlayer currentExoPlayer() {
         PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
         return activity != null && !activity.isDestroyed() ? activity.exoPlayer() : null;
@@ -1714,7 +1737,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mLevelText = new TextView(this);
         mLevelText.setTextColor(Color.WHITE);
         mLevelText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        mLevelText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        mLevelText.setTypeface(PhoneUi.medium(mLevelText.getContext()));
         LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         textParams.topMargin = dp(8);
@@ -2080,7 +2103,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             label.setGravity(Gravity.CENTER);
             label.setIncludeFontPadding(false);
             // As on Home's bar: each label shrinks to fit its fifth instead of running into the next one
-            label.setAutoSizeTextTypeUniformWithConfiguration(7, 11, 1, TypedValue.COMPLEX_UNIT_SP);
+            label.setAutoSizeTextTypeUniformWithConfiguration(7, 10, 1, TypedValue.COMPLEX_UNIT_SP); // YouTube's 10sp, smaller only if it doesn't fit
             LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                     (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14, getResources().getDisplayMetrics()));
             labelParams.leftMargin = dp(2);
@@ -3034,7 +3057,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             }
             text.setTextColor(getResources().getColor(R.color.phone_text));
             text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            text.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            text.setTypeface(PhoneUi.medium(text.getContext()));
             LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             textParams.setMarginStart(dp(8));

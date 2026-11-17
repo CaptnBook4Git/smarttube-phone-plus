@@ -157,7 +157,7 @@ final class PhoneYouDashboard {
         title.setText(text);
         title.setTextColor(color(R.color.phone_text));
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        title.setTypeface(PhoneUi.medium(title.getContext()));
         header.addView(title);
         if (opens) {
             ImageView chevron = new ImageView(mActivity);

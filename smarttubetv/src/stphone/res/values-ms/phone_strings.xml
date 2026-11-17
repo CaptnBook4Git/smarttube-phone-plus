@@ -167,4 +167,5 @@
     <string name="phone_downloads_delete_title">Padam muat turun ini?</string>
     <string name="phone_downloads_deleted">Muat turun dipadam</string>
     <string name="phone_downloads_delete_failed">Tidak dapat memadamnya. Padamkannya daripada aplikasi Fail (Download/StreamTube).</string>
+    <string name="phone_prev_next_buttons">Butang sebelumnya / seterusnya dalam pemain</string>
 </resources>

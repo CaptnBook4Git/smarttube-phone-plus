@@ -1,0 +1,4 @@
+- New video notifications now arrive even when StreamTube is closed
+- You can hide the previous and next buttons in the player, so you don't tap them by accident (Settings › Playback)
+- Text now looks like the YouTube app: same font and sizes, and no longer extra bold on some phones
+- Cleaner Home screen: lighter category buttons, a smaller logo and a see-through bottom bar

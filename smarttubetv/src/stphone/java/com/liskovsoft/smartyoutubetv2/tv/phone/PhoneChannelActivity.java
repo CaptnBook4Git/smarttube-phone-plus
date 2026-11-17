@@ -336,7 +336,7 @@ public class PhoneChannelActivity extends PhoneListActivity implements ChannelVi
             TextView label = new TextView(this);
             label.setText(!TextUtils.isEmpty(tab.getTitle()) ? tab.getTitle() : getString(R.string.phone_channel));
             label.setTextSize(15);
-            label.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            label.setTypeface(PhoneUi.regular(label.getContext()));
             label.setTextColor(getResources().getColor(selected ? R.color.phone_text : R.color.phone_text_2));
             label.setGravity(Gravity.CENTER);
             label.setSingleLine(true);

@@ -108,14 +108,14 @@ final class PhoneRebrandBanner {
         TextView button = new TextView(activity);
         button.setText(R.string.phone_rebrand_button);
         button.setTextSize(15);
-        button.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        button.setTypeface(PhoneUi.medium(button.getContext()));
         button.setTextColor(0xFFFFFFFF);
         button.setGravity(Gravity.CENTER);
         button.setBackgroundResource(R.drawable.phone_primary_button_bg);
         TextView never = new TextView(activity);
         never.setText(R.string.phone_rebrand_never);
         never.setTextSize(15);
-        never.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        never.setTypeface(PhoneUi.medium(never.getContext()));
         never.setTextColor(activity.getResources().getColor(R.color.phone_text));
         never.setGravity(Gravity.CENTER);
         never.setBackgroundResource(R.drawable.phone_pill_bg);

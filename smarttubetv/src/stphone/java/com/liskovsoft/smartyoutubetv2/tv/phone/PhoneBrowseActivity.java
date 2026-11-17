@@ -563,7 +563,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             label.setIncludeFontPadding(false);
             // Each label stays inside its own fifth of the bar: on narrow phones or with a bigger font size, "Subscriptions"
             // and "Notifications" shrink to fit instead of running into each other
-            label.setAutoSizeTextTypeUniformWithConfiguration(7, 11, 1, TypedValue.COMPLEX_UNIT_SP);
+            label.setAutoSizeTextTypeUniformWithConfiguration(7, 10, 1, TypedValue.COMPLEX_UNIT_SP); // YouTube's 10sp, smaller only if it doesn't fit
             LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14,
                     getResources().getDisplayMetrics()));
@@ -627,7 +627,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             }
             TextView label = (TextView) layout.getChildAt(1);
             label.setTextColor(color);
-            label.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL)); // the filled icon marks the chosen tab
+            label.setTypeface(PhoneUi.regular(label.getContext())); // the filled icon marks the chosen tab
         }
     }
 
@@ -656,7 +656,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             boolean selected = mCurrentSection != null && mCurrentSection.getId() == section.getId();
             chip.setSelected(selected);
             chip.setTextColor(getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
-            chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            chip.setTypeface(PhoneUi.regular(chip.getContext()));
             chip.setOnClickListener(v -> {
                 if (mCurrentSection == null || mCurrentSection.getId() != section.getId()) {
                     focusSection(section);
@@ -1263,6 +1263,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             items.add(PhoneSetting.value(getString(R.string.phone_pip), getString(R.string.phone_pip_blocked),
                     R.drawable.ic_phone_collapse, () -> PhonePip.openSystemSettings(this)));
         }
+        items.add(PhoneSetting.toggle(getString(R.string.phone_prev_next_buttons), PhonePlaybackActivity.showPrevNext(this),
+                R.drawable.ic_phone_next, () -> {
+                    PhonePlaybackActivity.setShowPrevNext(this, !PhonePlaybackActivity.showPrevNext(this));
+                    refreshSettingsRows();
+                }));
         addEngineSetting(items, engine, R.string.subtitle_category_title);
         addEngineSetting(items, engine, R.string.content_block_provider);
         addEngineSetting(items, engine, R.string.dearrow_provider);
