@@ -152,15 +152,28 @@ final class PhoneUi {
     private static android.graphics.Typeface sMedium;
 
     /** Roboto, as the YouTube app uses it (bundled: phones would show their own system font instead) */
+    private static android.content.Context sApp;
+
+    /** The app, for the fonts where no screen is at hand (drawables) */
+    static void init(android.content.Context context) {
+        sApp = context.getApplicationContext();
+    }
+
     static android.graphics.Typeface regular(android.content.Context context) {
-        if (sRegular == null) {
+        if (context == null) {
+            context = sApp;
+        }
+        if (sRegular == null && context != null) {
             sRegular = androidx.core.content.res.ResourcesCompat.getFont(context, R.font.roboto_regular);
         }
         return sRegular;
     }
 
     static android.graphics.Typeface medium(android.content.Context context) {
-        if (sMedium == null) {
+        if (context == null) {
+            context = sApp;
+        }
+        if (sMedium == null && context != null) {
             sMedium = androidx.core.content.res.ResourcesCompat.getFont(context, R.font.roboto_medium);
         }
         return sMedium;

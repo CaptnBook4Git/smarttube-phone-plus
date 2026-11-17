@@ -23,6 +23,7 @@ public class PhoneApplication extends MainApplication {
     public void onCreate() {
         super.onCreate();
         CrashReport.install(this);
+        PhoneUi.init(this);
         PhoneDebugLog.record(this); // the app's own log lines, kept across restarts for Settings > Share debug log
         PhoneRebrandBanner.init(this); // before the phone defaults: tells an update from SmartTube from a new install
         // Videos open faster: formats requested on tap, playback after 0.5 s of media, recommendations alongside
