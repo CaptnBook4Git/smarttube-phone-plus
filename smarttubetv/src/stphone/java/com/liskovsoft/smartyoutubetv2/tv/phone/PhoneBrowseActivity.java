@@ -627,7 +627,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             }
             TextView label = (TextView) layout.getChildAt(1);
             label.setTextColor(color);
-            label.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL)); // the filled icon marks the chosen tab
+            label.setTypeface(PhoneUi.regular(label.getContext())); // the filled icon marks the chosen tab
         }
     }
 
@@ -656,7 +656,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             boolean selected = mCurrentSection != null && mCurrentSection.getId() == section.getId();
             chip.setSelected(selected);
             chip.setTextColor(getResources().getColor(selected ? R.color.phone_bg : R.color.phone_text));
-            chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            chip.setTypeface(PhoneUi.medium(chip.getContext()));
             chip.setOnClickListener(v -> {
                 if (mCurrentSection == null || mCurrentSection.getId() != section.getId()) {
                     focusSection(section);

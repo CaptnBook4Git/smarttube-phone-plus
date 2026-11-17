@@ -1737,7 +1737,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mLevelText = new TextView(this);
         mLevelText.setTextColor(Color.WHITE);
         mLevelText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        mLevelText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        mLevelText.setTypeface(PhoneUi.medium(mLevelText.getContext()));
         LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         textParams.topMargin = dp(8);
@@ -3057,7 +3057,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             }
             text.setTextColor(getResources().getColor(R.color.phone_text));
             text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            text.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            text.setTypeface(PhoneUi.medium(text.getContext()));
             LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             textParams.setMarginStart(dp(8));

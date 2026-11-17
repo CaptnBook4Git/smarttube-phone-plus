@@ -32,7 +32,7 @@
             android:layout_marginTop="2dp"
             android:lineSpacingExtra="2dp"
             android:textColor="@color/phone_text_2"
-            android:textSize="13sp" />
+            android:textSize="12sp" />
     </LinearLayout>
 
     <ImageView

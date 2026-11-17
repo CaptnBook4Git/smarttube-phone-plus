@@ -151,7 +151,7 @@ final class AvatarCache {
             mLetter = trimmed.isEmpty() ? "?" : trimmed.substring(0, trimmed.offsetByCodePoints(0, 1)).toUpperCase(Locale.ROOT);
             mCircle.setColor(COLORS[Math.abs(trimmed.hashCode() % COLORS.length)]);
             mText.setColor(0xFFFFFFFF);
-            mText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            mText.setTypeface(PhoneUi.medium(mText.getContext()));
             mText.setTextAlign(Paint.Align.CENTER);
         }
 

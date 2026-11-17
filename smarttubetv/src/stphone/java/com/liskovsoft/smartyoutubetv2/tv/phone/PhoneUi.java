@@ -148,12 +148,31 @@ final class PhoneUi {
                 .into(view);
     }
 
+    private static android.graphics.Typeface sRegular;
+    private static android.graphics.Typeface sMedium;
+
+    /** Roboto, as the YouTube app uses it (bundled: phones would show their own system font instead) */
+    static android.graphics.Typeface regular(android.content.Context context) {
+        if (sRegular == null) {
+            sRegular = androidx.core.content.res.ResourcesCompat.getFont(context, R.font.roboto_regular);
+        }
+        return sRegular;
+    }
+
+    static android.graphics.Typeface medium(android.content.Context context) {
+        if (sMedium == null) {
+            sMedium = androidx.core.content.res.ResourcesCompat.getFont(context, R.font.roboto_medium);
+        }
+        return sMedium;
+    }
+
     static CharSequence meta(Video video) {
         CharSequence second = video.getSecondTitle();
         if (TextUtils.isEmpty(second)) {
             return video.getAuthor();
         }
-        return second.toString().replace("\n", " · ").trim();
+        // YouTube's small middle dot between the parts, not the big bullet the feeds come with
+        return second.toString().replace("\n", " · ").replace(" • ", " · ").replace("•", "·").trim();
     }
 
     /**

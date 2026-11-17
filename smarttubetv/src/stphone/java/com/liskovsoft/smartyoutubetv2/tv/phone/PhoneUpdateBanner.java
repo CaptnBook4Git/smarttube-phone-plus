@@ -61,7 +61,7 @@ final class PhoneUpdateBanner {
         TextView title = new TextView(activity);
         title.setText(R.string.phone_update_available_title);
         title.setTextSize(15);
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        title.setTypeface(PhoneUi.medium(title.getContext()));
         title.setTextColor(activity.getResources().getColor(R.color.phone_text));
         TextView subtitle = new TextView(activity);
         subtitle.setText(activity.getString(R.string.phone_update_banner, build));
@@ -76,7 +76,7 @@ final class PhoneUpdateBanner {
         TextView button = new TextView(activity);
         button.setText(R.string.phone_update_banner_button);
         button.setTextSize(14);
-        button.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        button.setTypeface(PhoneUi.medium(button.getContext()));
         button.setTextColor(0xFFFFFFFF);
         button.setGravity(Gravity.CENTER);
         button.setBackgroundResource(R.drawable.phone_primary_button_bg);
