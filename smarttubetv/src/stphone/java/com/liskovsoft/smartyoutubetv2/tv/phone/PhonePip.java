@@ -65,6 +65,21 @@ final class PhonePip {
         sInAppPip = false;
     }
 
+    /** All started screens, the player too (in the floating window it stays started) */
+    private static int sVisibleScreens;
+    private static final Runnable sSyncVideo = PhonePlaybackActivity::syncBackgroundVideo;
+
+    static boolean isAppVisible() {
+        return sVisibleScreens > 0;
+    }
+
+    /** Any screen started or stopped. A moment later (one screen replacing another, a rotation): picture on or off */
+    static void onVisibilityChanged(boolean started) {
+        sVisibleScreens = Math.max(0, sVisibleScreens + (started ? 1 : -1));
+        sHandler.removeCallbacks(sSyncVideo);
+        sHandler.postDelayed(sSyncVideo, started ? 0 : 1500);
+    }
+
     /** Called for every screen but the player, from the app's lifecycle callbacks */
     static void onScreenStarted() {
         sStartedScreens++;

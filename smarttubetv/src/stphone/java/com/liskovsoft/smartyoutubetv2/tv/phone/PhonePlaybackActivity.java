@@ -108,8 +108,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private final java.util.List<Video> mShortsHistory = new java.util.ArrayList<>();
     private android.content.BroadcastReceiver mPlayPauseReceiver;
     private static final String ACTION_PLAY_PAUSE = "org.smarttube.phone.PLAY_PAUSE";
-    private static final String NOTIFICATION_CHANNEL = "phone_playback";
-    private static final int NOTIFICATION_ID = 4711;
+    private static final String NOTIFICATION_CHANNEL = PhonePlaybackService.NOTIFICATION_CHANNEL;
+    private static final int NOTIFICATION_ID = PhonePlaybackService.NOTIFICATION_ID;
     private android.view.ScaleGestureDetector mPinchDetector;
     private float mPinchScale = 1f;
     private boolean mPinching;
@@ -118,6 +118,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         @Override
         public void run() {
             updateProgress();
+            syncPlaybackService();
             // A Short's picture is still over the video: look often, so the video shows the moment it plays
             boolean waitingForShort = mShortsMode && mPoster != null && mPoster.getVisibility() == View.VISIBLE;
             mHandler.postDelayed(this, waitingForShort ? SHORT_TICK_MS : TICK_MS);
@@ -356,7 +357,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             sInstance = null;
         }
         unregisterPipReceiver();
-        cancelPlaybackNotification();
+        stopPlaybackService();
         if (mPlayPauseReceiver != null) {
             try {
                 unregisterReceiver(mPlayPauseReceiver);
@@ -502,7 +503,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     private void closePlayer() {
-        cancelPlaybackNotification();
+        stopPlaybackService();
         // A detached player closing itself must not reopen Home: that would also close the screen the user is on
         // (search, a channel...)
         getViewManager().skipNextParentStart();
@@ -1357,6 +1358,14 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     com.google.android.exoplayer2.SimpleExoPlayer exoPlayer() {
         return mPlayer != null ? mPlayer.getExoPlayer() : null;
+    }
+
+    /** Sound only while none of the app's screens is visible (see PhonePlaybackFragment.setVideoTrackDisabled) */
+    static void syncBackgroundVideo() {
+        PhonePlaybackActivity activity = sInstance != null ? sInstance.get() : null;
+        if (activity != null && !activity.isDestroyed() && activity.mPlayer != null) {
+            activity.mPlayer.setVideoTrackDisabled(!PhonePip.isAppVisible());
+        }
     }
 
     static com.google.android.exoplayer2.SimpleExoPlayer currentExoPlayer() {
@@ -2710,6 +2719,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     private void notifyPlayback(androidx.core.app.NotificationCompat.Builder builder) {
+        PhonePlaybackService.setNotification(builder.build()); // the playback service shows this one
         if (Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             return;
@@ -2722,6 +2732,44 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     }
 
     private void cancelPlaybackNotification() {
+        if (PhonePlaybackService.isRunning()) {
+            return; // the playback service's notification: it stays while the video plays, and goes with the service
+        }
+        androidx.core.app.NotificationManagerCompat.from(this).cancel(NOTIFICATION_ID);
+    }
+
+    private String mServiceState;
+
+    /**
+     * While a regular video plays, the playback service runs (see PhonePlaybackService): Android then keeps the app's
+     * network and processor going in the background and with the screen off. Called while this screen is in front,
+     * the only time Android lets the service start.
+     */
+    void syncPlaybackService() {
+        if (Build.VERSION.SDK_INT < 26 || mPlayer == null) {
+            return;
+        }
+        Video video = currentVideo();
+        boolean playing = mPlayer.getPlayWhenReady() && !mShortsMode && video != null && !isShort(video);
+        boolean running = PhonePlaybackService.isRunning();
+        if (!playing && !running) {
+            return;
+        }
+        String state = (video != null ? video.videoId : "") + " " + mPlayer.getPlayWhenReady() + " " + running;
+        if (state.equals(mServiceState)) {
+            return;
+        }
+        mServiceState = state;
+        showPlaybackNotification(); // this video, playing or paused
+        if (playing && !running) {
+            PhonePlaybackService.start(this);
+        }
+    }
+
+    private void stopPlaybackService() {
+        PhonePlaybackService.stop(this);
+        PhonePlaybackService.setNotification(null);
+        mServiceState = null;
         androidx.core.app.NotificationManagerCompat.from(this).cancel(NOTIFICATION_ID);
     }
 

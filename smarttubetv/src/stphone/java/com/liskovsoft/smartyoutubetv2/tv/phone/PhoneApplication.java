@@ -23,6 +23,7 @@ public class PhoneApplication extends MainApplication {
     public void onCreate() {
         super.onCreate();
         CrashReport.install(this);
+        PhoneDebugLog.record(this); // the app's own log lines, kept across restarts for Settings > Share debug log
         PhoneRebrandBanner.init(this); // before the phone defaults: tells an update from SmartTube from a new install
         // Videos open faster: formats requested on tap, playback after 0.5 s of media, recommendations alongside
         com.liskovsoft.smartyoutubetv2.common.misc.FastStart.enable();
@@ -199,6 +200,7 @@ public class PhoneApplication extends MainApplication {
             @Override
             public void onActivityStarted(android.app.Activity activity) {
                 lifecycle(activity, "started");
+                PhonePip.onVisibilityChanged(true);
                 if (!(activity instanceof PhonePlaybackActivity)) {
                     PhonePip.onScreenStarted();
                 }
@@ -212,6 +214,7 @@ public class PhoneApplication extends MainApplication {
             @Override
             public void onActivityStopped(android.app.Activity activity) {
                 lifecycle(activity, "stopped");
+                PhonePip.onVisibilityChanged(false);
                 if (!(activity instanceof PhonePlaybackActivity)) {
                     PhonePip.onScreenStopped(activity);
                 }

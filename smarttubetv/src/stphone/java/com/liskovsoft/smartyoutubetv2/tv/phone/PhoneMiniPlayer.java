@@ -304,6 +304,10 @@ final class PhoneMiniPlayer {
                     }
                 } else {
                     refresh();
+                    PhonePlaybackActivity player = sPlayer.get();
+                    if (player != null) {
+                        player.syncPlaybackService(); // play tapped on the card: the playback service starts here too
+                    }
                 }
                 mHandler.postDelayed(this, 500);
             }

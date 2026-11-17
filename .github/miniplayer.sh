@@ -207,6 +207,9 @@ XY=$(center_of "Play or pause")
 echo "card play button at: $XY"
 if [ -n "$XY" ]; then adb shell input tap $XY; fi
 sleep 1
+sleep 2
+echo "playback service running (expect 1): $(adb shell dumpsys activity services $PKG | grep -c "ServiceRecord{.*PhonePlaybackService")"
+adb shell dumpsys activity services $PKG | grep -E "isForeground|foregroundServiceType" | head -3
 echo "== browse record before leaving"
 adb shell dumpsys activity activities | grep -A60 "ActivityRecord{.*PhoneBrowseActivity" | grep -iE "ActivityRecord|state=|resizeMode|pictureInPicture|supportsEnterPip|pip|windowingMode|mActivityType|isPip" | head -30
 adb shell dumpsys package org.smarttube.phone | grep -iE "PhoneBrowseActivity|PhonePlaybackActivity" | head -6
