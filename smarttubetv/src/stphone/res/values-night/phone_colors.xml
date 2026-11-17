@@ -13,4 +13,6 @@
     <color name="phone_sheet">#000000</color>
     <color name="phone_divider">#1FFFFFFF</color>
     <color name="phone_badge">#CC000000</color>
+    <!-- The bottom tabs: a little see-through, the feed shows faintly behind them (as in the YouTube app) -->
+    <color name="phone_bar_translucent">#D9000000</color>
 </resources>
