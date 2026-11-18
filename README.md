@@ -7,8 +7,8 @@
 
 <p align="center">
   <b>Ad-free YouTube for Android phones.</b><br>
-  A touch app that looks and feels like the official one: portrait player, an in-app mini player, swipeable Shorts,<br>
-  comments you can write and delete, downloads, background play, SponsorBlock, and Dark or Light appearance.
+  A touch app that looks and feels like the official one: portrait player, an in-app mini player, instant swipeable Shorts,<br>
+  a music player with lyrics, comments you can write and delete, downloads, background play, SponsorBlock, and Dark or Light appearance.
 </p>
 
 <p align="center">
@@ -24,6 +24,13 @@
   <img src="images/phone/02_player.jpg" width="200" alt="Player">
   <img src="images/phone/04_mini_player.jpg" width="200" alt="Mini player over Home">
   <img src="images/phone/05_shorts.jpg" width="200" alt="Shorts">
+</p>
+
+<p align="center">
+  <img src="images/phone/14_music.jpg" width="200" alt="The Music page">
+  <img src="images/phone/15_music_player.jpg" width="200" alt="The music player">
+  <img src="images/phone/16_music_lyrics.jpg" width="200" alt="Lyrics in the music player">
+  <img src="images/phone/17_music_bar.jpg" width="200" alt="The music bar">
 </p>
 
 > [!NOTE]
@@ -47,6 +54,7 @@
   - [Mini player and background play](#mini-player-and-background-play)
   - [Full screen gestures](#full-screen-gestures)
   - [Shorts](#shorts)
+  - [Music](#music)
   - [Channels](#channels)
   - [Search](#search)
   - [Subscriptions and the You tab](#subscriptions-and-the-you-tab)
@@ -87,8 +95,17 @@
 - Save a video from 1080p down to 360p (MP4), or audio only (M4A), to **Download/StreamTube**
 
 **Shorts**
-- Full screen vertical Shorts: swipe up for the next one, down for the previous one
+- Full screen vertical Shorts that start the instant you swipe: the next one is already loaded while you watch
+- Swipe up for the next one, down for the previous one; a Short that ends moves on to the next by itself
 - Like, dislike, comments, share and save on the right side, like the official app
+
+**Music**
+- A Music page, second on Home: featured music videos you swipe through, Play and Shuffle, playlists with their artwork and number of tracks, and the top charts
+- Playlists like YouTube's: big artwork, title and description, Play all, Shuffle and Share
+- A music player made for listening: big artwork (swipe it for the next song), a background that glows in the song's colours as it plays, shuffle, repeat and like
+- Lyrics in time with the song: the line being sung under the title; tap it to see all the lyrics in place of the artwork, tap a line to jump there
+- A music bar at the bottom of the app when you go small: artwork, title, play with the song's progress around it, and next
+- Search for music: a music switch in Search (and a search button on the Music page) opens the songs and playlists you find in the music player; **Listen** under any video switches it to the music player
 
 **No ads, and more**
 - No ads, and no tracking added by the app
@@ -96,7 +113,7 @@
 - Up to 8K, 60 fps and HDR when your phone supports it
 - Works without Google Play services
 - Dark (pure black for AMOLED screens), Light, or Same as device
-- Built-in updater: see what's new and install new builds from inside the app
+- Built-in updater: see what's new and install new builds from inside the app; after each update, a What's new card shows once on Home
 - A small download (about 29 MB)
 
 ## Requirements
@@ -130,7 +147,7 @@ Each build is listed on the [releases page](https://github.com/shreyas-bangera/s
 
 **From inside the app (recommended)**
 
-1. Open the **You** tab, tap the **Settings** chip, then **Check for updates**. The **Software update** screen shows the build you have and checks right away.
+1. Open the **You** tab, tap **Settings**, then **Check for updates**. The **Software update** screen shows the build you have and checks right away.
 2. If a newer build exists, it shows **Update available** with the build number, the download size and a **What's new** list. Tap **Download and install**; a progress bar shows the download.
 3. The first time, Android asks you to allow StreamTube to install apps: tap **Open settings**, turn on **Allow from this source** and come back. The update carries on by itself.
 4. Android shows its usual confirmation. Tap **Update**. You stay signed in and your settings are kept.
@@ -250,6 +267,58 @@ Rotate back to portrait, or press Back, to leave full screen.
 - Tap the **Shorts** tab: the first Short starts playing right away, full screen.
 - **Swipe up** for the next Short, **swipe down** for the previous one. **Tap** to pause or resume.
 - On the right: **Like**, **Dislike**, **Comments**, **Share** and **Save**. At the bottom: the channel (tap it to open the channel), **Subscribe** and the title.
+- Shorts start the moment you swipe: while you watch one, the next is already loaded and waiting.
+
+### Music
+
+<p align="center">
+  <img src="images/phone/14_music.jpg" width="200" alt="The Music page: featured music videos, Play and Shuffle, shelves">
+  <img src="images/phone/15_music_player.jpg" width="200" alt="The music player, glowing in the colours of the song's artwork">
+  <img src="images/phone/16_music_lyrics.jpg" width="200" alt="The lyrics in place of the artwork">
+  <img src="images/phone/17_music_bar.jpg" width="200" alt="The music bar at the bottom of the app">
+</p>
+
+**The Music page.** Tap **Music**, the second chip on Home.
+- At the top, featured music videos: swipe sideways through them (they also move on by themselves), tap one to play it.
+- **Play** starts the hits, **Shuffle** a random one.
+- Below: playlists (artwork, description and number of tracks), the top charts, and shelves of songs.
+
+**Playlists.** Tap a playlist for its page: the artwork big on top over its own colours, the title, description and number of videos, then **Play all**, **Shuffle** and **Share**, and the songs below.
+
+**The music player.** Songs you open from Music play in a player made for listening:
+- The big artwork, with a background that glows in the song's colours and gently pulses while it plays.
+- **Swipe the artwork** left for the next song, right for the previous one (or use the buttons).
+- The seek bar, **Shuffle**, **Previous**, **Play/Pause**, **Next** and **Repeat**, and **Like** next to the title.
+- **Video** (top right) shows the video instead.
+
+**Song mode.** Songs in the music player play the song itself, like YouTube Music's Song mode: no music video intros or scenes. Tap **Video** to watch the music video.
+
+**Lyrics.** Under the title, a coloured line with little moving bars shows the words being sung. Tap it: the lyrics take the artwork's place, the current line lit up and scrolling with the song; tap any line to jump there, and tap the small artwork in the corner (or Back) to return.
+- **In time with the song:** the first choice is YouTube Music's own timed lyrics for the song playing, then Apple Music's (through BetterLyrics, lrc.red and LyricsPlus), SimpMusic and [LRCLIB](https://lrclib.net). All of them are asked at once, so the lyrics appear within a few seconds. Songs none of them know show no lyrics line.
+- **In the song's language:** a Hindi or Punjabi song shows its lyrics in Hindi (Devanagari) letters, or in Gurmukhi on a phone set to Punjabi, whichever script the source wrote them in. An English song stays in English.
+
+**A background that feels the song.** Behind the player, a faint, slow animation follows the song's mood, read from its title and lyrics: hearts drifting up for a love song, soft rain for a sad one, sparkles for a party song, aurora waves for a calm one, rings pulsing for an energetic one and embers rising for a devotional one. It pauses with the song and stays still when the phone's animations are off.
+
+<p align="center">
+  <img src="images/phone/22_music_mood.jpg" width="200" alt="A love song: faint hearts drifting up behind the music player">
+  <img src="images/phone/23_lyrics_hindi.jpg" width="200" alt="A Hindi song's lyrics in Hindi letters">
+  <img src="images/phone/24_lyrics_party.jpg" width="200" alt="A party song's lyrics, with soft circles of its colour behind">
+</p>
+
+**In the car.** Car and Bluetooth screens show the title and artist of what's playing, with its artwork (in the music player, the song's own name and singer).
+
+**Search for music.** In Search, turn on the **music note** next to the filters (it lights up red): songs and playlists from the results open in the music player, and it stays on until you turn it off. The **search button** on the Music page opens Search with it already on.
+
+**Listen to any video.** Playing a video from anywhere else (Home, Subscriptions, a link)? Tap **Listen** under it to switch to the music player; the songs after it play there too.
+
+<p align="center">
+  <img src="images/phone/18_music_search.jpg" width="200" alt="Search with the music switch on">
+  <img src="images/phone/19_music_search_player.jpg" width="200" alt="A song from the search, in the music player">
+  <img src="images/phone/20_listen.jpg" width="200" alt="Listen under a video">
+  <img src="images/phone/21_music_page_search.jpg" width="200" alt="The search button on the Music page">
+</p>
+
+**The music bar.** Tap the **down arrow** at the top of the music player: it slides down into a bar at the bottom of the app with the artwork, title and artist, **Play/Pause** circled by the song's progress, and **Next**. Keep browsing while the music plays; tap the bar to open the player again, or swipe it away to stop.
 
 ### Channels
 
@@ -273,7 +342,7 @@ Rotate back to portrait, or press Back, to leave full screen.
 ### Subscriptions and the You tab
 
 - **Subscriptions** shows the latest videos from the channels you follow (sign in first). On top, a row of your channels with a blue dot on the ones with new videos; tap a channel to see only its videos, tap it again to see all. The chips **All**, **Today**, **Videos**, **Shorts** and **Live** filter the feed.
-- **You** shows your account (Sign in, Switch account, Accounts), then the chips **History**, **Playlists** (including Watch later and liked videos), **My videos** and **Settings**.
+- **You** shows your account (Sign in, Switch account, Accounts), then **History**, **Playlists** (including Watch later and liked videos), **My videos**, **Downloads** and **Settings**. Each opens as a page of its own, with a back arrow to return to You.
 
 ### Settings and appearance
 
@@ -282,7 +351,7 @@ Rotate back to portrait, or press Back, to leave full screen.
   <img src="images/phone/11_home_light.jpg" width="220" alt="Home in Light appearance">
 </p>
 
-Open the **You** tab and tap the **Settings** chip.
+Open the **You** tab and tap **Settings** (or the gear at the top of the You tab).
 
 - **Appearance**: tap it to cycle between **Dark**, **Light** and **Same as device**. The app switches immediately.
 - **Notifications**: shows whether notifications are on; tap it to allow them.
@@ -317,7 +386,7 @@ When it opens again it offers a crash report. Please [open an issue](https://git
 
 - No ads, and no tracking added by the app.
 - Sign in happens on Google's website; the app never sees your password. It keeps only the access token Google gives it, on your phone.
-- The app talks to YouTube, to GitHub when it checks for updates, and to SponsorBlock if it is turned on. See [PRIVACY.md](PRIVACY.md).
+- The app talks to YouTube, to GitHub when it checks for updates, to SponsorBlock if it is turned on, and to lyrics services (YouTube Music, BetterLyrics, lrc.red, LyricsPlus, SimpMusic and LRCLIB) for the lyrics of songs you play in the music player (it sends the song's title, artist, length and video ID, nothing about you). See [PRIVACY.md](PRIVACY.md).
 
 ## Building from source
 

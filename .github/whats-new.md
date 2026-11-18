@@ -1,5 +1,11 @@
-- Settings › Customize: all the ways to change how StreamTube looks and works, on one page, each explained
-- Your profile (You) can sit at the top next to search, or in the bottom bar, never both
-- Settings › What's new: the latest features in plain words, with a dot until you've read them. After an update, a short summary shows once when you open the app
-- Shorts start instantly: the next one is already loaded while you watch, so it plays the moment you swipe, in its original language
-- Shorts no longer show a black screen while loading: you see the Short's picture until it plays
+- New Music page, second on Home: big featured music videos you can swipe through, Play and Shuffle buttons, playlists with their artwork and number of tracks, and the top charts
+- New music player for songs you open from Music: big artwork you swipe for the next song, a background that glows in the song's colours as it plays, shuffle, repeat and like. Tap "Video" to watch the video instead
+- Lyrics as you listen, in the song's own language: the line being sung shows under the song's name; tap it to see all the lyrics in place of the artwork, tap a line to jump there
+- Songs in the music player play the song itself, like YouTube Music's Song mode: no music video intros, and the lyrics stay in time. Tap "Video" to watch the music video
+- Go small from the music player and it becomes a music bar at the bottom of the app, with play, next and the song's progress around the play button
+- Search for music: turn on the music note next to the search box (or search from the Music page) and the songs and playlists you find open in the music player. Any video can switch to it too: tap **Listen** under the video
+- Playlists look like YouTube's now: big artwork, title and description at the top, with Play all, Shuffle and Share
+- History, Settings and the other parts of the You tab open as their own pages
+- The music player feels the song: a quiet animation in the background follows its mood. Hearts drift up for love songs, soft rain falls for sad ones, sparkles twinkle for party songs, aurora waves for calm ones, rings pulse for energetic ones and embers rise for devotional ones. It pauses with the song
+- Car and Bluetooth screens now show the song or video's title and artist (and its artwork) instead of "Unavailable"
+- Smaller, neater History cards on the You tab

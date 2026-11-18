@@ -80,11 +80,6 @@
     <string name="phone_download_done">Saved to Download/StreamTube</string>
     <string name="phone_download_failed">Download failed</string>
     <string name="phone_download_channel">Downloads</string>
-    <string name="phone_rebrand_title">Meet StreamTube</string>
-    <string name="phone_rebrand_message">SmartTube for phones has a new name, to make clear it\'s its own app, separate from SmartTube for TV.</string>
-    <string name="phone_rebrand_details">Same app, same features, nothing to set up. Your account, history, settings and downloads are right where you left them.</string>
-    <string name="phone_rebrand_button">Got it</string>
-    <string name="phone_rebrand_never">Don\'t show again</string>
     <string name="phone_about_title">About StreamTube</string>
     <string name="phone_debug_log">Share debug log</string>
     <string name="phone_about_build">Build %1$d</string>
@@ -193,4 +188,29 @@
     <string name="phone_whats_new_got_it">Got it</string>
     <string name="phone_whats_new_badge">New</string>
     <string name="phone_whats_new_version">Version %1$s</string>
+
+    <!-- Music page -->
+    <string name="phone_music_title">Music</string>
+    <string name="phone_music_subtitle">Hits, mixes and charts</string>
+    <string name="phone_music_play">Play</string>
+    <string name="phone_music_shuffle">Shuffle</string>
+    <string name="phone_music_playlist">Playlist</string>
+    <string name="phone_music_tracks">%1$s tracks</string>
+    <string name="phone_music_playing_from">Playing from</string>
+    <string name="phone_music_video">Video</string>
+    <string name="phone_music_lyrics">Lyrics</string>
+    <string name="phone_music_lyrics_loading">Looking for the lyrics…</string>
+    <string name="phone_music_lyrics_none">No lyrics for this song</string>
+    <string name="phone_music_play_all">Play all</string>
+    <string name="phone_music_videos">Playlist · %1$s</string>
+    <string name="phone_music_share">Share</string>
+    <string name="phone_music_minimize">Minimize</string>
+    <string name="phone_music_artwork">Artwork, swipe for the next song</string>
+    <string name="phone_music_now_playing">Now playing, open the music player</string>
+    <string name="phone_music_listen">Listen</string>
+    <string name="phone_music_search_toggle">Music search</string>
+    <string name="phone_music_search_on">Music search on: songs and playlists open in the music player</string>
+    <string name="phone_music_search_off">Music search off: results open as videos</string>
+    <string name="phone_music_search_hint">Search songs, artists or playlists</string>
+    <string name="phone_music_search">Search music</string>
 </resources>
