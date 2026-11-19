@@ -24,7 +24,7 @@ import com.liskovsoft.smartyoutubetv2.tv.R;
  */
 final class PhoneWhatsNew {
     /** The newest release below: raise it with each new one */
-    static final int VERSION = 7;
+    static final int VERSION = 8;
 
     private static final String PREFS = "phone_whats_new";
     private static final String KEY_READ = "read";
@@ -57,7 +57,24 @@ final class PhoneWhatsNew {
     }
 
     static final Release[] RELEASES = {
-            new Release(7, "This update",
+            new Release(8, "This update",
+                    new Feature(R.drawable.ic_phone_playlist, "Cover Flow",
+                            "Turn your phone sideways in the music player to see your songs as a row of covers. Swipe through them and tap one to play it. In portrait, press and hold the artwork for the same view."),
+                    new Feature(R.drawable.ic_phone_music_note, "A new animation for every song",
+                            "Behind the music player, each song now gets its own animation: confetti, fireflies, soap bubbles, shooting stars, blossom petals, snow, lanterns, neon waves, a galaxy, butterflies, music notes, rainbow light and more."),
+                    new Feature(R.drawable.ic_phone_playlist, "See what plays next",
+                            "In the music player, tap Up next under the controls to see the songs coming after this one, in the order they'll play. Tap any of them to play it now."),
+                    new Feature(R.drawable.ic_phone_headphones, "Lights that follow the song",
+                            "A living background of the artwork's own colours drifts behind the music player, with beams of light, flowing ribbons and soft specks of light rising, soft lights circle the artwork and breathe while the song plays, and the play button glows in the song's colour."),
+                    new Feature(R.drawable.ic_phone_collapse, "Swipe down to close menus",
+                            "The player's menus (Settings, Quality, Speed, Captions and the rest) close with a swipe down, from the handle or the list, or with a tap outside them. They're smaller and neater too, and narrower in full screen."),
+                    new Feature(R.drawable.ic_phone_music_note, "A cleaner music player",
+                            "Music video thumbnails show whole on a soft blurred backdrop, song covers still fill the frame, and the lyric line has no box around it."),
+                    new Feature(R.drawable.ic_phone_search, "Search always at hand",
+                            "The top bar stays in place while you scroll Settings, Subscriptions and every other page. On Home it still tucks away as you scroll down."),
+                    new Feature(R.drawable.ic_phone_brightness, "Brightness back to normal",
+                            "Brightness set by swiping in full screen goes back to your phone's own when you leave full screen.")),
+            new Release(7, "Earlier",
                     new Feature(R.drawable.ic_phone_speed, "Hold for 2x",
                             "Press and hold a video to play it at 2x speed while you hold, like in the YouTube app. Let go and it's back to normal. Works in Shorts and full screen too."),
                     new Feature(R.drawable.ic_phone_search, "Search in Settings",
@@ -72,11 +89,11 @@ final class PhoneWhatsNew {
                     new Feature(R.drawable.ic_phone_music_note, "A new Music page",
                             "Music now sits right after Home. Swipe through featured music videos, tap Play or Shuffle, and browse playlists and the top charts."),
                     new Feature(R.drawable.ic_phone_headphones, "A real music player",
-                            "Songs from Music open in a player made for listening: big artwork that you swipe for the next song, a background that glows in the song's colours, shuffle, repeat and like. Go small and it becomes a music bar at the bottom of the app."),
+                            "Songs from Music open in a player made for listening: big artwork that you swipe for the next song, a background that glows in the song's colours, shuffle and repeat. Go small and it becomes a music bar at the bottom of the app."),
                     new Feature(R.drawable.ic_phone_cc, "Lyrics as you listen",
                             "The line being sung shows under the song's name, in the song's own language. Songs play as the song itself (no music video intro), so the lyrics stay in time. Tap the line for all the lyrics."),
-                    new Feature(R.drawable.ic_phone_brightness, "A background that feels the song",
-                            "A quiet animation behind the music player follows the song's mood: hearts for love songs, soft rain for sad ones, sparkles for party songs, aurora for calm ones. It pauses with the song."),
+                    new Feature(R.drawable.ic_phone_brightness, "A moving background",
+                            "A quiet animation plays behind the music player and pauses with the song."),
                     new Feature(R.drawable.ic_phone_search, "Search for music",
                             "Turn on the music note next to the search box (or search from the Music page): songs and playlists you find open in the music player. Any video can switch to it too: tap Listen under the video."),
                     new Feature(R.drawable.ic_phone_library, "Better playlists",

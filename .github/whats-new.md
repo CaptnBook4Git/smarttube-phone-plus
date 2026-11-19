@@ -1,6 +1,10 @@
-- Search in Settings: tap the search icon on the Settings page and type what you're looking for. It finds any setting, also the ones inside Player, Subtitles, SponsorBlock and the other pages, and shows where each one is. Tap a result to go straight to it
-- What's new and Check for updates are now at the bottom of Settings, under Updates
-- Shuffle in the music player really shuffles now: songs from Music or a search play in a random order, without repeating the ones you just heard
-- Repeat this song starts the song over when it ends, also from the music bar
-- Shuffle and Repeat show clearly when they're on: a soft circle behind the button and a dot under it
-- Press and hold a video to play it at 2x speed while you hold, like in the YouTube app; let go and it's back to normal. Works in Shorts and full screen too
+- Cover Flow in the music player: turn your phone sideways to see your songs as a row of covers, the one playing in the middle and the ones before and after turned towards it. Swipe through them and tap one to play it, with the controls right under them. In portrait, press and hold the artwork for the same view
+- A living music player: a background made from the song's own artwork and colours drifts slowly behind everything, with beams of light from above, flowing ribbons and soft specks of light, soft lights circle the artwork, and a glint of light sweeps across each new song's artwork
+- A new animation for every song behind the music player, picked from many: confetti, fireflies, soap bubbles, shooting stars, blossom petals, snow, glowing lanterns, neon waves, a turning galaxy, butterflies, floating music notes, rainbow light, hearts, sparkles, aurora and more. Each song keeps its own, and no two songs in a row share one
+- Up next: tap the bar under the controls to see the songs coming after this one, in the order they'll play, and tap any of them to play it
+- Glowing controls: the play button glows in the song's colour and breathes with it, Previous and Next light up when pressed, and Shuffle and Repeat glow when they're on
+- A cleaner music player: music video thumbnails shown whole on a soft blurred backdrop, a shadow in the song's colour, the lyric line without a box, and no like button
+- Player menus (Settings, Quality, Speed, Captions and the rest) close with a swipe down or a tap outside, and they're smaller and neater, narrower in full screen
+- Brightness set by swiping in full screen goes back to your phone's own when you leave full screen
+- The top bar stays in place on Settings, Subscriptions and every other page, so search is always at hand; on Home it tucks away as you scroll down and comes back as you scroll up
+- Fixed a crash that could happen when one song moved on to the next

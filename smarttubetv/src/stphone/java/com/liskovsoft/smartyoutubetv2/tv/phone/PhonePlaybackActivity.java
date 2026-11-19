@@ -198,6 +198,21 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             }
 
             @Override
+            public java.util.List<Video> upNext() {
+                return musicUpNext();
+            }
+
+            @Override
+            public java.util.List<Video> before() {
+                return musicBefore();
+            }
+
+            @Override
+            public void play(Video video) {
+                presenter().onSuggestionItemClicked(video);
+            }
+
+            @Override
             public void togglePlay() {
                 PhonePlaybackActivity.this.togglePlay();
             }
@@ -210,16 +225,6 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             @Override
             public void previous() {
                 presenter().onPreviousClicked();
-            }
-
-            @Override
-            public void like() {
-                clickButton(R.id.action_thumbs_up);
-            }
-
-            @Override
-            public boolean liked() {
-                return getButtonState(R.id.action_thumbs_up) == PlayerUI.BUTTON_ON;
             }
 
             @Override
@@ -464,6 +469,9 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         boolean portrait = newConfig.orientation != Configuration.ORIENTATION_LANDSCAPE;
         if (portrait != mPortrait) {
             mPortrait = portrait;
+            if (portrait) {
+                resetBrightness(); // the brightness set in full screen was for full screen only
+            }
             if (mVideoBox != null) {
                 // A swipe into or out of full screen may still be letting the video settle
                 mVideoBox.animate().cancel();
@@ -2074,6 +2082,15 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         }
     }
 
+    /** Back to the phone's own brightness (the full screen swipe set one for the player's window only) */
+    private void resetBrightness() {
+        WindowManager.LayoutParams attrs = getWindow().getAttributes();
+        if (attrs.screenBrightness != WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE) {
+            attrs.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
+            getWindow().setAttributes(attrs);
+        }
+    }
+
     private void setBrightness(float value) {
         WindowManager.LayoutParams attrs = getWindow().getAttributes();
         attrs.screenBrightness = Math.max(0.01f, value);
@@ -2723,6 +2740,66 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     /** Songs shuffle played lately: not again soon */
     private final java.util.LinkedList<String> mShufflePlayed = new java.util.LinkedList<>();
     private Object mEndWatchedOn;
+
+    /**
+     * The songs after this one for the music player's Up next: the queue lined up (a playlist's, a search's, with
+     * shuffle's pick first), then this song's suggestions. No Shorts, none twice.
+     */
+    private java.util.List<Video> musicUpNext() {
+        java.util.List<Video> songs = new java.util.ArrayList<>();
+        Video current = currentVideo();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        if (current != null && current.videoId != null) {
+            seen.add(current.videoId);
+        }
+        java.util.List<Video> lined = com.liskovsoft.smartyoutubetv2.common.app.models.data.Playlist.instance().getAllAfterCurrent();
+        addSongs(songs, seen, lined);
+        if (songs.size() < 2 && mMusicQueue != null && current != null && current.videoId != null
+                && current.videoId.equals(mQueueFor)) {
+            addSongs(songs, seen, mMusicQueue.getVideos());
+        }
+        return songs;
+    }
+
+    /** The songs played before this one in the queue, oldest first, at most 20 (Cover Flow's left side) */
+    private java.util.List<Video> musicBefore() {
+        java.util.List<Video> songs = new java.util.ArrayList<>();
+        Video current = currentVideo();
+        if (current == null || current.videoId == null) {
+            return songs;
+        }
+        java.util.List<Video> all = new java.util.ArrayList<>(
+                com.liskovsoft.smartyoutubetv2.common.app.models.data.Playlist.instance().getAll());
+        int at = -1;
+        for (int i = 0; i < all.size(); i++) {
+            if (all.get(i) != null && current.videoId.equals(all.get(i).videoId)) {
+                at = i;
+            }
+        }
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        seen.add(current.videoId);
+        for (int i = Math.max(0, at - 20); i < at; i++) {
+            Video video = all.get(i);
+            if (video != null && video.videoId != null && !isShort(video) && seen.add(video.videoId)) {
+                songs.add(video);
+            }
+        }
+        return songs;
+    }
+
+    private static void addSongs(java.util.List<Video> songs, java.util.Set<String> seen, java.util.List<Video> from) {
+        if (from == null) {
+            return;
+        }
+        for (Video video : new java.util.ArrayList<>(from)) {
+            if (songs.size() >= 50) {
+                return;
+            }
+            if (video != null && video.videoId != null && !isShort(video) && seen.add(video.videoId)) {
+                songs.add(video);
+            }
+        }
+    }
 
     /**
      * Shuffle: the next song (the Next button's and the one after this ends) is a random one of the songs after
