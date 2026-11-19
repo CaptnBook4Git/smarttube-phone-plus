@@ -193,6 +193,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             }
 
             @Override
+            public void onModesChanged() {
+                applyShuffle(true);
+            }
+
+            @Override
             public void togglePlay() {
                 PhonePlaybackActivity.this.togglePlay();
             }
@@ -333,6 +338,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     protected void onPause() {
         super.onPause();
         mResumed = false;
+        mHandler.removeCallbacks(mHoldStart);
+        mHoldPending = false;
+        if (mHoldActive) {
+            stopHoldSpeed(); // left the app mid hold: its own speed again
+        }
         finishPageAnimation();
         mHandler.removeCallbacks(mTicker);
         mHandler.removeCallbacks(mAutoHide);
@@ -934,6 +944,11 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             return super.dispatchTouchEvent(event);
         }
 
+        // Press and hold the video: 2x while held
+        if (handleHoldSpeed(event)) {
+            return true;
+        }
+
         // Full screen: pinch to fill the screen or fit the whole video
         if (!mPortrait && !mShortsMode && mPinchDetector != null) {
             mPinchDetector.onTouchEvent(event);
@@ -967,6 +982,134 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private float mDragStartY;
     private float mDragStartX;
     private long mDragStartTime;
+
+    // region Press and hold for 2x (like the YouTube app)
+
+    private static final float HOLD_SPEED = 2f;
+    private boolean mHoldPending;
+    private boolean mHoldActive;
+    private float mHoldX;
+    private float mHoldY;
+    private float mSpeedBeforeHold = 1f;
+    private TextView mHoldBadge;
+    private MotionEvent mHoldDown;
+    private final Runnable mHoldStart = this::startHoldSpeed;
+
+    /**
+     * A finger held still on the playing video (regular videos and Shorts, portrait or full screen): the video plays
+     * at 2x, "2x" showing at the top, until the finger lifts; then its own speed again. A tap, a double tap or a
+     * drag stays what it was: the hold only starts after a long press without moving, and then has the touch to
+     * itself.
+     */
+    private boolean handleHoldSpeed(MotionEvent event) {
+        int action = event.getActionMasked();
+        if (mHoldActive) {
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_POINTER_DOWN) {
+                stopHoldSpeed();
+            }
+            return true; // the touch is the hold's now
+        }
+        if (action == MotionEvent.ACTION_DOWN) {
+            mHoldPending = false;
+            com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+            Rect box = new Rect();
+            mVideoBox.getGlobalVisibleRect(box);
+            boolean onVideo = box.contains((int) event.getRawX(), (int) event.getRawY());
+            boolean controls = mControls != null && mControls.getVisibility() == View.VISIBLE;
+            if (onVideo && !controls && exo != null && exo.getPlayWhenReady() && !mMinimized && !mMinimizing && !mPaging) {
+                mHoldPending = true;
+                mHoldX = event.getRawX();
+                mHoldY = event.getRawY();
+                if (mHoldDown != null) {
+                    mHoldDown.recycle();
+                }
+                mHoldDown = MotionEvent.obtain(event);
+                mHandler.postDelayed(mHoldStart, android.view.ViewConfiguration.getLongPressTimeout());
+            }
+            return false;
+        }
+        if (!mHoldPending) {
+            return false;
+        }
+        int slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop();
+        boolean moved = Math.abs(event.getRawX() - mHoldX) > slop || Math.abs(event.getRawY() - mHoldY) > slop;
+        if (moved || action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL
+                || action == MotionEvent.ACTION_POINTER_DOWN) {
+            mHoldPending = false;
+            mHandler.removeCallbacks(mHoldStart); // a tap, a drag or a pinch: not a hold
+        }
+        return false;
+    }
+
+    private void startHoldSpeed() {
+        com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+        if (!mHoldPending || exo == null || !exo.getPlayWhenReady()) {
+            mHoldPending = false;
+            return;
+        }
+        mHoldPending = false;
+        mHoldActive = true;
+        // Whatever had the touch (the player's tap, the Shorts page, a drag) lets go of it
+        if (mHoldDown != null) {
+            cancelRoutedTouch(mHoldDown);
+            mPaging = false;
+        }
+        mSpeedBeforeHold = exo.getPlaybackParameters().speed;
+        exo.setPlaybackParameters(new com.google.android.exoplayer2.PlaybackParameters(HOLD_SPEED, 1f));
+        mVideoBox.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        showHoldBadge(true);
+        android.util.Log.d("PhonePlayback", "hold: 2x (was " + mSpeedBeforeHold + "x)");
+    }
+
+    private void stopHoldSpeed() {
+        mHoldActive = false;
+        com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+        if (exo != null) {
+            exo.setPlaybackParameters(new com.google.android.exoplayer2.PlaybackParameters(mSpeedBeforeHold, 1f));
+        }
+        showHoldBadge(false);
+        android.util.Log.d("PhonePlayback", "hold: back to " + mSpeedBeforeHold + "x");
+    }
+
+    /** "2x ▸▸" in a dark pill at the top of the video while held */
+    private void showHoldBadge(boolean show) {
+        FrameLayout content = findViewById(android.R.id.content);
+        if (content == null) {
+            return;
+        }
+        if (mHoldBadge == null) {
+            mHoldBadge = new TextView(this);
+            mHoldBadge.setText(getString(R.string.phone_hold_speed));
+            mHoldBadge.setTextColor(Color.WHITE);
+            mHoldBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+            mHoldBadge.setTypeface(PhoneUi.medium(this));
+            mHoldBadge.setPadding(dp(14), dp(6), dp(14), dp(6));
+            android.graphics.drawable.GradientDrawable pill = new android.graphics.drawable.GradientDrawable();
+            pill.setCornerRadius(dp(16));
+            pill.setColor(0x99000000);
+            mHoldBadge.setBackground(pill);
+            mHoldBadge.setElevation(dp(4));
+            mHoldBadge.setVisibility(View.GONE);
+            content.addView(mHoldBadge, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL));
+        }
+        mHoldBadge.animate().cancel();
+        if (show) {
+            Rect box = new Rect();
+            mVideoBox.getGlobalVisibleRect(box);
+            int[] origin = new int[2];
+            content.getLocationOnScreen(origin);
+            mHoldBadge.setTranslationY(box.top - origin[1] + dp(mPortrait && !mShortsMode ? 12 : 48));
+            mHoldBadge.bringToFront();
+            mHoldBadge.setAlpha(0f);
+            mHoldBadge.setVisibility(View.VISIBLE);
+            mHoldBadge.animate().alpha(1f).setDuration(120).start();
+        } else if (mHoldBadge.getVisibility() == View.VISIBLE) {
+            mHoldBadge.animate().alpha(0f).setDuration(150).withEndAction(() -> mHoldBadge.setVisibility(View.GONE)).start();
+        }
+    }
+
+    // endregion
 
     /** Whatever got this touch so far (the player, the controls, the list) stops handling it: a gesture took over */
     private void cancelRoutedTouch(MotionEvent event) {
@@ -2568,6 +2711,103 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     void playNext() {
         presenter().onNextClicked();
     }
+
+    // region Shuffle and repeat in the music player
+
+    /** The songs after this one (the first list of suggestions): shuffle picks from them */
+    private VideoGroup mMusicQueue;
+    private String mQueueFor;
+    /** The song the next one was picked for, and the next one it had before (back when shuffle goes off) */
+    private String mShuffledFor;
+    private com.liskovsoft.mediaserviceinterfaces.data.MediaItem mUnshuffledNext;
+    /** Songs shuffle played lately: not again soon */
+    private final java.util.LinkedList<String> mShufflePlayed = new java.util.LinkedList<>();
+    private Object mEndWatchedOn;
+
+    /**
+     * Shuffle: the next song (the Next button's and the one after this ends) is a random one of the songs after
+     * this, not the one in line. SmartTube shuffles only playlists of your own, so songs from Music or a search
+     * never were.
+     */
+    private void applyShuffle(boolean modeChanged) {
+        Video current = currentVideo();
+        if (current == null) {
+            return;
+        }
+        boolean shuffle = mMusicMode && com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData.instance(this)
+                .getPlaybackMode() == PlayerConstants.PLAYBACK_MODE_SHUFFLE;
+        if (!shuffle) {
+            if (current.videoId != null && current.videoId.equals(mShuffledFor)) {
+                current.nextMediaItem = mUnshuffledNext; // in order again
+                current.isShuffled = false;
+                mShuffledFor = null;
+            }
+            return;
+        }
+        if (!modeChanged && current.videoId != null && current.videoId.equals(mShuffledFor)) {
+            return;
+        }
+        // The songs lined up after this one (a search's or a playlist's), else the suggestions
+        com.liskovsoft.smartyoutubetv2.common.app.models.data.Playlist queue =
+                com.liskovsoft.smartyoutubetv2.common.app.models.data.Playlist.instance();
+        java.util.List<Video> pool = queue.getAllAfterCurrent();
+        if ((pool == null || pool.isEmpty()) && mMusicQueue != null) {
+            pool = mMusicQueue.getVideos();
+        }
+        if (pool == null) {
+            return;
+        }
+        java.util.List<Video> songs = new java.util.ArrayList<>();
+        java.util.List<Video> fresh = new java.util.ArrayList<>();
+        for (Video video : new java.util.ArrayList<>(pool)) {
+            if (video != null && video.videoId != null && !video.videoId.equals(current.videoId) && !isShort(video)) {
+                songs.add(video);
+                if (!mShufflePlayed.contains(video.videoId)) {
+                    fresh.add(video);
+                }
+            }
+        }
+        java.util.List<Video> from = !fresh.isEmpty() ? fresh : songs;
+        if (from.isEmpty()) {
+            return;
+        }
+        Video pick = from.get(new java.util.Random().nextInt(from.size()));
+        if (!current.videoId.equals(mShuffledFor)) {
+            mUnshuffledNext = current.nextMediaItem;
+        }
+        current.nextMediaItem = com.liskovsoft.smartyoutubetv2.common.app.models.data.SimpleMediaItem.from(pick);
+        current.isShuffled = true;
+        queue.next(pick); // Next takes the queue's next song first: the pick is it now
+        mShuffledFor = current.videoId;
+        android.util.Log.d("PhoneMusic", "shuffle: after " + current.videoId + " comes " + pick.videoId
+                + " (of " + from.size() + " songs)");
+    }
+
+    /**
+     * Repeat one: the song starts over when it ends (also from the music bar and with the screen off), whatever
+     * else would load next
+     */
+    private void watchSongEnd() {
+        com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+        if (exo == null || exo == mEndWatchedOn) {
+            return;
+        }
+        mEndWatchedOn = exo;
+        exo.addListener(new com.google.android.exoplayer2.Player.EventListener() {
+            @Override
+            public void onPlayerStateChanged(boolean playWhenReady, int state) {
+                if (state == com.google.android.exoplayer2.Player.STATE_ENDED && mMusicMode
+                        && com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData.instance(PhonePlaybackActivity.this)
+                        .getPlaybackMode() == PlayerConstants.PLAYBACK_MODE_ONE) {
+                    android.util.Log.d("PhoneMusic", "repeat one: from the start");
+                    exo.seekTo(0);
+                    exo.setPlayWhenReady(true);
+                }
+            }
+        });
+    }
+
+    // endregion
     /** Songs opened from the Music page play in the music player (until a video is opened from elsewhere) */
     private boolean mMusicMode;
 
@@ -3498,6 +3738,17 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         if (music != null) {
             mMusicMode = music;
         }
+        if (video != null && video.videoId != null && !video.videoId.equals(mQueueFor)) {
+            mQueueFor = video.videoId;
+            mMusicQueue = null; // this song's suggestions are on their way
+            if (mShufflePlayed.isEmpty() || !video.videoId.equals(mShufflePlayed.getLast())) {
+                mShufflePlayed.add(video.videoId);
+                while (mShufflePlayed.size() > 30) {
+                    mShufflePlayed.removeFirst();
+                }
+            }
+        }
+        watchSongEnd();
         syncMusicPlayer();
         refreshDetails();
         if (mShortsMode) {
@@ -3518,6 +3769,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         Video playing = currentVideo();
         mAdapter.setExcludedVideoId(playing != null ? playing.videoId : null);
         mAdapter.update(group);
+        if (mMusicQueue == null) {
+            mMusicQueue = group;
+            applyShuffle(false);
+        }
         if (mShortsMode) {
             preloadNextShorts();
         }

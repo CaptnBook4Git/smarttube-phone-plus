@@ -199,6 +199,7 @@
     <string name="phone_music_playing_from">Playing from</string>
     <string name="phone_music_video">Video</string>
     <string name="phone_music_lyrics">Lyrics</string>
+    <string name="phone_music_repeat_one">Repeat this song</string>
     <string name="phone_music_lyrics_loading">Looking for the lyrics…</string>
     <string name="phone_music_lyrics_none">No lyrics for this song</string>
     <string name="phone_music_play_all">Play all</string>
@@ -213,4 +214,13 @@
     <string name="phone_music_search_off">Music search off: results open as videos</string>
     <string name="phone_music_search_hint">Search songs, artists or playlists</string>
     <string name="phone_music_search">Search music</string>
+    <string name="phone_settings_search_hint">Search settings</string>
+    <string name="phone_settings_search_none">No settings match “%1$s”</string>
+    <string name="phone_settings_updates">Updates</string>
+    <string name="phone_hold_speed" translatable="false">2x ▸▸</string>
+    <string name="phone_tabs">Tab bar</string>
+    <string name="phone_tabs_summary">How the tabs at the bottom look</string>
+    <string name="phone_tabs_classic">Classic</string>
+    <string name="phone_tabs_floating">Floating</string>
+    <string name="phone_tabs_glass">Liquid glass</string>
 </resources>

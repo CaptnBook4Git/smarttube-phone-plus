@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 final class PhoneTweaks {
     private static final String PREFS = "phone_tweaks";
     private static final String KEY_YOU_ON_TOP = "you_on_top";
+    private static final String KEY_TAB_STYLE = "tab_style";
 
     private PhoneTweaks() {
     }
@@ -21,6 +22,18 @@ final class PhoneTweaks {
 
     static void setYouOnTop(Context context, boolean onTop) {
         prefs(context).edit().putBoolean(KEY_YOU_ON_TOP, onTop).apply();
+    }
+
+    /** The bottom tabs' look: Classic, Floating or Liquid glass (see PhoneTabBar) */
+    static int tabStyle(Context context) {
+        return TAB_STYLES_SHOWN ? prefs(context).getInt(KEY_TAB_STYLE, PhoneTabBar.CLASSIC) : PhoneTabBar.CLASSIC;
+    }
+
+    /** Customize > Tab bar is hidden for now: the bar is Classic (the Floating and Liquid glass bars stay in the code) */
+    static final boolean TAB_STYLES_SHOWN = false;
+
+    static void setTabStyle(Context context, int style) {
+        prefs(context).edit().putInt(KEY_TAB_STYLE, style).apply();
     }
 
     /** The player's previous / next buttons (kept where they were stored before) */

@@ -199,6 +199,7 @@
     <string name="phone_music_playing_from">Tocando de</string>
     <string name="phone_music_video">Vídeo</string>
     <string name="phone_music_lyrics">Letra</string>
+    <string name="phone_music_repeat_one">Repetir esta música</string>
     <string name="phone_music_lyrics_loading">Procurando a letra…</string>
     <string name="phone_music_lyrics_none">Sem letra para esta música</string>
     <string name="phone_music_play_all">Tocar tudo</string>
@@ -213,4 +214,13 @@
     <string name="phone_music_search_off">Busca de música desativada: os resultados abrem como vídeos</string>
     <string name="phone_music_search_hint">Busque músicas, artistas ou playlists</string>
     <string name="phone_music_search">Buscar música</string>
+    <string name="phone_settings_search_hint">Pesquisar configurações</string>
+    <string name="phone_settings_search_none">Nenhuma configuração corresponde a “%1$s”</string>
+    <string name="phone_settings_updates">Atualizações</string>
+    <string name="phone_hold_speed" translatable="false">2x ▸▸</string>
+    <string name="phone_tabs">Barra de abas</string>
+    <string name="phone_tabs_summary">A aparência das abas na parte de baixo</string>
+    <string name="phone_tabs_classic">Clássica</string>
+    <string name="phone_tabs_floating">Flutuante</string>
+    <string name="phone_tabs_glass">Vidro líquido</string>
 </resources>
