@@ -24,7 +24,7 @@ import com.liskovsoft.smartyoutubetv2.tv.R;
  */
 final class PhoneWhatsNew {
     /** The newest release below: raise it with each new one */
-    static final int VERSION = 8;
+    static final int VERSION = 9;
 
     private static final String PREFS = "phone_whats_new";
     private static final String KEY_READ = "read";
@@ -57,7 +57,18 @@ final class PhoneWhatsNew {
     }
 
     static final Release[] RELEASES = {
-            new Release(8, "This update",
+            new Release(9, "This update",
+                    new Feature(R.drawable.ic_phone_brightness, "Ambient mode",
+                            "In the dark appearance, a soft glow of the video's own colours surrounds the player and changes with the picture, like the YouTube app."),
+                    new Feature(R.drawable.ic_phone_music_note, "A home screen widget",
+                            "The song's artwork fills it edge to edge, fading into the song's own colour under its name and the buttons. It fits any size, and a tap opens the player. Long press your home screen, tap Widgets and find StreamTube."),
+                    new Feature(R.drawable.ic_phone_playlist, "Move songs in Up next",
+                            "Hold the handle on the right of a song and drag it up or down. The queue plays in your order."),
+                    new Feature(R.drawable.ic_phone_cc, "Chapters on the seek bar",
+                            "Videos with chapters show them as segments on the seek bar, with the chapter's name next to the time. Tap the name to see all the chapters and jump to any of them."),
+                    new Feature(R.drawable.ic_phone_play, "See where you're going",
+                            "While you drag the seek bar, or along the line at the bottom of a video, a picture of the video at that point shows above your finger, with its time.")),
+            new Release(8, "Cover Flow",
                     new Feature(R.drawable.ic_phone_playlist, "Cover Flow",
                             "Turn your phone sideways in the music player to see your songs as a row of covers. Swipe through them and tap one to play it. In portrait, press and hold the artwork for the same view."),
                     new Feature(R.drawable.ic_phone_music_note, "A new animation for every song",

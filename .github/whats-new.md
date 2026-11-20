@@ -1,10 +1,6 @@
-- Cover Flow in the music player: turn your phone sideways to see your songs as a row of covers, the one playing in the middle and the ones before and after turned towards it. Swipe through them and tap one to play it, with the controls right under them. In portrait, press and hold the artwork for the same view
-- A living music player: a background made from the song's own artwork and colours drifts slowly behind everything, with beams of light from above, flowing ribbons and soft specks of light, soft lights circle the artwork, and a glint of light sweeps across each new song's artwork
-- A new animation for every song behind the music player, picked from many: confetti, fireflies, soap bubbles, shooting stars, blossom petals, snow, glowing lanterns, neon waves, a turning galaxy, butterflies, floating music notes, rainbow light, hearts, sparkles, aurora and more. Each song keeps its own, and no two songs in a row share one
-- Up next: tap the bar under the controls to see the songs coming after this one, in the order they'll play, and tap any of them to play it
-- Glowing controls: the play button glows in the song's colour and breathes with it, Previous and Next light up when pressed, and Shuffle and Repeat glow when they're on
-- A cleaner music player: music video thumbnails shown whole on a soft blurred backdrop, a shadow in the song's colour, the lyric line without a box, and no like button
-- Player menus (Settings, Quality, Speed, Captions and the rest) close with a swipe down or a tap outside, and they're smaller and neater, narrower in full screen
-- Brightness set by swiping in full screen goes back to your phone's own when you leave full screen
-- The top bar stays in place on Settings, Subscriptions and every other page, so search is always at hand; on Home it tucks away as you scroll down and comes back as you scroll up
-- Fixed a crash that could happen when one song moved on to the next
+- Ambient mode: in the dark appearance, a soft glow of the video's own colours surrounds the player, above it and fading out under the title, and changes with the picture, like the YouTube app (Settings > Customize: turn it off, or pick how bright: Subtle, Balanced or Vivid)
+- A home screen widget: the song's artwork fills it edge to edge, fading into the song's own colour where its name and the buttons sit. It fits any size you give it (small, wide or large), and a tap on the artwork opens the player. Long press your home screen, tap Widgets and find StreamTube
+- Chapters: videos with chapters show them as segments on the seek bar, with the chapter's name next to the time and while you seek. Tap the chapter's name to see all of them, with a picture of each, and tap one to go there
+- Move songs in Up next: hold the handle on the right of a song and drag it up or down; the queue plays in your order
+- See where you're going: while you drag the seek bar (or along the line at the bottom of a video), a picture of the video at that point shows above your finger, with its time
+- The seek bar's handle is whole again, no longer cut off by the bottom of the video
