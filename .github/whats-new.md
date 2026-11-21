@@ -1,6 +1,4 @@
-- Ambient mode: in the dark appearance, a soft glow of the video's own colours surrounds the player, above it and fading out under the title, and changes with the picture, like the YouTube app (Settings > Customize: turn it off, or pick how bright: Subtle, Balanced or Vivid)
-- A home screen widget: the song's artwork fills it edge to edge, fading into the song's own colour where its name and the buttons sit. It fits any size you give it (small, wide or large), and a tap on the artwork opens the player. Long press your home screen, tap Widgets and find StreamTube
-- Chapters: videos with chapters show them as segments on the seek bar, with the chapter's name next to the time and while you seek. Tap the chapter's name to see all of them, with a picture of each, and tap one to go there
-- Move songs in Up next: hold the handle on the right of a song and drag it up or down; the queue plays in your order
-- See where you're going: while you drag the seek bar (or along the line at the bottom of a video), a picture of the video at that point shows above your finger, with its time
-- The seek bar's handle is whole again, no longer cut off by the bottom of the video
+- Lyrics on your lock screen: while a song plays in the music player, the words being sung appear on the lock screen and in the media controls, right as they're sung. Long lines come in short pieces, so they never scroll, and each one pops in on time, even with the screen off
+- Easy to spot: while lyrics show, the song's artwork gets a glowing note in its corner, and the line under the words reads Lyrics, the song and the singer
+- Sharper artwork on the lock screen, in the media controls and on car screens: the song's picture without black bars, cut square like an album cover
+- Prefer the song's name there? Turn the lyrics off in Settings > Customize > Lyrics on the lock screen
