@@ -1,2 +1,1 @@
-- Easier replay — In Saved moments, tap the thumbnail or title to play from the first saved timestamp. Tap anywhere on a moment’s row to jump to that timestamp.
-- Library artwork — My videos, Saved moments, and Downloads now have their own illustrated covers.
+- Saved moments — The thumbnail, timestamp, note, and menu share one card in StreamTube’s colors. Tap to play from that moment. Other timestamps for the same video sit directly below it in the card.

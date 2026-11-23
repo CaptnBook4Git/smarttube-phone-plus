@@ -1,0 +1,5 @@
+<ImageButton xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/phone_moment_options"
+    android:layout_width="48dp" android:layout_height="48dp" android:padding="14dp" android:focusable="true"
+    android:src="@drawable/ic_phone_more" android:tint="@color/phone_text_2"
+    android:background="?android:attr/selectableItemBackgroundBorderless" />

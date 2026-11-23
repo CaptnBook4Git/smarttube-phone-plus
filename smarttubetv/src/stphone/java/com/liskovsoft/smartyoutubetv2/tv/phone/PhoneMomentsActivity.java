@@ -2,7 +2,6 @@ package com.liskovsoft.smartyoutubetv2.tv.phone;
 
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.util.SparseBooleanArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,7 +16,7 @@ import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
 import com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter;
 import com.liskovsoft.smartyoutubetv2.tv.R;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class PhoneMomentsActivity extends PhoneActivity {
@@ -43,17 +42,7 @@ public class PhoneMomentsActivity extends PhoneActivity {
     }
 
     private void refresh() {
-        adapter.rows.clear();
-        adapter.headers.clear();
-        String previous = null;
-        for (PhoneMoments.Moment moment : PhoneMoments.get(this).list()) {
-            if (!moment.videoId.equals(previous)) {
-                adapter.headers.put(adapter.rows.size(), true);
-                adapter.rows.add(moment);
-                previous = moment.videoId;
-            }
-            adapter.rows.add(moment);
-        }
+        adapter.rows = PhoneMoments.get(this).list();
         adapter.notifyDataSetChanged();
         findViewById(R.id.phone_downloads_empty).setVisibility(adapter.rows.isEmpty() ? View.VISIBLE : View.GONE);
     }
@@ -84,12 +73,15 @@ public class PhoneMomentsActivity extends PhoneActivity {
     }
 
     private final class MomentsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
-        private final List<PhoneMoments.Moment> rows = new ArrayList<>();
-        private final SparseBooleanArray headers = new SparseBooleanArray();
+        private List<PhoneMoments.Moment> rows = Collections.emptyList();
+
+        private boolean startsVideo(int position) {
+            return position == 0 || !rows.get(position - 1).videoId.equals(rows.get(position).videoId);
+        }
 
         @Override
         public int getItemViewType(int position) {
-            return headers.get(position) ? R.layout.phone_moment_header : R.layout.phone_moment_row;
+            return startsVideo(position) ? R.layout.phone_moment_header : R.layout.phone_moment_row;
         }
 
         @Override
@@ -105,18 +97,22 @@ public class PhoneMomentsActivity extends PhoneActivity {
             String time = moment.time();
             String playLabel = getString(R.string.phone_moment_play, time);
             row.setOnClickListener(v -> play(moment));
-            if (headers.get(position)) {
+            boolean first = holder.getItemViewType() == R.layout.phone_moment_header;
+            boolean last = position + 1 == rows.size() || startsVideo(position + 1);
+            if (first) {
+                row.setBackgroundResource(last ? R.drawable.phone_card_bg : R.drawable.phone_moment_card_top);
                 ((TextView) row.findViewById(R.id.phone_title)).setText(moment.title);
-                ((TextView) row.findViewById(R.id.phone_moment_start)).setText(playLabel);
-                row.setContentDescription(moment.title + ", " + playLabel);
                 ImageView thumb = row.findViewById(R.id.phone_thumb);
                 PhoneUi.loadThumb(thumb, Video.from(moment.videoId), false);
-                return;
+            } else {
+                row.setBackgroundResource(last ? R.drawable.phone_moment_card_bottom : R.color.phone_surface_2);
             }
             ((TextView) row.findViewById(R.id.phone_moment_time)).setText(time);
             TextView note = row.findViewById(R.id.phone_moment_note);
             note.setText(moment.note);
-            row.setContentDescription(TextUtils.isEmpty(moment.note) ? playLabel : playLabel + ", " + moment.note);
+            note.setVisibility(TextUtils.isEmpty(moment.note) ? View.GONE : View.VISIBLE);
+            String description = moment.title + ", " + playLabel;
+            row.setContentDescription(TextUtils.isEmpty(moment.note) ? description : description + ", " + moment.note);
             View more = row.findViewById(R.id.phone_moment_options);
             more.setContentDescription(getString(R.string.phone_moment_menu, time));
             more.setOnClickListener(v -> options(v, moment));
