@@ -584,9 +584,13 @@ final class PhoneMusicFlow {
             card.addView(sheen, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             addView(card, new FrameLayout.LayoutParams(mSize, mSize, Gravity.CENTER));
             if (video.videoId != null && PhoneUi.isAlive(getContext())) {
-                Glide.with(getContext()).load("https://i.ytimg.com/vi/" + video.videoId + "/hq720.jpg")
-                        .error(Glide.with(getContext()).load("https://i.ytimg.com/vi/" + video.videoId + "/mqdefault.jpg"))
-                        .into(art);
+                if (PhoneDownloadArt.isLocal(video.videoId)) {
+                    PhoneDownloadArt.bind(art, android.net.Uri.parse(video.videoId));
+                } else {
+                    Glide.with(getContext()).load("https://i.ytimg.com/vi/" + video.videoId + "/hq720.jpg")
+                            .error(Glide.with(getContext()).load("https://i.ytimg.com/vi/" + video.videoId + "/mqdefault.jpg"))
+                            .into(art);
+                }
             }
             return card;
         }

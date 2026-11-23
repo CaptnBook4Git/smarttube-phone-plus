@@ -93,6 +93,7 @@ final class PhoneMusicPlayer {
 
     private final Activity mActivity;
     private final Host mHost;
+    private final boolean mOffline;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private final FrameLayout mRoot;
     private final View mBackground;
@@ -171,6 +172,11 @@ final class PhoneMusicPlayer {
     };
 
     PhoneMusicPlayer(Activity activity, Host host) {
+        this(activity, host, false);
+    }
+
+    PhoneMusicPlayer(Activity activity, Host host, boolean offline) {
+        mOffline = offline;
         mActivity = activity;
         mHost = host;
         Context context = activity;
@@ -247,6 +253,7 @@ final class PhoneMusicPlayer {
         videoBg.setColor(0x33FFFFFF);
         video.setBackground(videoBg);
         video.setOnClickListener(v -> mHost.showVideo());
+        if (offline) video.setVisibility(View.GONE);
         top.addView(video, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)));
         mColumn.addView(top);
 
@@ -334,6 +341,7 @@ final class PhoneMusicPlayer {
         download.setOnClickListener(v -> PhoneDownloads.showOptions(activity, mHost.video(), false, true));
         LinearLayout.LayoutParams downloadParams = new LinearLayout.LayoutParams(dp(48), dp(48));
         downloadParams.setMarginStart(dp(8));
+        if (offline) download.setVisibility(View.GONE);
         titleRow.addView(download, downloadParams);
         mColumn.addView(titleRow);
 
@@ -735,7 +743,7 @@ final class PhoneMusicPlayer {
             return;
         }
         mVideoId = video.videoId;
-        String source = PhoneMusic.source();
+        String source = mOffline ? mActivity.getString(R.string.phone_downloads) : PhoneMusic.source();
         mSource.setText(!TextUtils.isEmpty(source) ? source : mActivity.getString(R.string.phone_music_title));
         mTitle.setText(PhoneLyrics.displayTitle(video.getTitle()));
         String artist = PhoneLyrics.cleanArtist(video.getAuthor());
@@ -749,6 +757,19 @@ final class PhoneMusicPlayer {
         }
         mMood.setScene(PhoneMood.sceneFor(video.videoId)); // each song its own scene
         mUpNextTicks = 0; // the queue changes with the song: read again soon
+
+        if (mOffline) {
+            android.net.Uri uri = android.net.Uri.parse(video.videoId);
+            PhoneDownloadArt.bind(mArt, uri);
+            PhoneDownloadArt.bind(mSkyArt, uri);
+            PhoneDownloadArt.bind(mArtFill, uri);
+            mArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            mArtFill.setVisibility(View.GONE);
+            java.io.File cover = PhoneDownloadArt.file(mActivity, uri);
+            loadPalette(video.videoId, cover.isFile() ? cover : R.drawable.phone_download_record);
+            enterArt();
+            return;
+        }
 
         if (PhoneUi.isAlive(mActivity)) {
             String id = video.videoId;
@@ -769,25 +790,7 @@ final class PhoneMusicPlayer {
                 Glide.with(mActivity).load("https://i.ytimg.com/vi/" + id + "/mqdefault.jpg")
                         .transition(DrawableTransitionOptions.withCrossFade(900)).into(mSkyArt);
             }
-            // The colours come from a small copy of the artwork
-            Glide.with(mActivity).asBitmap().load("https://i.ytimg.com/vi/" + id + "/mqdefault.jpg").override(48, 27)
-                    .into(new CustomTarget<Bitmap>() {
-                        @Override
-                        public void onResourceReady(@NonNull Bitmap bitmap, @Nullable Transition<? super Bitmap> transition) {
-                            if (id.equals(mVideoId)) {
-                                animateColor(vibrant(bitmap));
-                                frameArt(bitmap);
-                                int[] palette = PhoneMusicFx.palette(bitmap);
-                                mAura.setColors(palette);
-                                mSky.setColors(palette);
-                                mGlare.sweep();
-                            }
-                        }
-
-                        @Override
-                        public void onLoadCleared(@Nullable Drawable placeholder) {
-                        }
-                    });
+            loadPalette(id, "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg");
         }
         enterArt();
 
@@ -811,6 +814,27 @@ final class PhoneMusicPlayer {
         List<String> names = PhoneLyrics.trackNames(title);
         String last = names.isEmpty() ? title : names.get(names.size() - 1); // the whole first part, tidied
         return last.isEmpty() ? title : last;
+    }
+
+    private void loadPalette(String id, Object model) {
+        Glide.with(mActivity).asBitmap().load(model).override(48, 27)
+                .into(new CustomTarget<Bitmap>() {
+                    @Override
+                    public void onResourceReady(@NonNull Bitmap bitmap, @Nullable Transition<? super Bitmap> transition) {
+                        if (id.equals(mVideoId)) {
+                            animateColor(vibrant(bitmap));
+                            frameArt(bitmap);
+                            int[] palette = PhoneMusicFx.palette(bitmap);
+                            mAura.setColors(palette);
+                            mSky.setColors(palette);
+                            mGlare.sweep();
+                        }
+                    }
+
+                    @Override
+                    public void onLoadCleared(@Nullable Drawable placeholder) {
+                    }
+                });
     }
 
     private void update() {
@@ -857,6 +881,10 @@ final class PhoneMusicPlayer {
 
     /** Next (1) or previous (-1) song: the artwork slides off that way, the next one comes in when the song changes */
     private void change(int direction) {
+        if (mOffline && (direction > 0 ? mHost.upNext() : mHost.before()).isEmpty()) {
+            if (direction < 0) mHost.previous();
+            return;
+        }
         int width = mStage.getWidth() > 0 ? mStage.getWidth() : dp(300);
         mArtFrame.animate().cancel();
         mArtFrame.animate()

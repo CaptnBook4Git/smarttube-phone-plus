@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -14,32 +13,40 @@ import android.text.format.Formatter;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.ImageButton;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.PlaybackParameters;
+import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.source.ProgressiveMediaSource;
 import com.google.android.exoplayer2.ui.PlayerView;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
+import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
+import com.liskovsoft.smartyoutubetv2.common.app.models.playback.manager.PlayerConstants;
 import com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter;
 import com.liskovsoft.smartyoutubetv2.common.app.views.PlaybackView;
+import com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData;
 import com.liskovsoft.smartyoutubetv2.tv.R;
 import com.liskovsoft.smartyoutubetv2.tv.phone.PhoneDownloads.Kind;
+import com.liskovsoft.smartyoutubetv2.tv.phone.PhoneDownloadsActivity.Item;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Offline playback uses only the saved file and its local download details. */
-public class PhoneLocalPlayerActivity extends Activity {
+public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlayer.Host {
     private static final String EXTRA_TITLE = "title";
     private static final String EXTRA_KIND = "kind";
     private static final String EXTRA_SIZE = "size";
     private static final String EXTRA_ADDED = "added";
     private static final String EXTRA_DURATION = "duration";
+    private static final String STATE_CURRENT = "current";
     private static final String STATE_POSITION = "position";
     private static final String STATE_PLAYING = "playing";
     private static final String STATE_SPEED = "speed";
@@ -49,6 +56,13 @@ public class PhoneLocalPlayerActivity extends Activity {
     private SimpleExoPlayer mPlayer;
     private PlayerView mPlayerView;
     private Kind mKind;
+    private PhoneLocalControls mControls;
+    private PhoneMusicPlayer mMusic;
+    private Video mCurrent;
+    private final List<Video> mQueue = new ArrayList<>();
+    private final Map<String, Item> mFiles = new HashMap<>();
+    private int mIndex;
+
     private long mResumePosition;
     private float mSpeed = 1f;
     private boolean mPlaying = true;
@@ -59,14 +73,18 @@ public class PhoneLocalPlayerActivity extends Activity {
         if (streaming != null) {
             streaming.setPlayWhenReady(false);
         }
-        activity.startActivity(new Intent(activity, PhoneLocalPlayerActivity.class)
+        activity.startActivity(intent(activity, item));
+    }
+
+    private static Intent intent(Activity activity, Item item) {
+        return new Intent(activity, PhoneLocalPlayerActivity.class)
                 .setData(item.uri)
                 .addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION)
                 .putExtra(EXTRA_TITLE, item.title)
                 .putExtra(EXTRA_KIND, item.kind.name())
                 .putExtra(EXTRA_SIZE, item.size)
                 .putExtra(EXTRA_ADDED, item.addedMs)
-                .putExtra(EXTRA_DURATION, item.durationMs));
+                .putExtra(EXTRA_DURATION, item.durationMs);
     }
 
     @Override
@@ -78,6 +96,9 @@ public class PhoneLocalPlayerActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         PhoneTheme.apply(this);
+        if (savedInstanceState != null && savedInstanceState.containsKey(STATE_CURRENT)) {
+            setIntent(savedInstanceState.getParcelable(STATE_CURRENT));
+        }
         Uri uri = getIntent().getData();
         if (uri == null) {
             finish();
@@ -95,27 +116,28 @@ public class PhoneLocalPlayerActivity extends Activity {
 
         setContentView(R.layout.phone_activity_offline_player);
         mPlayerView = findViewById(R.id.phone_offline_player);
-        mPlayerView.setRewindIncrementMs(10_000);
-        mPlayerView.setFastForwardIncrementMs(10_000);
-        mPlayerView.setErrorMessageProvider(error -> android.util.Pair.create(0,
-                getString(R.string.phone_offline_failed)));
-        findViewById(R.id.phone_offline_back).setOnClickListener(v -> finish());
-        mPlayerView.findViewById(R.id.phone_offline_fullscreen).setOnClickListener(v -> setFullscreen(!mFullscreen));
-        mPlayerView.findViewById(R.id.phone_offline_speed).setOnClickListener(this::showSpeed);
-
+        mPlayerView.setErrorMessageProvider(error -> android.util.Pair.create(0, getString(R.string.phone_offline_failed)));
         if (mKind == Kind.MUSIC) {
-            GradientDrawable background = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    new int[]{0xFF5A1421, Color.BLACK});
-            mPlayerView.setBackground(background);
-            mPlayerView.setDefaultArtwork(getDrawable(R.drawable.ic_phone_headphones));
-            mPlayerView.setControllerShowTimeoutMs(0);
-            mPlayerView.setControllerHideOnTouch(false);
-            mPlayerView.findViewById(R.id.phone_offline_fullscreen).setVisibility(View.GONE);
+            findViewById(R.id.phone_offline_root).setVisibility(View.GONE);
+            mMusic = new PhoneMusicPlayer(this, this, true);
         } else {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            mControls = new PhoneLocalControls(this, mPlayerView, mKind == Kind.SHORT);
         }
+        bindItem();
+        setFullscreen(mKind == Kind.SHORT || mFullscreen);
+        if (mKind != Kind.VIDEO) {
+            PhoneDownloadsActivity.loadQueue(this, mKind, this::setQueue);
+        }
+    }
 
+    private void bindItem() {
+        Uri uri = getIntent().getData();
         PhoneDownloadDetails details = PhoneDownloadDetails.read(this, uri, getIntent().getStringExtra(EXTRA_TITLE));
+        mCurrent = Video.from(uri.toString());
+        mCurrent.title = details.title;
+        mCurrent.author = details.author;
+        if (mControls != null) mControls.bind(details);
         ((TextView) findViewById(R.id.phone_offline_title)).setText(details.title);
         TextView author = findViewById(R.id.phone_offline_author);
         author.setText(details.author);
@@ -123,7 +145,6 @@ public class PhoneLocalPlayerActivity extends Activity {
         ((TextView) findViewById(R.id.phone_offline_description)).setText(details.description.isEmpty()
                 ? getText(R.string.phone_offline_no_description) : details.description);
         showFileInfo(getIntent().getLongExtra(EXTRA_DURATION, 0));
-        setFullscreen(mFullscreen);
     }
 
     private void showFileInfo(long duration) {
@@ -151,35 +172,33 @@ public class PhoneLocalPlayerActivity extends Activity {
     public void onConfigurationChanged(Configuration config) {
         super.onConfigurationChanged(config);
         if (mPlayerView != null) {
-            setFullscreen(mKind != Kind.MUSIC && isLandscape());
+            setFullscreen(mKind == Kind.SHORT || mKind == Kind.VIDEO && isLandscape());
         }
     }
 
     @SuppressWarnings("deprecation")
     private void setFullscreen(boolean fullscreen) {
         mFullscreen = fullscreen;
-        findViewById(R.id.phone_offline_header).setVisibility(fullscreen ? View.GONE : View.VISIBLE);
         findViewById(R.id.phone_offline_details).setVisibility(fullscreen ? View.GONE : View.VISIBLE);
 
         ViewGroup.LayoutParams layout = mPlayerView.getLayoutParams();
         android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
-        float aspect = mKind == Kind.SHORT ? 0.85f : 9f / 16;
         layout.height = fullscreen ? ViewGroup.LayoutParams.MATCH_PARENT
-                : Math.min(Math.round(metrics.widthPixels * aspect), Math.round(metrics.heightPixels * 0.52f));
+                : Math.min(Math.round(metrics.widthPixels * 9f / 16), Math.round(metrics.heightPixels * 0.52f));
         mPlayerView.setLayoutParams(layout);
 
-        ImageButton button = mPlayerView.findViewById(R.id.phone_offline_fullscreen);
-        button.setImageResource(fullscreen ? R.drawable.ic_phone_fullscreen_exit : R.drawable.ic_phone_fullscreen);
-        button.setContentDescription(getText(fullscreen ? R.string.phone_offline_exit_fullscreen : R.string.phone_fullscreen));
-        getWindow().setStatusBarColor(fullscreen ? Color.BLACK : getColor(R.color.phone_bg));
-        getWindow().setNavigationBarColor(fullscreen ? Color.BLACK : getColor(R.color.phone_bg));
+        if (mControls != null) mControls.fullscreen(fullscreen);
+        boolean darkBars = fullscreen || mKind == Kind.MUSIC;
+        getWindow().setStatusBarColor(darkBars ? Color.BLACK : getColor(R.color.phone_bg));
+        getWindow().setNavigationBarColor(darkBars ? Color.BLACK : getColor(R.color.phone_bg));
         getWindow().getDecorView().setSystemUiVisibility(fullscreen
                 ? View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                : PhoneTheme.isNight(this) ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
-        mPlayerView.showController();
+                : darkBars || PhoneTheme.isNight(this) ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
     }
 
-    private void showSpeed(View anchor) {
+    void toggleFullscreen() { setFullscreen(!mFullscreen); }
+
+    void showSpeed(View anchor) {
         PopupMenu menu = new PopupMenu(this, anchor);
         for (float speed : SPEEDS) {
             String label = speed == 1f ? "1×" : java.text.NumberFormat.getNumberInstance().format(speed) + "×";
@@ -199,7 +218,8 @@ public class PhoneLocalPlayerActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (mFullscreen) {
+        if (mMusic != null && mMusic.onBack()) return;
+        if (mFullscreen && mKind == Kind.VIDEO) {
             setFullscreen(false);
         } else {
             super.onBackPressed();
@@ -214,15 +234,36 @@ public class PhoneLocalPlayerActivity extends Activity {
         }
         mPlayer = ExoPlayerFactory.newSimpleInstance(this);
         mPlayer.setAudioAttributes(AudioAttributes.DEFAULT, true);
-        mPlayerView.setPlayer(mPlayer);
-        mPlayer.addListener(new com.google.android.exoplayer2.Player.EventListener() {
+        if (mMusic == null) mPlayerView.setPlayer(mPlayer);
+        mPlayer.addListener(new Player.EventListener() {
+            @Override
+            public void onPlayerError(com.google.android.exoplayer2.ExoPlaybackException error) {
+                if (mMusic != null) {
+                    android.widget.Toast.makeText(PhoneLocalPlayerActivity.this, R.string.phone_offline_failed,
+                            android.widget.Toast.LENGTH_LONG).show();
+                    mPlayer.setPlayWhenReady(false);
+                }
+            }
+
             @Override
             public void onPlayerStateChanged(boolean playing, int state) {
-                if (state == com.google.android.exoplayer2.Player.STATE_READY && mPlayer != null) {
+                if (state == Player.STATE_READY && mPlayer != null) {
                     showFileInfo(mPlayer.getDuration());
+                } else if (state == Player.STATE_ENDED && mPlayer != null) {
+                    if (mKind != Kind.MUSIC || !step(1)) {
+                        mPlayer.setPlayWhenReady(false);
+                        if (mControls != null) mControls.reveal();
+                    }
                 }
             }
         });
+        updateRepeat();
+        prepare();
+        if (mControls != null) mControls.start();
+        if (mMusic != null) mMusic.show(true);
+    }
+
+    private void prepare() {
         mPlayer.prepare(new ProgressiveMediaSource.Factory(new DefaultDataSourceFactory(this, "StreamTube"))
                 .createMediaSource(getIntent().getData()));
         mPlayer.seekTo(mResumePosition);
@@ -232,6 +273,8 @@ public class PhoneLocalPlayerActivity extends Activity {
 
     @Override
     protected void onStop() {
+        if (mControls != null) mControls.stop();
+        if (mMusic != null) mMusic.show(false);
         super.onStop();
         if (mPlayer != null) {
             mResumePosition = mPlayer.getCurrentPosition();
@@ -245,9 +288,109 @@ public class PhoneLocalPlayerActivity extends Activity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
+        outState.putParcelable(STATE_CURRENT, getIntent());
         outState.putLong(STATE_POSITION, mPlayer != null ? mPlayer.getCurrentPosition() : mResumePosition);
         outState.putBoolean(STATE_PLAYING, mPlayer != null ? mPlayer.getPlayWhenReady() : mPlaying);
         outState.putFloat(STATE_SPEED, mSpeed);
         outState.putBoolean(STATE_FULLSCREEN, mFullscreen);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (mMusic != null) mMusic.release();
+        super.onDestroy();
+    }
+
+    private void setQueue(List<Item> items) {
+        if (isFinishing() || isDestroyed()) return;
+        mQueue.clear();
+        mFiles.clear();
+        mIndex = -1;
+        for (Item item : items) {
+            String id = item.uri.toString();
+            Video video = Video.from(id);
+            video.title = item.title;
+            video.author = PhoneDownloadDetails.read(this, item.uri, item.title).author;
+            if (id.equals(mCurrent.videoId)) mIndex = mQueue.size();
+            mQueue.add(video);
+            mFiles.put(id, item);
+        }
+        if (mIndex < 0) {
+            mQueue.add(0, mCurrent);
+            mIndex = 0;
+        }
+        if (mMusic != null) onModesChanged();
+    }
+
+    boolean canStep(int direction) {
+        int next = mIndex + direction;
+        return next >= 0 && next < mQueue.size();
+    }
+
+    boolean step(int direction) {
+        if (!canStep(direction)) return false;
+        play(mQueue.get(mIndex + direction));
+        return true;
+    }
+
+    public void play(Video video) {
+        Item item = mFiles.get(video.videoId);
+        if (item == null || mPlayer == null) return;
+        mIndex = mQueue.indexOf(video);
+        setIntent(intent(this, item));
+        mResumePosition = 0;
+        mPlaying = true;
+        bindItem();
+        prepare();
+        if (mMusic != null) mMusic.show(true);
+    }
+
+    public void togglePlay() {
+        if (mPlayer == null) return;
+        if (mPlayer.getPlaybackState() == Player.STATE_ENDED) mPlayer.seekTo(0);
+        mPlayer.setPlayWhenReady(!mPlayer.getPlayWhenReady());
+        if (mControls != null) mControls.reveal();
+    }
+
+    public SimpleExoPlayer exo() { return mPlayer; }
+    public Video video() { return mCurrent; }
+    public void next() { step(1); }
+    public void previous() {
+        if (!step(-1) && mPlayer != null) mPlayer.seekTo(0);
+    }
+    public void minimize() { finish(); }
+    public void showVideo() { }
+
+    public List<Video> upNext() {
+        return mQueue.isEmpty() ? Collections.emptyList() : new ArrayList<>(mQueue.subList(mIndex + 1, mQueue.size()));
+    }
+
+    public List<Video> before() {
+        return mQueue.isEmpty() ? Collections.emptyList() : new ArrayList<>(mQueue.subList(0, mIndex));
+    }
+
+    public void reorder(List<Video> upcoming) {
+        if (mQueue.isEmpty()) return;
+        mQueue.subList(mIndex + 1, mQueue.size()).clear();
+        mQueue.addAll(upcoming);
+    }
+
+    private void updateRepeat() {
+        if (mPlayer == null) return;
+        boolean repeat = mKind == Kind.SHORT || mKind == Kind.MUSIC
+                && PlayerData.instance(this).getPlaybackMode() == PlayerConstants.PLAYBACK_MODE_ONE;
+        mPlayer.setRepeatMode(repeat ? Player.REPEAT_MODE_ONE : Player.REPEAT_MODE_OFF);
+    }
+
+    public void onModesChanged() {
+        updateRepeat();
+        List<Video> upcoming = upNext();
+        if (PlayerData.instance(this).getPlaybackMode() == PlayerConstants.PLAYBACK_MODE_SHUFFLE) {
+            Collections.shuffle(upcoming);
+        } else {
+            Collections.sort(upcoming, (a, b) -> PhoneDownloadsActivity.NEWEST_FIRST.compare(
+                    mFiles.get(a.videoId), mFiles.get(b.videoId)));
+        }
+        reorder(upcoming);
     }
 }

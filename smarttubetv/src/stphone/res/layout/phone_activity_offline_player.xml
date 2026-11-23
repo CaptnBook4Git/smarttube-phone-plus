@@ -4,25 +4,11 @@
     android:layout_width="match_parent" android:layout_height="match_parent"
     android:orientation="vertical" android:background="@color/phone_bg">
 
-    <FrameLayout android:id="@+id/phone_offline_header"
-        android:layout_width="match_parent" android:layout_height="56dp">
-        <ImageButton android:id="@+id/phone_offline_back"
-            android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp"
-            android:layout_gravity="center_vertical|start" android:padding="12dp"
-            android:src="@drawable/ic_phone_back" android:tint="@color/phone_text"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/phone_back" />
-        <TextView android:layout_width="wrap_content" android:layout_height="match_parent"
-            android:layout_marginStart="60dp" android:gravity="center_vertical"
-            android:text="@string/phone_downloads" android:textColor="@color/phone_text"
-            android:textSize="18sp" android:fontFamily="@font/roboto_medium" />
-    </FrameLayout>
-
     <com.google.android.exoplayer2.ui.PlayerView
         android:id="@+id/phone_offline_player"
         android:layout_width="match_parent" android:layout_height="200dp"
         android:background="@android:color/black"
-        app:controller_layout_id="@layout/phone_offline_controls"
+        app:use_controller="false"
         app:show_buffering="when_playing" />
 
     <ScrollView android:id="@+id/phone_offline_details"

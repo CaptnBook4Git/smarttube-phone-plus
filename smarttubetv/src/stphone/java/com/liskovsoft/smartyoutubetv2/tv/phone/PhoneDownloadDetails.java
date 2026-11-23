@@ -10,11 +10,17 @@ import org.json.JSONObject;
 
 /** Optional metadata lives beside the app's download index. The media files remain independently playable. */
 final class PhoneDownloadDetails {
+    final String videoId;
     final String title;
     final String author;
     final String description;
 
     PhoneDownloadDetails(String title, String author, String description) {
+        this(title, author, description, null);
+    }
+
+    PhoneDownloadDetails(String title, String author, String description, String videoId) {
+        this.videoId = videoId;
         this.title = bounded(title, 500);
         this.author = bounded(author, 500);
         this.description = bounded(description, 16000);
@@ -44,6 +50,7 @@ final class PhoneDownloadDetails {
     }
 
     static void remove(Context context, Uri uri) {
+        PhoneDownloadArt.file(context, uri).delete();
         prefs(context).edit().remove(uri.toString()).apply();
     }
 

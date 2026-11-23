@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.res.ColorStateList;
 import android.content.ContentUris;
+import android.content.Context;
 import android.content.Intent;
 import android.database.ContentObserver;
 import android.database.Cursor;
@@ -109,8 +110,8 @@ public class PhoneDownloadsActivity extends PhoneActivity {
         LinearLayout tabs = findViewById(R.id.phone_download_tabs);
         tabs.setVisibility(View.VISIBLE);
         float density = getResources().getDisplayMetrics().density;
-        int normal = getResources().getColor(R.color.phone_text);
-        int selected = getResources().getColor(R.color.phone_bg);
+        int normal = getColor(R.color.phone_text_2);
+        int selected = getColor(R.color.phone_text);
         for (Kind kind : Kind.values()) {
             TextView tab = new TextView(this);
             tab.setText(kind.label);
@@ -118,7 +119,7 @@ public class PhoneDownloadsActivity extends PhoneActivity {
             tab.setTextSize(14);
             tab.setGravity(Gravity.CENTER);
             tab.setFocusable(true);
-            tab.setBackgroundResource(R.drawable.phone_chip_bg);
+            tab.setBackgroundResource(R.drawable.phone_download_tab);
             tab.setForeground(getDrawable(R.drawable.phone_ripple));
             tab.setTextColor(new ColorStateList(new int[][]{{android.R.attr.state_selected}, {}}, new int[]{selected, normal}));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, Math.round(48 * density), 1f);
@@ -208,19 +209,38 @@ public class PhoneDownloadsActivity extends PhoneActivity {
 
     private void load() {
         LOADER.execute(() -> {
-            List<Item> items = Build.VERSION.SDK_INT >= 29 ? queryMediaStore() : listFolder();
+            List<Item> items = readLibrary(this);
             for (Item item : items) {
                 if (item.durationMs <= 0) {
                     item.durationMs = readDuration(item.uri);
                 }
             }
-            Collections.sort(items, (a, b) -> Long.compare(b.addedMs, a.addedMs));
             mHandler.post(() -> show(items));
         });
     }
 
+    static final java.util.Comparator<Item> NEWEST_FIRST = (a, b) -> {
+        int byDate = Long.compare(b.addedMs, a.addedMs);
+        return byDate != 0 ? byDate : a.uri.compareTo(b.uri);
+    };
+
+    private static List<Item> readLibrary(Context context) {
+        List<Item> items = Build.VERSION.SDK_INT >= 29 ? queryMediaStore(context) : listFolder(context);
+        Collections.sort(items, NEWEST_FIRST);
+        return items;
+    }
+
+    static void loadQueue(Context context, Kind kind, java.util.function.Consumer<List<Item>> callback) {
+        Context app = context.getApplicationContext();
+        LOADER.execute(() -> {
+            List<Item> items = readLibrary(app);
+            items.removeIf(item -> item.kind != kind);
+            new Handler(Looper.getMainLooper()).post(() -> callback.accept(items));
+        });
+    }
+
     /** Android 10+: the files this app put in Download/StreamTube (an app sees its own downloads without permission) */
-    private List<Item> queryMediaStore() {
+    private static List<Item> queryMediaStore(Context context) {
         List<Item> items = new ArrayList<>();
         if (Build.VERSION.SDK_INT < 29) {
             return items;
@@ -232,7 +252,7 @@ public class PhoneDownloadsActivity extends PhoneActivity {
         String selection = MediaStore.MediaColumns.RELATIVE_PATH + " IN (?, ?, ?) AND "
                 + MediaStore.MediaColumns.IS_PENDING + " = 0";
         String[] args = {Kind.VIDEO.relativePath(), Kind.SHORT.relativePath(), Kind.MUSIC.relativePath()};
-        try (Cursor cursor = getContentResolver().query(collection, projection, selection, args, null)) {
+        try (Cursor cursor = context.getContentResolver().query(collection, projection, selection, args, null)) {
             if (cursor == null) {
                 return items;
             }
@@ -243,7 +263,7 @@ public class PhoneDownloadsActivity extends PhoneActivity {
                 Kind folder = Kind.SHORT.relativePath().equals(cursor.getString(6)) ? Kind.SHORT : Kind.VIDEO;
                 String volume = cursor.getString(7);
                 Uri uri = ContentUris.withAppendedId(volume == null ? collection : MediaStore.Downloads.getContentUri(volume), id);
-                addFile(items, uri, name, mime, cursor.getLong(2), cursor.getLong(3) * 1000,
+                addFile(context, items, uri, name, mime, cursor.getLong(2), cursor.getLong(3) * 1000,
                         cursor.isNull(5) ? 0 : cursor.getLong(5), folder);
             }
         } catch (RuntimeException e) {
@@ -254,27 +274,27 @@ public class PhoneDownloadsActivity extends PhoneActivity {
 
     /** Android 8 and 9: the folder itself (the app already has the storage permission it downloaded with) */
     @SuppressWarnings("deprecation")
-    private List<Item> listFolder() {
+    private static List<Item> listFolder(Context context) {
         List<Item> items = new ArrayList<>();
         for (Kind kind : Kind.values()) {
             File folder = new File(Environment.getExternalStorageDirectory(), kind.relativePath());
             File[] files = folder.listFiles(File::isFile);
             if (files != null) {
                 for (File file : files) {
-                    addFile(items, Uri.fromFile(file), file.getName(), null, file.length(), file.lastModified(), 0, kind);
+                    addFile(context, items, Uri.fromFile(file), file.getName(), null, file.length(), file.lastModified(), 0, kind);
                 }
             }
         }
         return items;
     }
 
-    private void addFile(List<Item> items, Uri uri, String name, String mime, long size, long added, long duration, Kind folder) {
+    private static void addFile(Context context, List<Item> items, Uri uri, String name, String mime, long size, long added, long duration, Kind folder) {
         boolean audio = isAudio(name, mime);
         if (!audio && (mime == null || !mime.startsWith("video/"))
                 && (name == null || !name.toLowerCase(java.util.Locale.ROOT).endsWith(".mp4"))) {
             return;
         }
-        String title = PhoneDownloadDetails.read(this, uri, title(name)).title;
+        String title = PhoneDownloadDetails.read(context, uri, title(name)).title;
         items.add(new Item(uri, title, size, added, audio ? Kind.MUSIC : folder, duration));
     }
 
@@ -430,7 +450,7 @@ public class PhoneDownloadsActivity extends PhoneActivity {
         @NonNull
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.phone_item_row, parent, false);
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.phone_download_row, parent, false);
             return new RecyclerView.ViewHolder(view) {
             };
         }
@@ -441,19 +461,18 @@ public class PhoneDownloadsActivity extends PhoneActivity {
             View view = holder.itemView;
             ImageView thumb = view.findViewById(R.id.phone_thumb);
             TextView badge = view.findViewById(R.id.phone_badge);
-            View progress = view.findViewById(R.id.phone_progress);
+            View cover = (View) thumb.getParent();
+            ViewGroup.LayoutParams coverParams = cover.getLayoutParams();
+            float density = getResources().getDisplayMetrics().density;
+            coverParams.width = Math.round(density * (item.kind == Kind.VIDEO ? 112 : item.kind == Kind.SHORT ? 61 : 68));
+            coverParams.height = Math.round(density * (item.kind == Kind.SHORT ? 88 : item.kind == Kind.VIDEO ? 63 : 68));
+            cover.setLayoutParams(coverParams);
             ((TextView) view.findViewById(R.id.phone_title)).setText(item.title);
 
             String size = Formatter.formatShortFileSize(view.getContext(), item.size);
             CharSequence when = DateUtils.getRelativeTimeSpanString(item.addedMs, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS);
-            int kindLabel = item.kind == Kind.VIDEO ? R.string.phone_downloads_video
-                    : item.kind == Kind.MUSIC ? R.string.phone_downloads_audio : R.string.phone_downloads_shorts_tab;
-            String kind = getString(kindLabel);
-            ((TextView) view.findViewById(R.id.phone_meta)).setText(kind + " · " + size + " · " + when);
+            ((TextView) view.findViewById(R.id.phone_meta)).setText(size + " · " + when);
 
-            if (progress != null) {
-                progress.setVisibility(View.GONE);
-            }
             if (badge != null) {
                 if (item.durationMs > 0) {
                     badge.setText(DateUtils.formatElapsedTime(item.durationMs / 1000));
@@ -465,11 +484,7 @@ public class PhoneDownloadsActivity extends PhoneActivity {
             }
             if (PhoneUi.isAlive(PhoneDownloadsActivity.this)) {
                 if (item.kind == Kind.MUSIC) {
-                    Glide.with(PhoneDownloadsActivity.this).clear(thumb);
-                    thumb.setScaleType(ImageView.ScaleType.CENTER);
-                    thumb.setBackgroundColor(getResources().getColor(R.color.phone_surface_2));
-                    thumb.setImageResource(R.drawable.ic_phone_headphones);
-                    thumb.setImageTintList(android.content.res.ColorStateList.valueOf(getResources().getColor(R.color.phone_text_2)));
+                    PhoneDownloadArt.bind(thumb, item.uri);
                 } else {
                     thumb.setImageTintList(null);
                     thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);

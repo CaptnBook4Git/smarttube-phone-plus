@@ -201,7 +201,7 @@ final class PhoneDownloads {
 
         String title = firstText(source.getTitleFull(), firstText(formatInfo.getTitle(), source.videoId));
         PhoneDownloadDetails details = new PhoneDownloadDetails(title,
-                firstText(formatInfo.getAuthor(), source.getAuthor()), firstText(formatInfo.getDescription(), source.description));
+                firstText(formatInfo.getAuthor(), source.getAuthor()), firstText(formatInfo.getDescription(), source.description), source.videoId);
 
         Option video = videoOption(activity, formatInfo);
         MediaFormat audioFormat = audioFormat(formatInfo);
@@ -680,6 +680,7 @@ final class PhoneDownloads {
                     }
                     copy(in, out);
                 }
+                if (kind == Kind.MUSIC) PhoneDownloadArt.save(app, uri, details.videoId);
                 details.save(app, uri);
                 values.clear();
                 values.put(MediaStore.MediaColumns.IS_PENDING, 0);
@@ -714,6 +715,7 @@ final class PhoneDownloads {
         } finally {
             staged.delete();
         }
+        if (kind == Kind.MUSIC) PhoneDownloadArt.save(app, Uri.fromFile(target), details.videoId);
         details.save(app, Uri.fromFile(target));
         MediaScannerConnection.scanFile(app, new String[]{target.getPath()}, new String[]{mime}, null);
     }

@@ -222,7 +222,11 @@ final class PhoneMusicQueue {
         thumb.setBackgroundColor(0x22FFFFFF);
         art.addView(thumb, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         if (video.videoId != null && PhoneUi.isAlive(mActivity)) {
-            Glide.with(mActivity).load("https://i.ytimg.com/vi/" + video.videoId + "/mqdefault.jpg").centerCrop().into(thumb);
+            if (PhoneDownloadArt.isLocal(video.videoId)) {
+                PhoneDownloadArt.bind(thumb, android.net.Uri.parse(video.videoId));
+            } else {
+                Glide.with(mActivity).load("https://i.ytimg.com/vi/" + video.videoId + "/mqdefault.jpg").centerCrop().into(thumb);
+            }
         }
         LinearLayout.LayoutParams artParams = new LinearLayout.LayoutParams(dp(52), dp(52));
         artParams.setMarginStart(dp(8));
