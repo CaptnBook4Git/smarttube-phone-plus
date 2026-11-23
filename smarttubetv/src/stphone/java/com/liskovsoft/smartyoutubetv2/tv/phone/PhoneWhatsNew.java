@@ -24,7 +24,7 @@ import com.liskovsoft.smartyoutubetv2.tv.R;
  */
 final class PhoneWhatsNew {
     /** The newest release below: raise it with each new one */
-    static final int VERSION = 11;
+    static final int VERSION = 12;
 
     private static final String PREFS = "phone_whats_new";
     private static final String KEY_READ = "read";
@@ -57,9 +57,9 @@ final class PhoneWhatsNew {
     }
 
     static final Release[] RELEASES = {
-            new Release(11, "This update",
-                    new Feature(R.drawable.ic_phone_play, "Playback in feeds",
-                            "On Home and Subscriptions, the video you stop on plays right in its thumbnail, muted, like in the YouTube app. Drag its seek bar to look around, tap it to watch from that moment, or tap the speaker to hear it. Always, Wi-Fi only or Off in Settings > Customize.")),
+            new Release(VERSION, "This update",
+                    new Feature(R.drawable.ic_phone_tune, "Fullscreen swipe controls",
+                            "Turn off volume swipes, brightness swipes, or both in You → Settings → Customize.")),
             new Release(10, "Lock screen lyrics",
                     new Feature(R.drawable.ic_phone_cc, "Lyrics on your lock screen",
                             "While a song plays in the music player, the words being sung appear on the lock screen and in the media controls, right as they're sung. Long lines come in short pieces that pop in on time, even with the screen off."),
