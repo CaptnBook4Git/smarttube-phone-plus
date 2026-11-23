@@ -1,5 +1,6 @@
 package com.liskovsoft.smartyoutubetv2.tv.phone;
 
+import android.app.ActivityOptions;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.os.Build;
@@ -863,7 +864,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         PhoneShortsQueue.markPlayed(first);
         PhonePlaybackActivity.releaseDetachedPlayer();
+        prepareShortsTabLaunch();
         com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter.instance(this).openVideo(first);
+    }
+
+    private void prepareShortsTabLaunch() {
+        // An animated activity handoff can briefly expose the Android launcher during a tab switch.
+        getViewManager().setNextLaunchOptions(PhonePlaybackActivity.class,
+                ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle());
     }
 
     private void showShortsCurtain(boolean show) {
@@ -1426,6 +1434,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             Video first = group.getVideos().get(0);
             PhonePlaybackActivity.releaseDetachedPlayer();
             mPresenter.onVideoItemSelected(first);
+            prepareShortsTabLaunch();
             mPresenter.onVideoItemClicked(first);
             Video last = group.getVideos().get(group.getVideos().size() - 1);
             boolean fetchMore = group.getVideos().size() < 5; // only the first Short came in (so it starts fast)

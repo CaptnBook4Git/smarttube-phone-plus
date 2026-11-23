@@ -1,2 +1,2 @@
-- Fullscreen swipe controls — Turn off volume swipes, brightness swipes, or both in You → Settings → Customize.
-- Beta label — Look for the tiny Beta label beside the StreamTube logo.
+- Saved moments — Open the player’s ⋮ menu and tap Save this moment to bookmark a timestamp. Add a note, then replay it from You → Library → Saved moments.
+- Shorts tab switching — Entering or leaving Shorts now skips the window animation to reduce flashes of the Android home screen.

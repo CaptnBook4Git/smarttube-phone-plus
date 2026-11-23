@@ -45,6 +45,8 @@ final class PhonePlayerSheet {
 
         void openMoreSettings();
 
+        void saveMoment(PhoneMoments.Moment moment);
+
         /** The video can float in Android's picture in picture window now (a regular video, allowed by Android) */
         boolean canFloat();
 
@@ -55,7 +57,7 @@ final class PhonePlayerSheet {
     private PhonePlayerSheet() {
     }
 
-    static void show(Activity activity, Host host) {
+    static void show(Activity activity, PhoneMoments.Moment moment, Host host) {
         Sheet sheet = new Sheet(activity, null);
         PhonePlaybackFragment player = host.player();
         String quality = qualityLabel(activity, host);
@@ -72,6 +74,12 @@ final class PhonePlayerSheet {
             sheet.dismiss();
             host.openCaptions();
         });
+        if (moment != null) {
+            sheet.addRow(R.drawable.ic_phone_bookmark, activity.getString(R.string.phone_moment_save), moment.time(), false, () -> {
+                sheet.dismiss();
+                host.saveMoment(moment);
+            });
+        }
         if (host.canFloat()) {
             sheet.addRow(R.drawable.ic_phone_pip, activity.getString(R.string.phone_pip), null, false, () -> {
                 sheet.dismiss();

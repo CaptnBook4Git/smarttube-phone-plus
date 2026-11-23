@@ -202,6 +202,10 @@ final class PhoneYouDashboard {
                         () -> mCallback.listener().onVideoClicked(playlist));
             }
         }
+        if (com.liskovsoft.smartyoutubetv2.tv.BuildConfig.PHONE_BETA) {
+            addRow(mActivity.getString(R.string.phone_moments), null, null, R.drawable.ic_phone_bookmark,
+                    () -> mActivity.startActivity(new android.content.Intent(mActivity, PhoneMomentsActivity.class)));
+        }
         addRow(mActivity.getString(R.string.phone_downloads), null, null, R.drawable.ic_phone_download, mCallback::openDownloads);
     }
 

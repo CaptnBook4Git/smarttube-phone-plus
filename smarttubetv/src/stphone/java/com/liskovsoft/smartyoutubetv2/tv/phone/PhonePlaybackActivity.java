@@ -1,6 +1,12 @@
 package com.liskovsoft.smartyoutubetv2.tv.phone;
 
 import android.content.pm.ActivityInfo;
+import android.database.SQLException;
+import android.view.ContextThemeWrapper;
+import android.widget.Toast;
+
+import com.google.android.material.snackbar.Snackbar;
+import com.liskovsoft.smartyoutubetv2.tv.BuildConfig;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -2284,7 +2290,12 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         });
         mFullscreenButton.setOnClickListener(v -> toggleFullscreen());
         findViewById(R.id.phone_ctl_collapse).setOnClickListener(v -> onBackPressed());
-        findViewById(R.id.phone_ctl_settings).setOnClickListener(v -> openPlayerSheet());
+        ImageView playerMenu = findViewById(R.id.phone_ctl_settings);
+        if (BuildConfig.PHONE_BETA) {
+            playerMenu.setImageResource(R.drawable.ic_phone_more);
+            playerMenu.setContentDescription(getString(R.string.phone_player_menu));
+        }
+        playerMenu.setOnClickListener(v -> openPlayerSheet());
         findViewById(R.id.phone_ctl_cc).setOnClickListener(v -> clickButton(R.id.lb_control_closed_captioning));
         findViewById(R.id.phone_ctl_speed).setOnClickListener(v -> openSpeedMenu());
         findViewById(R.id.phone_ctl_autoplay).setOnClickListener(v -> toggleAutoplay());
@@ -2467,7 +2478,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mLineGaps.setMarks(marks);
     }
 
-    private static String formatTime(long ms) {
+    static String formatTime(long ms) {
         long total = Math.max(0, ms / 1000);
         long hours = total / 3600;
         long minutes = (total % 3600) / 60;
@@ -2547,8 +2558,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                 }
                 startActivity(new android.content.Intent(this, PhoneBrowseActivity.class)
                         .putExtra(PhoneBrowseActivity.EXTRA_SHORTCUT, target)
-                        .addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP));
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                                | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP | android.content.Intent.FLAG_ACTIVITY_NO_ANIMATION));
                 closePlayer();
+                overridePendingTransition(0, 0);
             });
             tabs.addView(tab, new LinearLayout.LayoutParams(0, dp(54), 1f));
         }
@@ -2561,7 +2574,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         findViewById(R.id.phone_shorts_subscribe).setOnClickListener(v -> clickButton(R.id.action_subscribe));
         findViewById(R.id.phone_shorts_search).setOnClickListener(v ->
                 com.liskovsoft.smartyoutubetv2.common.app.presenters.SearchPresenter.instance(this).startSearch(null));
-        findViewById(R.id.phone_shorts_more).setOnClickListener(v -> clickButton(R.id.lb_control_high_quality));
+        findViewById(R.id.phone_shorts_more).setOnClickListener(v -> {
+            if (BuildConfig.PHONE_BETA) {
+                openPlayerSheet();
+            } else {
+                clickButton(R.id.lb_control_high_quality);
+            }
+        });
         setupShortsTabs();
         SeekBar shortsSeek = findViewById(R.id.phone_shorts_seek);
         shortsSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -3705,13 +3724,46 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
 
     // endregion
 
-    /** The gear: Quality, Playback speed, Captions, More settings (see PhonePlayerSheet) */
+    private PhoneMoments.Moment captureMoment() {
+        Video video = mPlayer.getVideo();
+        com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
+        if (!BuildConfig.PHONE_BETA || video == null || TextUtils.isEmpty(video.videoId) || video.isLive
+                || mAwaitingNewVideo || exo == null || !exo.isCurrentWindowSeekable() || exo.isCurrentWindowDynamic()) {
+            return null;
+        }
+        String title = video.getTitleFull();
+        return new PhoneMoments.Moment(video.videoId, TextUtils.isEmpty(title) ? video.videoId : title,
+                Math.max(0, exo.getCurrentPosition()), "");
+    }
+
+    private void saveMoment(PhoneMoments.Moment captured) {
+        final PhoneMoments.Moment saved;
+        try {
+            saved = PhoneMoments.get(this).save(captured);
+        } catch (SQLException e) {
+            Toast.makeText(this, R.string.phone_moment_save_failed, Toast.LENGTH_LONG).show();
+            return;
+        }
+        // The player uses a Leanback theme. Give the phone snackbar its own Material context.
+        ContextThemeWrapper theme = new ContextThemeWrapper(this,
+                com.google.android.material.R.style.Theme_MaterialComponents_DayNight);
+        Snackbar.make(theme, mRoot, getString(R.string.phone_moment_saved, saved.time()), Snackbar.LENGTH_LONG)
+                .setAction(saved.note.isEmpty() ? R.string.phone_moment_add_note : R.string.phone_moment_edit_note,
+                        v -> PhoneMoments.editNote(this, saved, () -> { }))
+                .show();
+    }
+
     private void openPlayerSheet() {
         if (mPlayer == null) {
             return;
         }
         mHandler.removeCallbacks(mAutoHide);
-        PhonePlayerSheet.show(this, new PhonePlayerSheet.Host() {
+        PhonePlayerSheet.show(this, captureMoment(), new PhonePlayerSheet.Host() {
+            @Override
+            public void saveMoment(PhoneMoments.Moment moment) {
+                PhonePlaybackActivity.this.saveMoment(moment);
+            }
+
             @Override
             public PhonePlaybackFragment player() {
                 return mPlayer;
