@@ -102,20 +102,21 @@ public class PhoneMomentsActivity extends PhoneActivity {
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
             View row = holder.itemView;
             PhoneMoments.Moment moment = rows.get(position);
+            String time = moment.time();
+            String playLabel = getString(R.string.phone_moment_play, time);
+            row.setOnClickListener(v -> play(moment));
             if (headers.get(position)) {
                 ((TextView) row.findViewById(R.id.phone_title)).setText(moment.title);
+                ((TextView) row.findViewById(R.id.phone_moment_start)).setText(playLabel);
+                row.setContentDescription(moment.title + ", " + playLabel);
                 ImageView thumb = row.findViewById(R.id.phone_thumb);
                 PhoneUi.loadThumb(thumb, Video.from(moment.videoId), false);
                 return;
             }
-            String time = moment.time();
             ((TextView) row.findViewById(R.id.phone_moment_time)).setText(time);
             TextView note = row.findViewById(R.id.phone_moment_note);
             note.setText(moment.note);
-            View target = row.findViewById(R.id.phone_moment_play);
-            String label = getString(R.string.phone_moment_play, time);
-            target.setContentDescription(TextUtils.isEmpty(moment.note) ? label : label + ", " + moment.note);
-            target.setOnClickListener(v -> play(moment));
+            row.setContentDescription(TextUtils.isEmpty(moment.note) ? playLabel : playLabel + ", " + moment.note);
             View more = row.findViewById(R.id.phone_moment_options);
             more.setContentDescription(getString(R.string.phone_moment_menu, time));
             more.setOnClickListener(v -> options(v, moment));

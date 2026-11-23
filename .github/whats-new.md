@@ -1,2 +1,2 @@
-- Saved moments — Open the player’s ⋮ menu and tap Save this moment to bookmark a timestamp. Add a note, then replay it from You → Library → Saved moments.
-- Shorts tab switching — Entering or leaving Shorts now skips the window animation to reduce flashes of the Android home screen.
+- Easier replay — In Saved moments, tap the thumbnail or title to play from the first saved timestamp. Tap anywhere on a moment’s row to jump to that timestamp.
+- Library artwork — My videos, Saved moments, and Downloads now have their own illustrated covers.

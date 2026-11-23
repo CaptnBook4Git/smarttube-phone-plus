@@ -15,4 +15,8 @@
     <color name="phone_badge">#CC000000</color>
     <!-- The bottom tabs: a little see-through, the feed shows faintly behind them (as in the YouTube app) -->
     <color name="phone_bar_translucent">#E6FFFFFF</color>
+    <color name="phone_moment_cover">#F2EAFF</color>
+    <color name="phone_moment_border">#DDCFEF</color>
+    <color name="phone_moment_ink">#60358F</color>
+    <color name="phone_moment_chip">#EDE5F8</color>
 </resources>

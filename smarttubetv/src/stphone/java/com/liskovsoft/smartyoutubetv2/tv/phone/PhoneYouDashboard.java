@@ -264,6 +264,19 @@ final class PhoneYouDashboard {
             FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(dp(28), dp(28), Gravity.BOTTOM | Gravity.END);
             badgeParams.setMargins(0, 0, dp(6), dp(6));
             frame.addView(badge, badgeParams);
+        } else if (icon == R.drawable.ic_phone_play || icon == R.drawable.ic_phone_bookmark
+                || icon == R.drawable.ic_phone_download) {
+            int cover = R.drawable.phone_library_videos;
+            if (icon == R.drawable.ic_phone_bookmark) {
+                cover = R.drawable.phone_library_moments;
+            } else if (icon == R.drawable.ic_phone_download) {
+                cover = R.drawable.phone_library_downloads;
+            }
+            ImageView art = new ImageView(mActivity);
+            art.setImageResource(cover);
+            art.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            art.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            frame.addView(art, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         } else {
             ImageView symbol = new ImageView(mActivity);
             symbol.setImageResource(icon);
