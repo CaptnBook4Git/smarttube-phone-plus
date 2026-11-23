@@ -13,6 +13,8 @@ final class PhoneTweaks {
     private static final String KEY_TAB_STYLE = "tab_style";
     private static final String KEY_AMBIENT = "ambient";
     private static final String KEY_LOCK_LYRICS = "lock_screen_lyrics";
+    private static final String KEY_VOLUME_SWIPE = "volume_swipe";
+    private static final String KEY_BRIGHTNESS_SWIPE = "brightness_swipe";
     private static final String KEY_FEED_PLAYBACK = "feed_playback";
     static final int FEED_ALWAYS = 0;
     static final int FEED_WIFI = 1;
@@ -107,6 +109,22 @@ final class PhoneTweaks {
 
     static void setPrevNextButtons(Context context, boolean show) {
         PhonePlaybackActivity.setShowPrevNext(context, show);
+    }
+
+    static boolean volumeSwipeEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_VOLUME_SWIPE, true);
+    }
+
+    static void setVolumeSwipeEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_VOLUME_SWIPE, enabled).apply();
+    }
+
+    static boolean brightnessSwipeEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_BRIGHTNESS_SWIPE, true);
+    }
+
+    static void setBrightnessSwipeEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_BRIGHTNESS_SWIPE, enabled).apply();
     }
 
     private static SharedPreferences prefs(Context context) {

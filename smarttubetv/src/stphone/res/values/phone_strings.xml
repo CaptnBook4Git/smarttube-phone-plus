@@ -176,10 +176,14 @@
     <string name="phone_tweak_you_top">Top, next to search</string>
     <string name="phone_tweak_prev_next">Previous and next buttons</string>
     <string name="phone_tweak_prev_next_summary">Shown in the player. Turn off so you don\'t tap them by accident while skipping</string>
+    <string name="phone_tweak_volume_swipe">Volume swipe gesture</string>
+    <string name="phone_tweak_volume_swipe_summary">Swipe up or down on the right side of the full-screen player to change volume</string>
+    <string name="phone_tweak_brightness_swipe">Brightness swipe gesture</string>
+    <string name="phone_tweak_brightness_swipe_summary">Swipe up or down on the left side of the full-screen player to change brightness</string>
     <string name="phone_customize_intro">Make StreamTube work the way you like. Changes apply right away.</string>
     <string name="phone_customize_layout">Layout</string>
     <string name="phone_customize_player">Player</string>
-    <string name="phone_customize_summary">You tab, player buttons and more</string>
+    <string name="phone_customize_summary">You tab, player buttons and gestures</string>
     <string name="phone_whats_new">What\'s new</string>
     <string name="phone_whats_new_summary">The latest features, explained</string>
     <string name="phone_whats_new_title">What\'s new in StreamTube</string>
