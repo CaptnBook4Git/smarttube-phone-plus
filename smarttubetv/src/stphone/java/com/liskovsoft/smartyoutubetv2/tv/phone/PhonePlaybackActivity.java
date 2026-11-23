@@ -6,7 +6,6 @@ import android.view.ContextThemeWrapper;
 import android.widget.Toast;
 
 import com.google.android.material.snackbar.Snackbar;
-import com.liskovsoft.smartyoutubetv2.tv.BuildConfig;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -2291,10 +2290,8 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         mFullscreenButton.setOnClickListener(v -> toggleFullscreen());
         findViewById(R.id.phone_ctl_collapse).setOnClickListener(v -> onBackPressed());
         ImageView playerMenu = findViewById(R.id.phone_ctl_settings);
-        if (BuildConfig.PHONE_BETA) {
-            playerMenu.setImageResource(R.drawable.ic_phone_more);
-            playerMenu.setContentDescription(getString(R.string.phone_player_menu));
-        }
+        playerMenu.setImageResource(R.drawable.ic_phone_more);
+        playerMenu.setContentDescription(getString(R.string.phone_player_menu));
         playerMenu.setOnClickListener(v -> openPlayerSheet());
         findViewById(R.id.phone_ctl_cc).setOnClickListener(v -> clickButton(R.id.lb_control_closed_captioning));
         findViewById(R.id.phone_ctl_speed).setOnClickListener(v -> openSpeedMenu());
@@ -2574,13 +2571,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
         findViewById(R.id.phone_shorts_subscribe).setOnClickListener(v -> clickButton(R.id.action_subscribe));
         findViewById(R.id.phone_shorts_search).setOnClickListener(v ->
                 com.liskovsoft.smartyoutubetv2.common.app.presenters.SearchPresenter.instance(this).startSearch(null));
-        findViewById(R.id.phone_shorts_more).setOnClickListener(v -> {
-            if (BuildConfig.PHONE_BETA) {
-                openPlayerSheet();
-            } else {
-                clickButton(R.id.lb_control_high_quality);
-            }
-        });
+        findViewById(R.id.phone_shorts_more).setOnClickListener(v -> openPlayerSheet());
         setupShortsTabs();
         SeekBar shortsSeek = findViewById(R.id.phone_shorts_seek);
         shortsSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -3743,7 +3734,7 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
     private PhoneMoments.Moment captureMoment() {
         Video video = mPlayer.getVideo();
         com.google.android.exoplayer2.SimpleExoPlayer exo = exoPlayer();
-        if (!BuildConfig.PHONE_BETA || video == null || TextUtils.isEmpty(video.videoId) || video.isLive
+        if (video == null || TextUtils.isEmpty(video.videoId) || video.isLive
                 || mAwaitingNewVideo || exo == null || !exo.isCurrentWindowSeekable() || exo.isCurrentWindowDynamic()) {
             return null;
         }

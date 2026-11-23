@@ -182,9 +182,9 @@ android {
             def phoneBeta = System.getenv("PHONE_BETA") == "true"
             applicationId phoneBeta ? "org.smarttube.phone.beta" : "org.smarttube.phone"
             buildConfigField "boolean", "PHONE_BETA", phoneBeta ? "true" : "false"
-            def betaNotes = phoneBeta ? rootProject.file(".github/whats-new.md").readLines("UTF-8")
-                    .findAll { it.startsWith("- ") }.join("\n") : ""
-            buildConfigField "String", "PHONE_BETA_WHATS_NEW", groovy.json.JsonOutput.toJson(betaNotes)
+            def phoneNotes = rootProject.file(".github/whats-new.md").readLines("UTF-8")
+                    .findAll { it.startsWith("- ") }.join("\n")
+            buildConfigField "String", "PHONE_WHATS_NEW", groovy.json.JsonOutput.toJson(phoneNotes)
             // Rises with every CI build so each new APK installs as an update over the previous one
             versionCode 2462 + ((System.getenv("GITHUB_RUN_NUMBER") ?: "0") as int)
             minSdkVersion 26 // Android 8.0+, keeps the phone UI free of legacy code paths

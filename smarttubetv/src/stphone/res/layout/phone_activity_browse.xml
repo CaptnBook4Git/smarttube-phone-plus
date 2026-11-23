@@ -66,22 +66,6 @@
                     android:textColor="@color/phone_text"
                     android:textSize="21sp" />
 
-                <TextView
-                    android:id="@+id/phone_beta_badge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:background="@drawable/phone_badge_bg"
-                    android:gravity="center"
-                    android:includeFontPadding="false"
-                    android:minHeight="14dp"
-                    android:paddingStart="3dp"
-                    android:paddingEnd="3dp"
-                    android:text="@string/phone_beta_badge_label"
-                    android:textColor="@android:color/white"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
             </LinearLayout>
 
             <View

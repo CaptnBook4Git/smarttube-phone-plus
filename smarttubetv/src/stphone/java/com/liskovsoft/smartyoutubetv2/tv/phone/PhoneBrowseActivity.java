@@ -592,7 +592,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             }
         });
         findViewById(R.id.phone_logo).setOnClickListener(v -> scrollToTopOrRefresh());
-        findViewById(R.id.phone_beta_badge).setVisibility(PhoneUpdater.BETA ? View.VISIBLE : View.GONE);
         setupPageBar();
     }
 

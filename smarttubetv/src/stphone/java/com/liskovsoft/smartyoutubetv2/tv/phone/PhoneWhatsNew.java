@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.liskovsoft.smartyoutubetv2.tv.BuildConfig;
@@ -24,12 +25,11 @@ import java.util.List;
  * Settings > What's new: what this version brings, in plain words (only this version, not older ones). A dot on the Settings row until the
  * page is read; once after every update of the app, a card on Home with the newest ones.
  *
- * Beta uses the same .github/whats-new.md entries as the GitHub release. For stable, update {@link #RELEASES}
- * and raise {@link #VERSION}.
+ * Release copy comes from .github/whats-new.md for both phone channels.
  */
 final class PhoneWhatsNew {
-    /** The newest release below: raise it with each new one */
-    private static final int VERSION = 12;
+    /** Increment when phone release notes change. */
+    private static final int VERSION = 13;
 
     private static final String PREFS = "phone_whats_new";
     private static final String KEY_READ = "read";
@@ -49,95 +49,14 @@ final class PhoneWhatsNew {
         }
     }
 
-    static final class Release {
-        final int version;
-        final String name;
-        final Feature[] features;
-
-        Release(int version, String name, Feature... features) {
-            this.version = version;
-            this.name = name;
-            this.features = features;
-        }
-    }
-
-    private static final Release[] RELEASES = {
-            new Release(VERSION, "This update",
-                    new Feature(R.drawable.ic_phone_tune, "Fullscreen swipe controls",
-                            "Turn off volume swipes, brightness swipes, or both in You → Settings → Customize.")),
-            new Release(10, "Lock screen lyrics",
-                    new Feature(R.drawable.ic_phone_cc, "Lyrics on your lock screen",
-                            "While a song plays in the music player, the words being sung appear on the lock screen and in the media controls, right as they're sung. Long lines come in short pieces that pop in on time, even with the screen off."),
-                    new Feature(R.drawable.ic_phone_music_note, "Easy to spot",
-                            "While lyrics show, the artwork gets a glowing note in its corner, and the line under the words reads Lyrics, the song and the singer. You can turn the lyrics off in Settings > Customize."),
-                    new Feature(R.drawable.ic_phone_headphones, "Sharper artwork",
-                            "The lock screen, the media controls and car screens show the song's picture without black bars, cut square like an album cover.")),
-            new Release(9, "Ambient mode and more",
-                    new Feature(R.drawable.ic_phone_brightness, "Ambient mode",
-                            "In the dark appearance, a soft glow of the video's own colours surrounds the player and changes with the picture, like the YouTube app."),
-                    new Feature(R.drawable.ic_phone_music_note, "A home screen widget",
-                            "The song's artwork fills it edge to edge, fading into the song's own colour under its name and the buttons. It fits any size, and a tap opens the player. Long press your home screen, tap Widgets and find StreamTube."),
-                    new Feature(R.drawable.ic_phone_playlist, "Move songs in Up next",
-                            "Hold the handle on the right of a song and drag it up or down. The queue plays in your order."),
-                    new Feature(R.drawable.ic_phone_cc, "Chapters on the seek bar",
-                            "Videos with chapters show them as segments on the seek bar, with the chapter's name next to the time. Tap the name to see all the chapters and jump to any of them."),
-                    new Feature(R.drawable.ic_phone_play, "See where you're going",
-                            "While you drag the seek bar, or along the line at the bottom of a video, a picture of the video at that point shows above your finger, with its time.")),
-            new Release(8, "Cover Flow",
-                    new Feature(R.drawable.ic_phone_playlist, "Cover Flow",
-                            "Turn your phone sideways in the music player to see your songs as a row of covers. Swipe through them and tap one to play it. In portrait, press and hold the artwork for the same view."),
-                    new Feature(R.drawable.ic_phone_music_note, "A new animation for every song",
-                            "Behind the music player, each song now gets its own animation: confetti, fireflies, soap bubbles, shooting stars, blossom petals, snow, lanterns, neon waves, a galaxy, butterflies, music notes, rainbow light and more."),
-                    new Feature(R.drawable.ic_phone_playlist, "See what plays next",
-                            "In the music player, tap Up next under the controls to see the songs coming after this one, in the order they'll play. Tap any of them to play it now."),
-                    new Feature(R.drawable.ic_phone_headphones, "Lights that follow the song",
-                            "A living background of the artwork's own colours drifts behind the music player, with beams of light, flowing ribbons and soft specks of light rising, soft lights circle the artwork and breathe while the song plays, and the play button glows in the song's colour."),
-                    new Feature(R.drawable.ic_phone_collapse, "Swipe down to close menus",
-                            "The player's menus (Settings, Quality, Speed, Captions and the rest) close with a swipe down, from the handle or the list, or with a tap outside them. They're smaller and neater too, and narrower in full screen."),
-                    new Feature(R.drawable.ic_phone_music_note, "A cleaner music player",
-                            "Music video thumbnails show whole on a soft blurred backdrop, song covers still fill the frame, and the lyric line has no box around it."),
-                    new Feature(R.drawable.ic_phone_search, "Search always at hand",
-                            "The top bar stays in place while you scroll Settings, Subscriptions and every other page. On Home it still tucks away as you scroll down."),
-                    new Feature(R.drawable.ic_phone_brightness, "Brightness back to normal",
-                            "Brightness set by swiping in full screen goes back to your phone's own when you leave full screen.")),
-            new Release(7, "Earlier",
-                    new Feature(R.drawable.ic_phone_speed, "Hold for 2x",
-                            "Press and hold a video to play it at 2x speed while you hold, like in the YouTube app. Let go and it's back to normal. Works in Shorts and full screen too."),
-                    new Feature(R.drawable.ic_phone_search, "Search in Settings",
-                            "Tap the search icon on the Settings page and type what you're looking for. It finds any setting, also the ones inside Player, Subtitles, SponsorBlock and the other pages, and shows where each one is. Tap a result to go straight to it."),
-                    new Feature(R.drawable.ic_phone_mode_shuffle, "Shuffle that really shuffles",
-                            "In the music player, songs from Music or a search now play in a random order, without repeating the ones you just heard."),
-                    new Feature(R.drawable.ic_phone_mode_repeat_one, "Repeat this song",
-                            "With Repeat on, the song starts over when it ends, also from the music bar. Shuffle and Repeat show clearly when they're on: a soft circle behind the button and a dot under it."),
-                    new Feature(R.drawable.ic_phone_update, "Updates at the bottom",
-                            "What's new and Check for updates are now at the bottom of Settings, under Updates.")),
-            new Release(6, "Music",
-                    new Feature(R.drawable.ic_phone_music_note, "A new Music page",
-                            "Music now sits right after Home. Swipe through featured music videos, tap Play or Shuffle, and browse playlists and the top charts."),
-                    new Feature(R.drawable.ic_phone_headphones, "A real music player",
-                            "Songs from Music open in a player made for listening: big artwork that you swipe for the next song, a background that glows in the song's colours, shuffle and repeat. Go small and it becomes a music bar at the bottom of the app."),
-                    new Feature(R.drawable.ic_phone_cc, "Lyrics as you listen",
-                            "The line being sung shows under the song's name, in the song's own language. Songs play as the song itself (no music video intro), so the lyrics stay in time. Tap the line for all the lyrics."),
-                    new Feature(R.drawable.ic_phone_brightness, "A moving background",
-                            "A quiet animation plays behind the music player and pauses with the song."),
-                    new Feature(R.drawable.ic_phone_search, "Search for music",
-                            "Turn on the music note next to the search box (or search from the Music page): songs and playlists you find open in the music player. Any video can switch to it too: tap Listen under the video."),
-                    new Feature(R.drawable.ic_phone_library, "Better playlists",
-                            "Playlists show their artwork, title and description at the top, with Play all, Shuffle and Share."),
-                    new Feature(R.drawable.ic_phone_volume, "Song names in your car",
-                            "Car and Bluetooth screens show the title and artist of what's playing, with its artwork, instead of \"Unavailable\"."),
-                    new Feature(R.drawable.ic_phone_history, "A tidier You tab",
-                            "History, Settings and the rest of You open as their own pages, and History's cards are smaller."))
-    };
-
-    private static final Feature[] LATEST_FEATURES = BuildConfig.PHONE_BETA ? betaFeatures() : RELEASES[0].features;
+    private static final Feature[] LATEST_FEATURES = releaseFeatures();
 
     private PhoneWhatsNew() {
     }
 
-    private static Feature[] betaFeatures() {
+    private static Feature[] releaseFeatures() {
         List<String> notes = new ArrayList<>();
-        PhoneUpdater.parseNotes(BuildConfig.PHONE_BETA_WHATS_NEW, notes);
+        PhoneUpdater.parseNotes(BuildConfig.PHONE_WHATS_NEW, notes);
         Feature[] features = new Feature[notes.size()];
         for (int i = 0; i < notes.size(); i++) {
             String note = notes.get(i);
@@ -159,10 +78,6 @@ final class PhoneWhatsNew {
 
     static boolean hasUnread(Context context) {
         return LATEST_FEATURES.length > 0 && prefs(context).getInt(KEY_READ, 0) < noticeVersion();
-    }
-
-    static boolean isUnread(Context context, Release release) {
-        return release.version > prefs(context).getInt(KEY_READ, 0);
     }
 
     static void markRead(Context context) {
@@ -235,10 +150,15 @@ final class PhoneWhatsNew {
         sub.setPadding(0, px(d, 6), 0, px(d, 10));
         card.addView(sub);
 
-        // The first four (the card fits any screen); See all has the rest
-        for (int i = 0; i < Math.min(4, LATEST_FEATURES.length); i++) {
-            card.addView(featureRow(activity, LATEST_FEATURES[i], d, text, text2));
+        ScrollView changes = new ScrollView(activity);
+        LinearLayout rows = new LinearLayout(activity);
+        rows.setOrientation(LinearLayout.VERTICAL);
+        for (Feature feature : LATEST_FEATURES) {
+            rows.addView(featureRow(activity, feature, d, text, text2));
         }
+        changes.addView(rows);
+        card.addView(changes, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         LinearLayout buttons = new LinearLayout(activity);
         buttons.setGravity(Gravity.END);
