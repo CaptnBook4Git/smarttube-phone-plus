@@ -123,6 +123,7 @@
     <string name="phone_you_liked">Liked videos</string>
     <string name="phone_quality_auto">Auto (recommended)</string>
     <string name="phone_pip">Picture in picture</string>
+    <string name="phone_offline_pip_unavailable">Picture-in-picture is unavailable on this device.</string>
     <string name="phone_pip_blocked">Off in Android settings</string>
     <string name="phone_quality_auto_short">Auto</string>
     <string name="phone_playback_speed">Playback speed</string>
@@ -163,10 +164,18 @@
     <!-- You > Downloads -->
     <string name="phone_downloads">Downloads</string>
     <string name="phone_downloads_empty">Nothing downloaded yet.\nUse Download under a video to save it here.</string>
+    <string name="phone_downloads_empty_title">No downloads yet</string>
+    <string name="phone_downloads_shorts_empty_title">No Shorts yet</string>
+    <string name="phone_downloads_music_empty_title">No music yet</string>
+    <string name="phone_downloads_video_hint">Tap Download on a video to watch it offline.</string>
+    <string name="phone_downloads_short_hint">Open a Short’s menu and tap Download.</string>
+    <string name="phone_downloads_music_hint">Tap Download in the music player or choose Audio only on a video.</string>
+    <plurals name="phone_downloads_summary">
+        <item quantity="one">%1$d download · %2$s</item>
+        <item quantity="other">%1$d downloads · %2$s</item>
+    </plurals>
     <string name="phone_downloads_videos_tab">Videos</string>
     <string name="phone_downloads_shorts_tab">Shorts</string>
-    <string name="phone_downloads_shorts_empty">No Shorts downloaded. Open a Short’s menu and tap Download.</string>
-    <string name="phone_downloads_music_empty">No music downloaded. Choose Audio only when downloading, or use Download in the music player.</string>
     <string name="phone_offline_badge">Downloaded</string>
     <string name="phone_offline_description">Description</string>
     <string name="phone_offline_no_description">No description was saved with this file.</string>

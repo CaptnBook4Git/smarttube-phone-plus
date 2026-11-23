@@ -290,6 +290,7 @@ dependencies {
     stphoneImplementation 'com.squareup.okhttp3:okhttp:' + okhttpVersion
     stphoneImplementation 'com.google.android.material:material:' + materialVersion
     stphoneImplementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0' // pull to refresh on Home
+    stphoneImplementation 'androidx.viewpager:viewpager:' + viewpagerXVersion
     // New-video notifications: a WorkManager worker needs ListenableFuture to compile (already in the app through :common)
     stphoneImplementation 'com.google.guava:guava:' + guavaVersion
 

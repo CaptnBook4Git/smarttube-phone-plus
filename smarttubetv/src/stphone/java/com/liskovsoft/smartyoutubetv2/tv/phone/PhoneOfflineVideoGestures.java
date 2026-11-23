@@ -34,6 +34,7 @@ final class PhoneOfflineVideoGestures implements View.OnTouchListener {
     private boolean brightness;
     private boolean changingLevel;
     private boolean ignoreTouch;
+    private boolean pullingForPip;
 
     PhoneOfflineVideoGestures(PhoneLocalPlayerActivity activity, FrameLayout surface) {
         this.activity = activity;
@@ -83,6 +84,7 @@ final class PhoneOfflineVideoGestures implements View.OnTouchListener {
     void stop() {
         cancelTap(null);
         changingLevel = false;
+        pullingForPip = false;
         ignoreTouch = true;
         surface.removeCallbacks(hideFeedback);
         hideFeedback.run();
@@ -96,16 +98,28 @@ final class PhoneOfflineVideoGestures implements View.OnTouchListener {
                 startY = event.getY();
                 ignoreTouch = false;
                 changingLevel = false;
+                pullingForPip = false;
                 break;
             case MotionEvent.ACTION_MOVE:
                 float dy = event.getY() - startY;
-                if (fullscreen && !ignoreTouch && (changingLevel || isVerticalDrag(event.getX() - startX, dy))) {
-                    if (!changingLevel) {
-                        beginLevelChange(event);
-                    }
-                    if (changingLevel) {
-                        updateLevel(event.getY());
+                if (pullingForPip) {
+                    return true;
+                }
+                if (!ignoreTouch && (changingLevel || isVerticalDrag(event.getX() - startX, dy))) {
+                    float across = startX / Math.max(1f, surface.getWidth());
+                    if (!changingLevel && dy > 0 && (!fullscreen || across > 1f / 3f && across < 2f / 3f)) {
+                        pullingForPip = true;
+                        cancelTap(event);
+                        showFeedback(R.drawable.ic_phone_pip, activity.getText(R.string.phone_pip),
+                                Gravity.CENTER_HORIZONTAL);
                         return true;
+                    }
+                    if (fullscreen) {
+                        if (!changingLevel) beginLevelChange(event);
+                        if (changingLevel) {
+                            updateLevel(event.getY());
+                            return true;
+                        }
                     }
                 }
                 break;
@@ -114,8 +128,18 @@ final class PhoneOfflineVideoGestures implements View.OnTouchListener {
                 cancelTap(event);
                 ignoreTouch = true;
                 changingLevel = false;
+                pullingForPip = false;
                 break;
             case MotionEvent.ACTION_UP:
+                if (pullingForPip) {
+                    pullingForPip = false;
+                    hideFeedback.run();
+                    if (event.getY() - startY >= dp(48)
+                            && isVerticalDrag(event.getX() - startX, event.getY() - startY)) {
+                        activity.enterFloatingVideo();
+                    }
+                    return true;
+                }
                 if (changingLevel) {
                     updateLevel(event.getY());
                     changingLevel = false;

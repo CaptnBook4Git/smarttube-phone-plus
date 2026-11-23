@@ -1,21 +1,29 @@
 package com.liskovsoft.smartyoutubetv2.tv.phone;
 
 import android.app.Activity;
+import android.app.PictureInPictureParams;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.Rect;
+import android.media.session.MediaSession;
+import android.media.session.PlaybackState;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.text.format.Formatter;
+import android.util.Rational;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.PopupMenu;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.PlaybackParameters;
@@ -69,6 +77,8 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
     private float mSpeed = 1f;
     private boolean mPlaying = true;
     private boolean mFullscreen;
+    private boolean mPipEntering;
+    private MediaSession mPipSession;
     private int mVideoOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER;
 
     static void open(Activity activity, PhoneDownloadsActivity.Item item) {
@@ -76,7 +86,8 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
         if (streaming != null) {
             streaming.setPlayWhenReady(false);
         }
-        activity.startActivity(intent(activity, item));
+        activity.startActivity(intent(activity, item), android.app.ActivityOptions.makeCustomAnimation(activity,
+                R.anim.phone_player_open_enter, R.anim.phone_hold).toBundle());
     }
 
     private static Intent intent(Activity activity, Item item) {
@@ -178,6 +189,10 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
     public void onConfigurationChanged(Configuration config) {
         super.onConfigurationChanged(config);
         if (mPlayerView != null) {
+            if (isInPictureInPictureMode() || mPipEntering) {
+                resizePlayer(true);
+                return;
+            }
             boolean fullVideo = mKind == Kind.VIDEO && (mVideoOrientation == ActivityInfo.SCREEN_ORIENTATION_FULL_USER
                     ? config.orientation == Configuration.ORIENTATION_LANDSCAPE : mFullscreen);
             setFullscreen(mKind == Kind.SHORT || fullVideo);
@@ -187,15 +202,7 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
     @SuppressWarnings("deprecation")
     private void setFullscreen(boolean fullscreen) {
         mFullscreen = fullscreen;
-        findViewById(R.id.phone_offline_details).setVisibility(fullscreen ? View.GONE : View.VISIBLE);
-
-        View stage = findViewById(R.id.phone_offline_stage);
-        ViewGroup.LayoutParams layout = stage.getLayoutParams();
-        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
-        layout.height = fullscreen ? ViewGroup.LayoutParams.MATCH_PARENT
-                : Math.min(Math.round(metrics.widthPixels * 9f / 16), Math.round(metrics.heightPixels * 0.52f));
-        stage.setLayoutParams(layout);
-
+        resizePlayer(fullscreen);
         if (mControls != null) mControls.fullscreen(fullscreen);
         boolean darkBars = fullscreen || mKind == Kind.MUSIC;
         getWindow().setStatusBarColor(darkBars ? Color.BLACK : getColor(R.color.phone_bg));
@@ -203,6 +210,110 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
         getWindow().getDecorView().setSystemUiVisibility(fullscreen
                 ? View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 : darkBars || PhoneTheme.isNight(this) ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+    }
+
+    private void resizePlayer(boolean fill) {
+        findViewById(R.id.phone_offline_details).setVisibility(fill ? View.GONE : View.VISIBLE);
+
+        View stage = findViewById(R.id.phone_offline_stage);
+        ViewGroup.LayoutParams layout = stage.getLayoutParams();
+        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+        layout.height = fill ? ViewGroup.LayoutParams.MATCH_PARENT
+                : Math.min(Math.round(metrics.widthPixels * 9f / 16), Math.round(metrics.heightPixels * 0.52f));
+        stage.setLayoutParams(layout);
+    }
+
+    boolean supportsFloatingVideo() {
+        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE);
+    }
+
+    void enterFloatingVideo() {
+        if (mKind != Kind.VIDEO || mPlayer == null || mPipEntering || isInPictureInPictureMode()) {
+            return;
+        }
+        if (!supportsFloatingVideo()) {
+            Toast.makeText(this, R.string.phone_offline_pip_unavailable, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Rect source = new Rect();
+        View content = mPlayerView.findViewById(com.google.android.exoplayer2.ui.R.id.exo_content_frame);
+        PictureInPictureParams.Builder params = new PictureInPictureParams.Builder()
+                .setAspectRatio(new Rational(16, 9));
+        if (content != null && content.getGlobalVisibleRect(source) && !source.isEmpty()) {
+            params.setSourceRectHint(source);
+            float aspect = source.width() / (float) source.height();
+            params.setAspectRatio(new Rational(Math.round(1000 * Math.max(0.42f, Math.min(2.38f, aspect))), 1000));
+        }
+        if (Build.VERSION.SDK_INT >= 31) {
+            params.setSeamlessResizeEnabled(true);
+        }
+
+        mPipEntering = true;
+        mControls.pictureInPicture(true);
+        startPipSession();
+        try {
+            if (enterPictureInPictureMode(params.build())) {
+                return;
+            }
+        } catch (IllegalStateException | IllegalArgumentException | SecurityException ignored) {
+            // Android can decline while this activity is transitioning or PiP is disabled.
+        }
+        mPipEntering = false;
+        releasePipSession();
+        setFullscreen(mFullscreen);
+        mControls.pictureInPicture(false);
+        Toast.makeText(this, R.string.phone_pip_blocked, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onPictureInPictureModeChanged(boolean inPip, Configuration config) {
+        super.onPictureInPictureModeChanged(inPip, config);
+        mPipEntering = false;
+        if (mKind != Kind.VIDEO || mControls == null) {
+            return;
+        }
+        if (inPip) {
+            resizePlayer(true);
+        } else {
+            releasePipSession();
+            setFullscreen(mFullscreen);
+        }
+        mControls.pictureInPicture(inPip);
+    }
+
+    private void startPipSession() {
+        mPipSession = new MediaSession(this, "StreamTube offline video");
+        mPipSession.setCallback(new MediaSession.Callback() {
+            @Override
+            public void onPlay() {
+                if (mPlayer != null && !mPlayer.getPlayWhenReady()) togglePlay();
+            }
+
+            @Override
+            public void onPause() {
+                if (mPlayer != null && mPlayer.getPlayWhenReady()) togglePlay();
+            }
+        });
+        updatePipSession();
+        mPipSession.setActive(true);
+    }
+
+    private void updatePipSession() {
+        if (mPipSession == null || mPlayer == null) return;
+        boolean playing = mPlayer.getPlayWhenReady();
+        mPipSession.setPlaybackState(new PlaybackState.Builder()
+                .setActions(PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_PLAY_PAUSE)
+                .setState(playing ? PlaybackState.STATE_PLAYING : PlaybackState.STATE_PAUSED,
+                        mPlayer.getCurrentPosition(), playing ? mSpeed : 0f)
+                .build());
+    }
+
+    private void releasePipSession() {
+        if (mPipSession != null) {
+            mPipSession.release();
+            mPipSession = null;
+        }
     }
 
     void toggleFullscreen() {
@@ -271,6 +382,7 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
 
             @Override
             public void onPlayerStateChanged(boolean playing, int state) {
+                updatePipSession();
                 if (state == Player.STATE_READY && mPlayer != null) {
                     showFileInfo(mPlayer.getDuration());
                 } else if (state == Player.STATE_ENDED && mPlayer != null) {
@@ -297,6 +409,7 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
 
     @Override
     protected void onStop() {
+        releasePipSession();
         if (mControls != null) mControls.stop();
         if (mMusic != null) mMusic.show(false);
         super.onStop();

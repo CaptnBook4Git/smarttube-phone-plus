@@ -58,6 +58,17 @@
             android:contentDescription="@string/phone_autoplay"
             android:src="@drawable/ic_phone_autoplay_on" />
 
+        <ImageView
+            android:id="@+id/phone_ctl_pip"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/phone_pip"
+            android:src="@drawable/ic_phone_pip"
+            android:tint="#FFFFFF"
+            android:visibility="gone" />
+
         <!-- Playback mode: play next, repeat, shuffle, play the list... -->
         <ImageView
             android:id="@+id/phone_ctl_mode"

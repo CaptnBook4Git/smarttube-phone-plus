@@ -1,50 +1,59 @@
 package com.liskovsoft.smartyoutubetv2.tv.phone;
 
+import android.animation.ArgbEvaluator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.res.ColorStateList;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.database.ContentObserver;
 import android.database.Cursor;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.view.Gravity;
-import android.widget.LinearLayout;
-
-import com.liskovsoft.smartyoutubetv2.tv.phone.PhoneDownloads.Kind;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Parcelable;
 import android.provider.MediaStore;
+import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.text.format.Formatter;
+import android.transition.Fade;
+import android.transition.TransitionManager;
+import android.view.Gravity;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
-import android.view.ViewConfiguration;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DefaultItemAnimator;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager.widget.PagerAdapter;
+import androidx.viewpager.widget.ViewPager;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.liskovsoft.smartyoutubetv2.common.app.models.data.Video;
 import com.liskovsoft.smartyoutubetv2.tv.R;
+import com.liskovsoft.smartyoutubetv2.tv.phone.PhoneDownloads.Kind;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -54,12 +63,14 @@ import java.util.concurrent.Executors;
  */
 public class PhoneDownloadsActivity extends PhoneActivity {
     static final String EXTRA_KIND = "download_kind";
+    private static final String SCROLL_STATE = "download_scroll_";
+    private static final Kind[] KINDS = Kind.values();
     private static final int REQUEST_DELETE = 4801;
     private static final ExecutorService LOADER = Executors.newSingleThreadExecutor();
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
     private List<Item> mAllItems = Collections.emptyList();
-    private final List<Item> mItems = new ArrayList<>();
+    private final List<DownloadPage> mPages = new ArrayList<>();
     private final List<TextView> mTabs = new ArrayList<>();
     private final Runnable mReload = this::load;
     private final ContentObserver mDownloadObserver = new ContentObserver(mHandler) {
@@ -69,15 +80,13 @@ public class PhoneDownloadsActivity extends PhoneActivity {
             mHandler.postDelayed(mReload, 300);
         }
     };
-    private float mSwipeX;
-    private float mSwipeY;
-    private boolean mSwipeTracking;
-    private boolean mSwipeHorizontal;
-    private boolean mSwipeConsumed;
-    private Kind mKind = Kind.VIDEO;
-    private RecyclerView mDownloads;
-    private TextView mEmpty;
-    private TextView mTotal;
+    private final ArgbEvaluator mTabColors = new ArgbEvaluator();
+    private ViewPager mPager;
+    private View mIndicator;
+    private int mNormalText;
+    private int mSelectedText;
+    private boolean mRtl;
+    private volatile int mLoadGeneration;
     private Item mPendingDelete;
 
     static final class Item {
@@ -86,124 +95,171 @@ public class PhoneDownloadsActivity extends PhoneActivity {
         final long size;
         final long addedMs;
         final Kind kind;
-        long durationMs;
+        final long durationMs;
+        final String author;
 
         Item(Uri uri, String title, long size, long addedMs, Kind kind, long durationMs) {
+            this(uri, title, "", size, addedMs, kind, durationMs);
+        }
+
+        Item(Uri uri, String title, String author, long size, long addedMs, Kind kind, long durationMs) {
             this.uri = uri;
             this.title = title;
+            this.author = author;
             this.size = size;
             this.addedMs = addedMs;
             this.kind = kind;
             this.durationMs = durationMs;
         }
+
+        Item withDuration(long duration) {
+            return new Item(uri, title, author, size, addedMs, kind, duration);
+        }
     }
 
     static void open(Activity activity) {
-        activity.startActivity(new Intent(activity, PhoneDownloadsActivity.class));
+        activity.startActivity(new Intent(activity, PhoneDownloadsActivity.class),
+                android.app.ActivityOptions.makeCustomAnimation(activity, R.anim.phone_screen_open_enter,
+                        R.anim.phone_hold).toBundle());
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.phone_activity_downloads);
-        mDownloads = findViewById(R.id.phone_downloads_list);
-        mEmpty = findViewById(R.id.phone_downloads_empty);
-        mTotal = findViewById(R.id.phone_downloads_total);
-        applyInsets(findViewById(R.id.phone_root), findViewById(R.id.phone_top_bar), mDownloads);
+        setContentView(R.layout.phone_downloads_library);
+        mPager = findViewById(R.id.phone_download_pager);
+        mIndicator = findViewById(R.id.phone_download_indicator);
+        mRtl = (getApplicationInfo().flags & ApplicationInfo.FLAG_SUPPORTS_RTL) != 0
+                && getResources().getConfiguration().getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
+        mNormalText = getColor(R.color.phone_text_2);
+        mSelectedText = getColor(R.color.phone_text);
+        applyInsets(findViewById(R.id.phone_root), findViewById(R.id.phone_top_bar), mPager);
         findViewById(R.id.phone_back).setOnClickListener(v -> finish());
 
-        mDownloads.setLayoutManager(new LinearLayoutManager(this));
-        mDownloads.setAdapter(new Adapter());
         LinearLayout tabs = findViewById(R.id.phone_download_tabs);
-        tabs.setVisibility(View.VISIBLE);
-        float density = getResources().getDisplayMetrics().density;
-        int normal = getColor(R.color.phone_text_2);
-        int selected = getColor(R.color.phone_text);
-        for (Kind kind : Kind.values()) {
+        tabs.setLayoutDirection(mRtl ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
+        for (Kind kind : KINDS) {
+            DownloadPage page = new DownloadPage(kind);
+            if (savedInstanceState != null) {
+                page.scrollState = savedInstanceState.getParcelable(SCROLL_STATE + kind.name());
+            }
+            mPages.add(page);
             TextView tab = new TextView(this);
             tab.setText(kind.label);
             tab.setTypeface(PhoneUi.medium(this));
             tab.setTextSize(14);
             tab.setGravity(Gravity.CENTER);
             tab.setFocusable(true);
-            tab.setBackgroundResource(R.drawable.phone_download_tab);
-            tab.setForeground(getDrawable(R.drawable.phone_ripple));
-            tab.setTextColor(new ColorStateList(new int[][]{{android.R.attr.state_selected}, {}}, new int[]{selected, normal}));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, Math.round(48 * density), 1f);
-            if (!mTabs.isEmpty()) {
-                params.setMarginStart(Math.round(8 * density));
-            }
-            tabs.addView(tab, params);
+            tab.setPadding(dp(4), dp(8), dp(4), dp(8));
+            tab.setMinHeight(dp(48));
+            tab.setBackgroundResource(R.drawable.phone_ripple);
+            tabs.addView(tab, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             mTabs.add(tab);
-            tab.setOnClickListener(v -> select(kind));
+            tab.setOnClickListener(v -> select(kind, true));
         }
+
+        mPager.setOffscreenPageLimit(KINDS.length - 1);
+        mPager.setAdapter(new PagerAdapter() {
+            @Override
+            public int getCount() { return KINDS.length; }
+
+            @Override
+            public boolean isViewFromObject(@NonNull View view, @NonNull Object object) {
+                return view == object;
+            }
+
+            @NonNull
+            @Override
+            public Object instantiateItem(@NonNull ViewGroup container, int position) {
+                View page = mPages.get(pagerPosition(position)).root;
+                container.addView(page);
+                return page;
+            }
+
+            @Override
+            public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object object) {
+                container.removeView((View) object);
+            }
+        });
+        mPager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
+            @Override
+            public void onPageScrolled(int position, float offset, int pixels) {
+                updateIndicator(position, offset);
+            }
+
+            @Override
+            public void onPageSelected(int position) {
+                updateSelectedTab();
+            }
+        });
+        mPager.setPageTransformer(false, (page, position) ->
+                page.setAlpha(1f - 0.18f * Math.min(1f, Math.abs(position))));
+        tabs.addOnLayoutChangeListener((v, l, t, r, b, oldL, oldT, oldR, oldB) ->
+                updateIndicator(mPager.getCurrentItem(), 0f));
         select(readKind(savedInstanceState != null ? savedInstanceState.getString(EXTRA_KIND)
-                : getIntent().getStringExtra(EXTRA_KIND)));
-        mEmpty.setVisibility(View.GONE);
+                : getIntent().getStringExtra(EXTRA_KIND)), false);
+        updateSelectedTab();
+        mHandler.postDelayed(this::showLoading, 180);
     }
 
-    @Override
-    public boolean dispatchTouchEvent(MotionEvent event) {
-        int action = event.getActionMasked();
-        if (action == MotionEvent.ACTION_DOWN) {
-            int[] location = new int[2];
-            mDownloads.getLocationOnScreen(location);
-            float x = event.getRawX() - location[0];
-            float y = event.getRawY() - location[1];
-            mSwipeTracking = x >= 0 && x < mDownloads.getWidth() && y >= 0 && y < mDownloads.getHeight();
-            mSwipeHorizontal = false;
-            mSwipeConsumed = false;
-            mSwipeX = event.getRawX();
-            mSwipeY = event.getRawY();
-        } else if (mSwipeTracking && action == MotionEvent.ACTION_MOVE) {
-            float dx = Math.abs(event.getRawX() - mSwipeX);
-            float dy = Math.abs(event.getRawY() - mSwipeY);
-            int slop = ViewConfiguration.get(this).getScaledTouchSlop();
-            if (dy > slop && dy >= dx) {
-                mSwipeTracking = false;
-            } else if (dx > slop && dx > dy * 1.5f) {
-                MotionEvent cancel = MotionEvent.obtain(event);
-                cancel.setAction(MotionEvent.ACTION_CANCEL);
-                super.dispatchTouchEvent(cancel);
-                cancel.recycle();
-                mSwipeTracking = false;
-                mSwipeHorizontal = true;
-                mSwipeConsumed = true;
-            }
-        } else if (action == MotionEvent.ACTION_POINTER_DOWN || action == MotionEvent.ACTION_CANCEL) {
-            mSwipeTracking = false;
-            mSwipeHorizontal = false;
-        } else if (action == MotionEvent.ACTION_UP && mSwipeHorizontal) {
-            float dx = event.getRawX() - mSwipeX;
-            float dy = event.getRawY() - mSwipeY;
-            float threshold = 48 * getResources().getDisplayMetrics().density;
-            if (Math.abs(dx) >= threshold && Math.abs(dx) > Math.abs(dy)) {
-                int step = dx < 0 ? 1 : -1;
-                if (mDownloads.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) {
-                    step = -step;
-                }
-                int index = mKind.ordinal() + step;
-                Kind[] tabs = Kind.values();
-                if (index >= 0 && index < tabs.length) {
-                    select(tabs[index]);
-                }
+    private void showLoading() {
+        if (!isFinishing() && !isDestroyed()) {
+            for (DownloadPage page : mPages) {
+                page.showLoading();
             }
         }
-        return mSwipeConsumed || super.dispatchTouchEvent(event);
+    }
+
+    private int pagerPosition(int index) {
+        // ViewPager scrolls in physical coordinates; map its page order to the tab row in RTL.
+        return mRtl ? KINDS.length - 1 - index : index;
+    }
+
+    private void select(Kind kind, boolean animate) {
+        mPager.setCurrentItem(pagerPosition(kind.ordinal()), animate && ValueAnimator.areAnimatorsEnabled());
+    }
+
+    private void updateSelectedTab() {
+        int selected = pagerPosition(mPager.getCurrentItem());
+        for (int index = 0; index < mTabs.size(); index++) {
+            mTabs.get(index).setSelected(index == selected);
+        }
+    }
+
+    private void updateIndicator(int position, float offset) {
+        int from = pagerPosition(position);
+        int to = pagerPosition(Math.min(position + 1, KINDS.length - 1));
+        TextView first = mTabs.get(from);
+        TextView second = mTabs.get(to);
+        float start = first.getLeft() + first.getWidth() / 2f;
+        float end = second.getLeft() + second.getWidth() / 2f;
+        mIndicator.setTranslationX(start + (end - start) * offset - mIndicator.getMeasuredWidth() / 2f);
+        mIndicator.setScaleX(1f + 0.36f * (1f - Math.abs(1f - 2f * offset)));
+        for (int index = 0; index < mTabs.size(); index++) {
+            float weight = index == from ? 1f - offset : index == to ? offset : 0f;
+            mTabs.get(index).setTextColor((Integer) mTabColors.evaluate(weight, mNormalText, mSelectedText));
+        }
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        select(readKind(intent.getStringExtra(EXTRA_KIND)));
+        select(readKind(intent.getStringExtra(EXTRA_KIND)), false);
         load();
     }
 
     @Override
     protected void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state);
-        state.putString(EXTRA_KIND, mKind.name());
+        state.putString(EXTRA_KIND, KINDS[pagerPosition(mPager.getCurrentItem())].name());
+        for (DownloadPage page : mPages) {
+            state.putParcelable(SCROLL_STATE + page.kind.name(), page.savedScroll());
+        }
     }
 
     private static Kind readKind(String value) {
@@ -213,15 +269,6 @@ public class PhoneDownloadsActivity extends PhoneActivity {
             }
         }
         return Kind.VIDEO;
-    }
-
-    private void select(Kind kind) {
-        mKind = kind;
-        for (int i = 0; i < mTabs.size(); i++) {
-            mTabs.get(i).setSelected(i == kind.ordinal());
-        }
-        show(mAllItems);
-        mDownloads.scrollToPosition(0);
     }
 
     @Override
@@ -250,7 +297,7 @@ public class PhoneDownloadsActivity extends PhoneActivity {
     @Override
     public void finish() {
         super.finish();
-        overridePendingTransition(0, 0);
+        overridePendingTransition(R.anim.phone_screen_close_enter, R.anim.phone_screen_close_exit);
     }
 
     @Override
@@ -265,14 +312,53 @@ public class PhoneDownloadsActivity extends PhoneActivity {
     // region Files
 
     private void load() {
+        int generation = ++mLoadGeneration;
+        List<Item> previous = mAllItems;
         LOADER.execute(() -> {
+            if (generation != mLoadGeneration) return;
             List<Item> items = readLibrary(this);
-            for (Item item : items) {
-                if (item.durationMs <= 0) {
-                    item.durationMs = readDuration(item.uri);
+            reuseDurations(items, previous);
+            publish(generation, items);
+
+            // Files can be browsed while missing durations are read from the media itself.
+            List<Item> enriched = new ArrayList<>(items);
+            boolean changed = false;
+            for (int index = 0; index < items.size() && generation == mLoadGeneration; index++) {
+                Item item = items.get(index);
+                if (item.durationMs > 0) {
+                    continue;
+                }
+                long duration = readDuration(item.uri);
+                if (duration > 0) {
+                    enriched.set(index, item.withDuration(duration));
+                    changed = true;
                 }
             }
-            mHandler.post(() -> show(items));
+            if (changed) {
+                publish(generation, enriched);
+            }
+        });
+    }
+
+    private static void reuseDurations(List<Item> items, List<Item> previous) {
+        Map<Uri, Item> known = new HashMap<>();
+        for (Item item : previous) {
+            if (item.durationMs > 0) known.put(item.uri, item);
+        }
+        for (int index = 0; index < items.size(); index++) {
+            Item item = items.get(index);
+            Item prior = known.get(item.uri);
+            if (item.durationMs <= 0 && prior != null && item.size == prior.size && item.addedMs == prior.addedMs) {
+                items.set(index, item.withDuration(prior.durationMs));
+            }
+        }
+    }
+
+    private void publish(int generation, List<Item> items) {
+        mHandler.post(() -> {
+            if (generation == mLoadGeneration) {
+                show(items);
+            }
         });
     }
 
@@ -351,8 +437,8 @@ public class PhoneDownloadsActivity extends PhoneActivity {
                 && (name == null || !name.toLowerCase(java.util.Locale.ROOT).endsWith(".mp4"))) {
             return;
         }
-        String title = PhoneDownloadDetails.read(context, uri, title(name)).title;
-        items.add(new Item(uri, title, size, added, audio ? Kind.MUSIC : folder, duration));
+        PhoneDownloadDetails details = PhoneDownloadDetails.read(context, uri, title(name));
+        items.add(new Item(uri, details.title, details.author, size, added, audio ? Kind.MUSIC : folder, duration));
     }
 
     private long readDuration(Uri uri) {
@@ -389,21 +475,15 @@ public class PhoneDownloadsActivity extends PhoneActivity {
             return;
         }
         mAllItems = items;
-        mItems.clear();
-        for (Item item : items) {
-            if (item.kind == mKind) {
-                mItems.add(item);
+        for (DownloadPage page : mPages) {
+            List<Item> filtered = new ArrayList<>();
+            for (Item item : items) {
+                if (item.kind == page.kind) {
+                    filtered.add(item);
+                }
             }
+            page.submit(filtered);
         }
-        mDownloads.getAdapter().notifyDataSetChanged();
-        mEmpty.setText(mKind.empty);
-        mEmpty.setVisibility(mItems.isEmpty() ? View.VISIBLE : View.GONE);
-        long total = 0;
-        for (Item item : mItems) {
-            total += item.size;
-        }
-        mTotal.setText(mItems.isEmpty() ? null : getString(R.string.phone_downloads_total, mItems.size(),
-                Formatter.formatShortFileSize(this, total)));
     }
 
     // endregion
@@ -498,10 +578,116 @@ public class PhoneDownloadsActivity extends PhoneActivity {
 
     // endregion
 
-    private final class Adapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+    private final class DownloadPage {
+        final Kind kind;
+        final ViewGroup root;
+        final RecyclerView list;
+        final TextView summary;
+        final View content;
+        final View empty;
+        final View loading;
+        final Adapter adapter = new Adapter();
+        Parcelable scrollState;
+        boolean loaded;
+
+        DownloadPage(Kind kind) {
+            this.kind = kind;
+            root = (ViewGroup) getLayoutInflater().inflate(R.layout.phone_download_page, mPager, false);
+            root.setLayoutDirection(mRtl ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
+            list = root.findViewById(R.id.phone_downloads_list);
+            summary = root.findViewById(R.id.phone_downloads_total);
+            content = root.findViewById(R.id.phone_download_content);
+            empty = root.findViewById(R.id.phone_download_empty_panel);
+            loading = root.findViewById(R.id.phone_download_loading);
+
+            ImageView icon = root.findViewById(R.id.phone_download_empty_icon);
+            TextView title = root.findViewById(R.id.phone_download_empty_title);
+            TextView hint = root.findViewById(R.id.phone_downloads_empty);
+            switch (kind) {
+                case VIDEO:
+                    icon.setImageResource(R.drawable.ic_phone_download);
+                    title.setText(R.string.phone_downloads_empty_title);
+                    hint.setText(R.string.phone_downloads_video_hint);
+                    break;
+                case SHORT:
+                    icon.setImageResource(R.drawable.ic_phone_shorts);
+                    title.setText(R.string.phone_downloads_shorts_empty_title);
+                    hint.setText(R.string.phone_downloads_short_hint);
+                    break;
+                case MUSIC:
+                    icon.setImageResource(R.drawable.ic_phone_music_note);
+                    title.setText(R.string.phone_downloads_music_empty_title);
+                    hint.setText(R.string.phone_downloads_music_hint);
+                    break;
+            }
+
+            list.setLayoutManager(new LinearLayoutManager(PhoneDownloadsActivity.this));
+            list.setAdapter(adapter);
+            DefaultItemAnimator animator = new DefaultItemAnimator();
+            animator.setSupportsChangeAnimations(false); // metadata updates keep the same artwork visible
+            animator.setAddDuration(180);
+            animator.setRemoveDuration(160);
+            animator.setMoveDuration(210);
+            list.setItemAnimator(animator);
+        }
+
+        void showLoading() {
+            if (!loaded) {
+                loading.setVisibility(View.VISIBLE);
+            }
+        }
+
+        Parcelable savedScroll() {
+            return scrollState != null ? scrollState : list.getLayoutManager().onSaveInstanceState();
+        }
+
+        void submit(List<Item> items) {
+            loaded = true;
+            adapter.submitList(items, () -> settle(items));
+        }
+
+        private void settle(List<Item> items) {
+            if (scrollState != null && !items.isEmpty()) {
+                list.getLayoutManager().onRestoreInstanceState(scrollState);
+                scrollState = null;
+            }
+            View visible = items.isEmpty() ? empty : content;
+            if (visible.getVisibility() != View.VISIBLE) {
+                Fade fade = new Fade();
+                fade.addTarget(content).addTarget(empty).addTarget(loading);
+                fade.setDuration(180);
+                TransitionManager.beginDelayedTransition(root, fade);
+            }
+            loading.setVisibility(View.GONE);
+            empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
+            content.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
+            long bytes = 0;
+            for (Item item : items) {
+                bytes += item.size;
+            }
+            int count = items.size();
+            summary.setText(getResources().getQuantityString(R.plurals.phone_downloads_summary, count, count,
+                    Formatter.formatShortFileSize(PhoneDownloadsActivity.this, bytes)));
+        }
+    }
+
+    private static final DiffUtil.ItemCallback<Item> ITEM_DIFF = new DiffUtil.ItemCallback<Item>() {
         @Override
-        public int getItemCount() {
-            return mItems.size();
+        public boolean areItemsTheSame(@NonNull Item oldItem, @NonNull Item newItem) {
+            return oldItem.uri.equals(newItem.uri);
+        }
+
+        @Override
+        public boolean areContentsTheSame(@NonNull Item oldItem, @NonNull Item newItem) {
+            return oldItem.durationMs == newItem.durationMs && oldItem.size == newItem.size
+                    && oldItem.addedMs == newItem.addedMs && oldItem.title.equals(newItem.title)
+                    && oldItem.author.equals(newItem.author);
+        }
+    };
+
+    private final class Adapter extends ListAdapter<Item, RecyclerView.ViewHolder> {
+        Adapter() {
+            super(ITEM_DIFF);
         }
 
         @NonNull
@@ -514,40 +700,37 @@ public class PhoneDownloadsActivity extends PhoneActivity {
 
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-            Item item = mItems.get(position);
+            Item item = getItem(position);
             View view = holder.itemView;
             ImageView thumb = view.findViewById(R.id.phone_thumb);
             TextView badge = view.findViewById(R.id.phone_badge);
             View cover = (View) thumb.getParent();
             ViewGroup.LayoutParams coverParams = cover.getLayoutParams();
-            float density = getResources().getDisplayMetrics().density;
-            coverParams.width = Math.round(density * (item.kind == Kind.VIDEO ? 112 : item.kind == Kind.SHORT ? 61 : 68));
-            coverParams.height = Math.round(density * (item.kind == Kind.SHORT ? 88 : item.kind == Kind.VIDEO ? 63 : 68));
+            int videoWidth = getResources().getConfiguration().screenWidthDp >= 360 ? 136 : 112;
+            coverParams.width = dp(item.kind == Kind.VIDEO ? videoWidth : item.kind == Kind.SHORT ? 56 : 72);
+            coverParams.height = dp(item.kind == Kind.VIDEO ? Math.round(videoWidth * 9f / 16)
+                    : item.kind == Kind.SHORT ? 88 : 72);
             cover.setLayoutParams(coverParams);
             ((TextView) view.findViewById(R.id.phone_title)).setText(item.title);
+            TextView author = view.findViewById(R.id.phone_download_author);
+            author.setText(item.author);
+            author.setVisibility(TextUtils.isEmpty(item.author) ? View.GONE : View.VISIBLE);
 
             String size = Formatter.formatShortFileSize(view.getContext(), item.size);
-            CharSequence when = DateUtils.getRelativeTimeSpanString(item.addedMs, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS);
-            ((TextView) view.findViewById(R.id.phone_meta)).setText(size + " · " + when);
+            CharSequence metadata = item.addedMs > 0
+                    ? size + " · " + DateUtils.getRelativeTimeSpanString(item.addedMs, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
+                    : size;
+            ((TextView) view.findViewById(R.id.phone_meta)).setText(metadata);
 
-            if (badge != null) {
-                if (item.durationMs > 0) {
-                    badge.setText(DateUtils.formatElapsedTime(item.durationMs / 1000));
-                    badge.setBackgroundResource(R.drawable.phone_badge_bg);
-                    badge.setVisibility(View.VISIBLE);
-                } else {
-                    badge.setVisibility(View.GONE);
-                }
-            }
+            badge.setText(DateUtils.formatElapsedTime(item.durationMs / 1000));
+            badge.setVisibility(item.durationMs > 0 ? View.VISIBLE : View.GONE);
             if (PhoneUi.isAlive(PhoneDownloadsActivity.this)) {
                 if (item.kind == Kind.MUSIC) {
                     PhoneDownloadArt.bind(thumb, item.uri);
                 } else {
-                    thumb.setImageTintList(null);
-                    thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                    thumb.setBackgroundColor(Color.BLACK);
                     Glide.with(PhoneDownloadsActivity.this).load(item.uri).centerCrop()
-                            .placeholder(new ColorDrawable(Color.BLACK)).into(thumb); // a frame of the video
+                            .transition(DrawableTransitionOptions.withCrossFade(160))
+                            .into(thumb);
                 }
             }
 

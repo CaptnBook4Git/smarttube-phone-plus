@@ -1,3 +1,3 @@
-- Downloads — Swipe left or right across the list to switch between Videos, Shorts, and Music.
-- Downloaded videos — Fullscreen rotates to landscape. Double-tap the left or right side to skip 10 seconds. In fullscreen, swipe up or down on the left for brightness or on the right for volume, using your Player gesture settings.
-- Downloaded Shorts — The video follows your finger as you swipe. The next or previous Short slides into view, and short drags settle back into place.
+- Downloads — Swipe between Videos, Shorts, and Music with pages that follow your finger and a sliding tab indicator. Each tab remembers where you left off.
+- Downloads library — Larger artwork, creator names where available, clearer storage totals, and animated loading, empty states, and list updates.
+- Downloaded videos — Swipe down to keep watching in Android’s floating Picture-in-Picture player. In fullscreen, swipe down from the middle so the sides still handle brightness and volume.

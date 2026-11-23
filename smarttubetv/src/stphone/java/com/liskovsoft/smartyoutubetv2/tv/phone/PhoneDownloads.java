@@ -74,18 +74,16 @@ final class PhoneDownloads {
     private static final String TAG = "PhoneDownloads";
     private static final String CHANNEL = "phone_downloads";
     enum Kind {
-        VIDEO("", R.string.phone_downloads_videos_tab, R.string.phone_downloads_empty),
-        SHORT("Shorts", R.string.phone_downloads_shorts_tab, R.string.phone_downloads_shorts_empty),
-        MUSIC("Music", R.string.phone_music_title, R.string.phone_downloads_music_empty);
+        VIDEO("", R.string.phone_downloads_videos_tab),
+        SHORT("Shorts", R.string.phone_downloads_shorts_tab),
+        MUSIC("Music", R.string.phone_music_title);
 
         final String folder;
         final int label;
-        final int empty;
 
-        Kind(String folder, int label, int empty) {
+        Kind(String folder, int label) {
             this.folder = folder;
             this.label = label;
-            this.empty = empty;
         }
 
         String relativePath() {

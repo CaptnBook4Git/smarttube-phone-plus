@@ -17,6 +17,7 @@ import com.liskovsoft.smartyoutubetv2.tv.R;
 final class PhoneLocalControls {
     private final PhoneLocalPlayerActivity activity;
     private final boolean shorts;
+    private final FrameLayout frame;
     private final View overlay;
     private final SeekBar seek;
     private final PhoneOfflineVideoGestures videoGestures;
@@ -33,7 +34,7 @@ final class PhoneLocalControls {
     PhoneLocalControls(PhoneLocalPlayerActivity activity, PlayerView view, boolean shorts) {
         this.activity = activity;
         this.shorts = shorts;
-        FrameLayout frame = view.getOverlayFrameLayout();
+        frame = view.getOverlayFrameLayout();
         overlay = activity.getLayoutInflater().inflate(shorts ? R.layout.phone_shorts_overlay : R.layout.phone_player_controls, frame, false);
         frame.addView(overlay);
         overlay.setVisibility(View.VISIBLE);
@@ -50,8 +51,13 @@ final class PhoneLocalControls {
             click(R.id.phone_ctl_play, v -> activity.togglePlay());
             click(R.id.phone_ctl_fullscreen, v -> activity.toggleFullscreen());
             click(R.id.phone_ctl_speed, activity::showSpeed);
+            boolean pipAvailable = activity.supportsFloatingVideo();
+            if (pipAvailable) {
+                overlay.findViewById(R.id.phone_ctl_pip).setVisibility(View.VISIBLE);
+                click(R.id.phone_ctl_pip, v -> activity.enterFloatingVideo());
+            }
             View title = overlay.findViewById(R.id.phone_ctl_title);
-            ((FrameLayout.LayoutParams) title.getLayoutParams()).setMarginEnd(dp(60));
+            ((FrameLayout.LayoutParams) title.getLayoutParams()).setMarginEnd(dp(pipAvailable ? 108 : 60));
             overlay.setClickable(false);
             frame.setOnClickListener(v -> {
                 if (overlay.getVisibility() == View.VISIBLE) {
@@ -154,6 +160,16 @@ final class PhoneLocalControls {
         overlay.removeCallbacks(hide);
         if (videoGestures != null) videoGestures.stop();
         if (shortPager != null) shortPager.reset();
+    }
+
+    void pictureInPicture(boolean active) {
+        frame.setVisibility(active ? View.INVISIBLE : View.VISIBLE);
+        if (active) {
+            videoGestures.stop();
+            overlay.removeCallbacks(hide);
+        } else {
+            reveal();
+        }
     }
 
     void onShortFrameReady() {
