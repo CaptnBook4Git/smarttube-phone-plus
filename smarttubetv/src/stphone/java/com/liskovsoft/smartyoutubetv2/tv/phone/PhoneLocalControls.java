@@ -2,8 +2,6 @@ package com.liskovsoft.smartyoutubetv2.tv.phone;
 
 import android.os.Bundle;
 import android.text.format.DateUtils;
-import android.view.GestureDetector;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
@@ -21,6 +19,8 @@ final class PhoneLocalControls {
     private final boolean shorts;
     private final View overlay;
     private final SeekBar seek;
+    private final PhoneOfflineVideoGestures videoGestures;
+    private final PhoneOfflineShortPager shortPager;
     private boolean dragging;
     private final Runnable hide = this::hideWhilePlaying;
     private final Runnable tick = new Runnable() {
@@ -39,19 +39,46 @@ final class PhoneLocalControls {
         overlay.setVisibility(View.VISIBLE);
         seek = overlay.findViewById(shorts ? R.id.phone_shorts_seek : R.id.phone_ctl_seek);
         if (shorts) {
+            videoGestures = null;
             setupShorts();
+            shortPager = new PhoneOfflineShortPager(activity, view, overlay);
         } else {
-            gone(R.id.phone_ctl_mode, R.id.phone_ctl_autoplay, R.id.phone_ctl_cc, R.id.phone_ctl_settings);
+            shortPager = null;
+            gone(R.id.phone_ctl_mode, R.id.phone_ctl_autoplay, R.id.phone_ctl_cc, R.id.phone_ctl_settings,
+                    R.id.phone_ctl_prev, R.id.phone_ctl_next);
             click(R.id.phone_ctl_collapse, v -> activity.onBackPressed());
             click(R.id.phone_ctl_play, v -> activity.togglePlay());
             click(R.id.phone_ctl_fullscreen, v -> activity.toggleFullscreen());
             click(R.id.phone_ctl_speed, activity::showSpeed);
-            skip(R.id.phone_ctl_prev, -10000, R.drawable.ic_phone_seek_back_10, R.string.phone_seek_back_10);
-            skip(R.id.phone_ctl_next, 10000, R.drawable.ic_phone_seek_ahead_10, R.string.phone_seek_ahead_10);
             View title = overlay.findViewById(R.id.phone_ctl_title);
             ((FrameLayout.LayoutParams) title.getLayoutParams()).setMarginEnd(dp(60));
-            overlay.setOnClickListener(v -> overlay.setVisibility(View.INVISIBLE));
-            frame.setOnClickListener(v -> reveal());
+            overlay.setClickable(false);
+            frame.setOnClickListener(v -> {
+                if (overlay.getVisibility() == View.VISIBLE) {
+                    overlay.setVisibility(View.INVISIBLE);
+                } else {
+                    reveal();
+                }
+            });
+            videoGestures = new PhoneOfflineVideoGestures(activity, frame);
+            frame.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+                @Override
+                public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo node) {
+                    super.onInitializeAccessibilityNodeInfo(host, node);
+                    node.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.phone_ctl_prev,
+                            activity.getText(R.string.phone_seek_back_10)));
+                    node.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.phone_ctl_next,
+                            activity.getText(R.string.phone_seek_ahead_10)));
+                }
+
+                @Override
+                public boolean performAccessibilityAction(View host, int action, Bundle args) {
+                    if (action == R.id.phone_ctl_prev || action == R.id.phone_ctl_next) {
+                        return videoGestures.skip(action == R.id.phone_ctl_next);
+                    }
+                    return super.performAccessibilityAction(host, action, args);
+                }
+            });
         }
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             public void onStartTrackingTouch(SeekBar bar) {
@@ -83,26 +110,6 @@ final class PhoneLocalControls {
         info.setLayoutParams(params);
         overlay.setOnClickListener(v -> activity.togglePlay());
         overlay.setContentDescription(activity.getText(R.string.phone_play_pause));
-        int threshold = dp(48);
-        GestureDetector taps = new GestureDetector(activity, new GestureDetector.SimpleOnGestureListener() {
-            @Override public boolean onSingleTapUp(MotionEvent event) { return overlay.performClick(); }
-        });
-        overlay.setOnTouchListener(new View.OnTouchListener() {
-            float x, y;
-            public boolean onTouch(View view, MotionEvent e) {
-                taps.onTouchEvent(e);
-                if (e.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                    x = e.getX();
-                    y = e.getY();
-                } else if (e.getActionMasked() == MotionEvent.ACTION_UP) {
-                    float dy = e.getY() - y;
-                    if (Math.abs(dy) >= threshold && Math.abs(dy) > Math.abs(e.getX() - x)) {
-                        activity.step(dy < 0 ? 1 : -1);
-                    }
-                }
-                return true;
-            }
-        });
         overlay.setAccessibilityDelegate(new View.AccessibilityDelegate() {
             public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo node) {
                 super.onInitializeAccessibilityNodeInfo(host, node);
@@ -111,23 +118,10 @@ final class PhoneLocalControls {
                 if (activity.canStep(-1)) node.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_BACKWARD);
             }
             public boolean performAccessibilityAction(View host, int action, Bundle args) {
-                if (action == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) return activity.step(1);
-                if (action == AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) return activity.step(-1);
+                if (action == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) return shortPager.navigate(1);
+                if (action == AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) return shortPager.navigate(-1);
                 return super.performAccessibilityAction(host, action, args);
             }
-        });
-    }
-
-    private void skip(int id, int offset, int icon, int label) {
-        ImageView button = overlay.findViewById(id);
-        button.setImageResource(icon);
-        button.setContentDescription(activity.getText(label));
-        button.setOnClickListener(v -> {
-            SimpleExoPlayer player = activity.exo();
-            if (player != null && player.getDuration() > 0) {
-                player.seekTo(Math.max(0, Math.min(player.getDuration(), player.getCurrentPosition() + offset)));
-            }
-            reveal();
         });
     }
 
@@ -142,7 +136,11 @@ final class PhoneLocalControls {
     }
 
     void fullscreen(boolean full) {
-        if (shorts) return;
+        if (shorts) {
+            shortPager.reset();
+            return;
+        }
+        videoGestures.fullscreen(full);
         ImageView button = overlay.findViewById(R.id.phone_ctl_fullscreen);
         button.setImageResource(full ? R.drawable.ic_phone_fullscreen_exit : R.drawable.ic_phone_fullscreen);
         button.setContentDescription(activity.getText(full ? R.string.phone_offline_exit_fullscreen : R.string.phone_fullscreen));
@@ -151,7 +149,16 @@ final class PhoneLocalControls {
     }
 
     void start() { overlay.removeCallbacks(tick); overlay.post(tick); }
-    void stop() { overlay.removeCallbacks(tick); overlay.removeCallbacks(hide); }
+    void stop() {
+        overlay.removeCallbacks(tick);
+        overlay.removeCallbacks(hide);
+        if (videoGestures != null) videoGestures.stop();
+        if (shortPager != null) shortPager.reset();
+    }
+
+    void onShortFrameReady() {
+        if (shortPager != null) shortPager.frameReady();
+    }
 
     void reveal() {
         overlay.setVisibility(View.VISIBLE);

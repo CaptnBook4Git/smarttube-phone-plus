@@ -1,3 +1,3 @@
-- Downloads — Browse Videos, Shorts, and Music in a refreshed library with a red tab indicator, media-shaped covers, and file details on each row.
-- Downloaded videos and Shorts — Videos use StreamTube’s regular playback controls and saved descriptions. Swipe up or down through your downloaded Shorts, tap to pause, or drag the progress bar.
-- Downloaded music — Play tracks in StreamTube’s music player with offline artwork, a local Up next queue, shuffle, and repeat. New music downloads save their cover when available.
+- Downloads — Swipe left or right across the list to switch between Videos, Shorts, and Music.
+- Downloaded videos — Fullscreen rotates to landscape. Double-tap the left or right side to skip 10 seconds. In fullscreen, swipe up or down on the left for brightness or on the right for volume, using your Player gesture settings.
+- Downloaded Shorts — The video follows your finger as you swipe. The next or previous Short slides into view, and short drags settle back into place.

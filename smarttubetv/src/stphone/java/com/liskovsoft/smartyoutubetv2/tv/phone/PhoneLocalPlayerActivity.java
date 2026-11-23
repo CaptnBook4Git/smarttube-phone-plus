@@ -3,6 +3,7 @@ package com.liskovsoft.smartyoutubetv2.tv.phone;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
@@ -50,6 +51,7 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
     private static final String STATE_POSITION = "position";
     private static final String STATE_PLAYING = "playing";
     private static final String STATE_SPEED = "speed";
+    private static final String STATE_ORIENTATION = "orientation";
     private static final String STATE_FULLSCREEN = "fullscreen";
     private static final float[] SPEEDS = {0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f};
 
@@ -67,6 +69,7 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
     private float mSpeed = 1f;
     private boolean mPlaying = true;
     private boolean mFullscreen;
+    private int mVideoOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER;
 
     static void open(Activity activity, PhoneDownloadsActivity.Item item) {
         PlaybackView streaming = PlaybackPresenter.instance(activity).getView();
@@ -110,6 +113,7 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
             mPlaying = savedInstanceState.getBoolean(STATE_PLAYING, true);
             mSpeed = savedInstanceState.getFloat(STATE_SPEED, 1f);
             mFullscreen = savedInstanceState.getBoolean(STATE_FULLSCREEN);
+            mVideoOrientation = savedInstanceState.getInt(STATE_ORIENTATION, mVideoOrientation);
         } else {
             mFullscreen = mKind != Kind.MUSIC && isLandscape();
         }
@@ -128,6 +132,8 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
         setFullscreen(mKind == Kind.SHORT || mFullscreen);
         if (mKind != Kind.VIDEO) {
             PhoneDownloadsActivity.loadQueue(this, mKind, this::setQueue);
+        } else if (mVideoOrientation != ActivityInfo.SCREEN_ORIENTATION_FULL_USER) {
+            setRequestedOrientation(mVideoOrientation);
         }
     }
 
@@ -172,7 +178,9 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
     public void onConfigurationChanged(Configuration config) {
         super.onConfigurationChanged(config);
         if (mPlayerView != null) {
-            setFullscreen(mKind == Kind.SHORT || mKind == Kind.VIDEO && isLandscape());
+            boolean fullVideo = mKind == Kind.VIDEO && (mVideoOrientation == ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+                    ? config.orientation == Configuration.ORIENTATION_LANDSCAPE : mFullscreen);
+            setFullscreen(mKind == Kind.SHORT || fullVideo);
         }
     }
 
@@ -181,11 +189,12 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
         mFullscreen = fullscreen;
         findViewById(R.id.phone_offline_details).setVisibility(fullscreen ? View.GONE : View.VISIBLE);
 
-        ViewGroup.LayoutParams layout = mPlayerView.getLayoutParams();
+        View stage = findViewById(R.id.phone_offline_stage);
+        ViewGroup.LayoutParams layout = stage.getLayoutParams();
         android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
         layout.height = fullscreen ? ViewGroup.LayoutParams.MATCH_PARENT
                 : Math.min(Math.round(metrics.widthPixels * 9f / 16), Math.round(metrics.heightPixels * 0.52f));
-        mPlayerView.setLayoutParams(layout);
+        stage.setLayoutParams(layout);
 
         if (mControls != null) mControls.fullscreen(fullscreen);
         boolean darkBars = fullscreen || mKind == Kind.MUSIC;
@@ -196,7 +205,13 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
                 : darkBars || PhoneTheme.isNight(this) ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
     }
 
-    void toggleFullscreen() { setFullscreen(!mFullscreen); }
+    void toggleFullscreen() {
+        boolean full = !mFullscreen;
+        mVideoOrientation = full ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+        setFullscreen(full);
+        setRequestedOrientation(mVideoOrientation);
+    }
 
     void showSpeed(View anchor) {
         PopupMenu menu = new PopupMenu(this, anchor);
@@ -220,7 +235,7 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
     public void onBackPressed() {
         if (mMusic != null && mMusic.onBack()) return;
         if (mFullscreen && mKind == Kind.VIDEO) {
-            setFullscreen(false);
+            toggleFullscreen();
         } else {
             super.onBackPressed();
         }
@@ -235,9 +250,18 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
         mPlayer = ExoPlayerFactory.newSimpleInstance(this);
         mPlayer.setAudioAttributes(AudioAttributes.DEFAULT, true);
         if (mMusic == null) mPlayerView.setPlayer(mPlayer);
+        if (mKind == Kind.SHORT) {
+            mPlayer.addVideoListener(new com.google.android.exoplayer2.video.VideoListener() {
+                @Override
+                public void onRenderedFirstFrame() {
+                    mControls.onShortFrameReady();
+                }
+            });
+        }
         mPlayer.addListener(new Player.EventListener() {
             @Override
             public void onPlayerError(com.google.android.exoplayer2.ExoPlaybackException error) {
+                if (mControls != null) mControls.onShortFrameReady();
                 if (mMusic != null) {
                     android.widget.Toast.makeText(PhoneLocalPlayerActivity.this, R.string.phone_offline_failed,
                             android.widget.Toast.LENGTH_LONG).show();
@@ -293,6 +317,7 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
         outState.putBoolean(STATE_PLAYING, mPlayer != null ? mPlayer.getPlayWhenReady() : mPlaying);
         outState.putFloat(STATE_SPEED, mSpeed);
         outState.putBoolean(STATE_FULLSCREEN, mFullscreen);
+        outState.putInt(STATE_ORIENTATION, mVideoOrientation);
     }
 
     @Override
@@ -325,6 +350,12 @@ public class PhoneLocalPlayerActivity extends Activity implements PhoneMusicPlay
     boolean canStep(int direction) {
         int next = mIndex + direction;
         return next >= 0 && next < mQueue.size();
+    }
+
+    Uri adjacentShort(int direction) {
+        if (!canStep(direction)) return null;
+        Item item = mFiles.get(mQueue.get(mIndex + direction).videoId);
+        return item != null ? item.uri : null;
     }
 
     boolean step(int direction) {

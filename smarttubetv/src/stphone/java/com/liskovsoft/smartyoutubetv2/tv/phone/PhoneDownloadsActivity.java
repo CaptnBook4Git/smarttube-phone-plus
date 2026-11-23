@@ -25,6 +25,8 @@ import android.provider.MediaStore;
 import android.text.format.DateUtils;
 import android.text.format.Formatter;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
+import android.view.ViewConfiguration;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -67,6 +69,11 @@ public class PhoneDownloadsActivity extends PhoneActivity {
             mHandler.postDelayed(mReload, 300);
         }
     };
+    private float mSwipeX;
+    private float mSwipeY;
+    private boolean mSwipeTracking;
+    private boolean mSwipeHorizontal;
+    private boolean mSwipeConsumed;
     private Kind mKind = Kind.VIDEO;
     private RecyclerView mDownloads;
     private TextView mEmpty;
@@ -133,6 +140,56 @@ public class PhoneDownloadsActivity extends PhoneActivity {
         select(readKind(savedInstanceState != null ? savedInstanceState.getString(EXTRA_KIND)
                 : getIntent().getStringExtra(EXTRA_KIND)));
         mEmpty.setVisibility(View.GONE);
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            int[] location = new int[2];
+            mDownloads.getLocationOnScreen(location);
+            float x = event.getRawX() - location[0];
+            float y = event.getRawY() - location[1];
+            mSwipeTracking = x >= 0 && x < mDownloads.getWidth() && y >= 0 && y < mDownloads.getHeight();
+            mSwipeHorizontal = false;
+            mSwipeConsumed = false;
+            mSwipeX = event.getRawX();
+            mSwipeY = event.getRawY();
+        } else if (mSwipeTracking && action == MotionEvent.ACTION_MOVE) {
+            float dx = Math.abs(event.getRawX() - mSwipeX);
+            float dy = Math.abs(event.getRawY() - mSwipeY);
+            int slop = ViewConfiguration.get(this).getScaledTouchSlop();
+            if (dy > slop && dy >= dx) {
+                mSwipeTracking = false;
+            } else if (dx > slop && dx > dy * 1.5f) {
+                MotionEvent cancel = MotionEvent.obtain(event);
+                cancel.setAction(MotionEvent.ACTION_CANCEL);
+                super.dispatchTouchEvent(cancel);
+                cancel.recycle();
+                mSwipeTracking = false;
+                mSwipeHorizontal = true;
+                mSwipeConsumed = true;
+            }
+        } else if (action == MotionEvent.ACTION_POINTER_DOWN || action == MotionEvent.ACTION_CANCEL) {
+            mSwipeTracking = false;
+            mSwipeHorizontal = false;
+        } else if (action == MotionEvent.ACTION_UP && mSwipeHorizontal) {
+            float dx = event.getRawX() - mSwipeX;
+            float dy = event.getRawY() - mSwipeY;
+            float threshold = 48 * getResources().getDisplayMetrics().density;
+            if (Math.abs(dx) >= threshold && Math.abs(dx) > Math.abs(dy)) {
+                int step = dx < 0 ? 1 : -1;
+                if (mDownloads.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) {
+                    step = -step;
+                }
+                int index = mKind.ordinal() + step;
+                Kind[] tabs = Kind.values();
+                if (index >= 0 && index < tabs.length) {
+                    select(tabs[index]);
+                }
+            }
+        }
+        return mSwipeConsumed || super.dispatchTouchEvent(event);
     }
 
     @Override
