@@ -81,6 +81,16 @@ public class PhoneCustomizeActivity extends PhoneActivity {
             PhoneTweaks.setPrevNextButtons(this, !PhoneTweaks.prevNextButtons(this));
             build();
         }).summary(getString(R.string.phone_tweak_prev_next_summary)));
+        row(PhoneSetting.toggle(getString(R.string.phone_tweak_volume_swipe), PhoneTweaks.volumeSwipeEnabled(this),
+                R.drawable.ic_phone_volume, () -> {
+                    PhoneTweaks.setVolumeSwipeEnabled(this, !PhoneTweaks.volumeSwipeEnabled(this));
+                    build();
+                }).summary(getString(R.string.phone_tweak_volume_swipe_summary)));
+        row(PhoneSetting.toggle(getString(R.string.phone_tweak_brightness_swipe), PhoneTweaks.brightnessSwipeEnabled(this),
+                R.drawable.ic_phone_brightness, () -> {
+                    PhoneTweaks.setBrightnessSwipeEnabled(this, !PhoneTweaks.brightnessSwipeEnabled(this));
+                    build();
+                }).summary(getString(R.string.phone_tweak_brightness_swipe_summary)));
         row(PhoneSetting.toggle(getString(R.string.phone_tweak_lock_lyrics), PhoneTweaks.lockScreenLyrics(this), R.drawable.ic_phone_cc, () -> {
             PhoneTweaks.setLockScreenLyrics(this, !PhoneTweaks.lockScreenLyrics(this));
             build();

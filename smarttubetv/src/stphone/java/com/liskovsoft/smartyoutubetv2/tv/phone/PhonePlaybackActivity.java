@@ -2143,8 +2143,13 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     if (dy > 0 && across > 0.33f && across < 0.67f) {
                         mLevelMode = LEVEL_EXIT; // down the middle: out of full screen (the sides stay brightness and volume)
                     } else {
-                        mLevelMode = mLevelStartX < box.centerX() ? LEVEL_BRIGHTNESS : LEVEL_VOLUME;
-                        mLevelStartValue = mLevelMode == LEVEL_BRIGHTNESS ? currentBrightness() : currentVolume();
+                        boolean brightness = mLevelStartX < box.centerX();
+                        boolean enabled = brightness ? PhoneTweaks.brightnessSwipeEnabled(this) : PhoneTweaks.volumeSwipeEnabled(this);
+                        if (!enabled) {
+                            return false;
+                        }
+                        mLevelMode = brightness ? LEVEL_BRIGHTNESS : LEVEL_VOLUME;
+                        mLevelStartValue = brightness ? currentBrightness() : currentVolume();
                     }
                     mLevelStartY = event.getRawY();
 
