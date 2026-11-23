@@ -494,8 +494,8 @@ final class PhoneUpdater {
         return "universal";
     }
 
-    /** "- change" lines from the release text (the build workflow lists the commits since the previous build) */
-    private static void parseNotes(String body, List<String> notes) {
+    /** Bullet text from the published or bundled release notes */
+    static void parseNotes(String body, List<String> notes) {
         if (TextUtils.isEmpty(body)) {
             return;
         }

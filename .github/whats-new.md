@@ -1,1 +1,2 @@
-- Turn off fullscreen volume and brightness swipes independently in You → Settings → Customize.
+- Fullscreen swipe controls — Turn off volume swipes, brightness swipes, or both in You → Settings → Customize.
+- Beta label — Look for the tiny Beta label beside the StreamTube logo.

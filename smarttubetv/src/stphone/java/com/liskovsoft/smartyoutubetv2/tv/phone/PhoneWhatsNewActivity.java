@@ -28,7 +28,6 @@ public class PhoneWhatsNewActivity extends PhoneActivity {
         float d = getResources().getDisplayMetrics().density;
         int text = getResources().getColor(R.color.phone_text);
         int text2 = getResources().getColor(R.color.phone_text_2);
-        PhoneWhatsNew.Release release = PhoneWhatsNew.RELEASES[0]; // this version only
 
         // A short hero: the app's mark, what this is, and which version
         LinearLayout hero = new LinearLayout(this);
@@ -56,7 +55,7 @@ public class PhoneWhatsNewActivity extends PhoneActivity {
         content.addView(hero);
 
         // One card per feature: icon in a soft circle, a title, and what it means for you
-        for (PhoneWhatsNew.Feature feature : release.features) {
+        for (PhoneWhatsNew.Feature feature : PhoneWhatsNew.latestFeatures()) {
             LinearLayout card = new LinearLayout(this);
             card.setOrientation(LinearLayout.HORIZONTAL);
             card.setBackgroundResource(R.drawable.phone_card_bg);
@@ -83,13 +82,15 @@ public class PhoneWhatsNewActivity extends PhoneActivity {
             title.setTextSize(16);
             title.setTypeface(PhoneUi.medium(this));
             words.addView(title);
-            TextView body = new TextView(this);
-            body.setText(feature.text);
-            body.setTextColor(text2);
-            body.setTextSize(14);
-            body.setLineSpacing(px(d, 3), 1f);
-            body.setPadding(0, px(d, 4), 0, 0);
-            words.addView(body);
+            if (!feature.text.isEmpty()) {
+                TextView body = new TextView(this);
+                body.setText(feature.text);
+                body.setTextColor(text2);
+                body.setTextSize(14);
+                body.setLineSpacing(px(d, 3), 1f);
+                body.setPadding(0, px(d, 4), 0, 0);
+                words.addView(body);
+            }
             card.addView(words, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
             LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(

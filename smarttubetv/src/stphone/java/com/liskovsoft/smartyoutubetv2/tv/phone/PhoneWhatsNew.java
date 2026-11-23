@@ -14,17 +14,22 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.liskovsoft.smartyoutubetv2.tv.BuildConfig;
 import com.liskovsoft.smartyoutubetv2.tv.R;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Settings > What's new: what this version brings, in plain words (only this version, not older ones). A dot on the Settings row until the
  * page is read; once after every update of the app, a card on Home with the newest ones.
  *
- * A new release: replace the release in {@link #RELEASES} with its own features and raise {@link #VERSION}.
+ * Beta uses the same .github/whats-new.md entries as the GitHub release. For stable, update {@link #RELEASES}
+ * and raise {@link #VERSION}.
  */
 final class PhoneWhatsNew {
     /** The newest release below: raise it with each new one */
-    static final int VERSION = 12;
+    private static final int VERSION = 12;
 
     private static final String PREFS = "phone_whats_new";
     private static final String KEY_READ = "read";
@@ -56,7 +61,7 @@ final class PhoneWhatsNew {
         }
     }
 
-    static final Release[] RELEASES = {
+    private static final Release[] RELEASES = {
             new Release(VERSION, "This update",
                     new Feature(R.drawable.ic_phone_tune, "Fullscreen swipe controls",
                             "Turn off volume swipes, brightness swipes, or both in You → Settings → Customize.")),
@@ -125,11 +130,35 @@ final class PhoneWhatsNew {
                             "History, Settings and the rest of You open as their own pages, and History's cards are smaller."))
     };
 
+    private static final Feature[] LATEST_FEATURES = BuildConfig.PHONE_BETA ? betaFeatures() : RELEASES[0].features;
+
     private PhoneWhatsNew() {
     }
 
+    private static Feature[] betaFeatures() {
+        List<String> notes = new ArrayList<>();
+        PhoneUpdater.parseNotes(BuildConfig.PHONE_BETA_WHATS_NEW, notes);
+        Feature[] features = new Feature[notes.size()];
+        for (int i = 0; i < notes.size(); i++) {
+            String note = notes.get(i);
+            int separator = note.indexOf(" — ");
+            String title = separator >= 0 ? note.substring(0, separator) : note;
+            String text = separator >= 0 ? note.substring(separator + 3) : "";
+            features[i] = new Feature(R.drawable.ic_phone_update, title, text);
+        }
+        return features;
+    }
+
+    static Feature[] latestFeatures() {
+        return LATEST_FEATURES;
+    }
+
+    private static int noticeVersion() {
+        return BuildConfig.PHONE_BETA ? BuildConfig.VERSION_CODE : VERSION;
+    }
+
     static boolean hasUnread(Context context) {
-        return prefs(context).getInt(KEY_READ, 0) < VERSION;
+        return LATEST_FEATURES.length > 0 && prefs(context).getInt(KEY_READ, 0) < noticeVersion();
     }
 
     static boolean isUnread(Context context, Release release) {
@@ -137,7 +166,8 @@ final class PhoneWhatsNew {
     }
 
     static void markRead(Context context) {
-        prefs(context).edit().putInt(KEY_READ, VERSION).putInt(KEY_SHOWN, VERSION).apply();
+        int version = noticeVersion();
+        prefs(context).edit().putInt(KEY_READ, version).putInt(KEY_SHOWN, version).apply();
     }
 
     private static long buildNumber(Context context) {
@@ -159,12 +189,15 @@ final class PhoneWhatsNew {
         if (build <= 0 || shownFor >= build || activity.isFinishing()) {
             return;
         }
-        prefs.edit().putLong(KEY_SHOWN_BUILD, build).putInt(KEY_SHOWN, VERSION).apply();
+        int version = noticeVersion();
+        prefs.edit().putLong(KEY_SHOWN_BUILD, build).putInt(KEY_SHOWN, version).apply();
         if (isFreshInstall(activity)) {
-            prefs.edit().putInt(KEY_READ, VERSION).apply();
+            prefs.edit().putInt(KEY_READ, version).apply();
             return;
         }
-        showCard(activity);
+        if (LATEST_FEATURES.length > 0) {
+            showCard(activity);
+        }
     }
 
     private static boolean isFreshInstall(Context context) {
@@ -177,7 +210,6 @@ final class PhoneWhatsNew {
     }
 
     private static void showCard(Activity activity) {
-        Release newest = RELEASES[0];
         Dialog dialog = new Dialog(activity);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         float d = activity.getResources().getDisplayMetrics().density;
@@ -204,8 +236,8 @@ final class PhoneWhatsNew {
         card.addView(sub);
 
         // The first four (the card fits any screen); See all has the rest
-        for (int i = 0; i < Math.min(4, newest.features.length); i++) {
-            card.addView(featureRow(activity, newest.features[i], d, text, text2));
+        for (int i = 0; i < Math.min(4, LATEST_FEATURES.length); i++) {
+            card.addView(featureRow(activity, LATEST_FEATURES[i], d, text, text2));
         }
 
         LinearLayout buttons = new LinearLayout(activity);
@@ -257,13 +289,15 @@ final class PhoneWhatsNew {
         title.setTextSize(15);
         title.setTypeface(PhoneUi.medium(context));
         words.addView(title);
-        TextView body = new TextView(context);
-        body.setText(feature.text);
-        body.setTextColor(text2);
-        body.setTextSize(14);
-        body.setLineSpacing(px(d, 2), 1f);
-        body.setPadding(0, px(d, 3), 0, 0);
-        words.addView(body);
+        if (!feature.text.isEmpty()) {
+            TextView body = new TextView(context);
+            body.setText(feature.text);
+            body.setTextColor(text2);
+            body.setTextSize(14);
+            body.setLineSpacing(px(d, 2), 1f);
+            body.setPadding(0, px(d, 3), 0, 0);
+            words.addView(body);
+        }
         row.addView(words, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         return row;
     }
