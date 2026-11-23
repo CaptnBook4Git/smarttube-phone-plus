@@ -57,7 +57,7 @@ final class PhonePlayerSheet {
     private PhonePlayerSheet() {
     }
 
-    static void show(Activity activity, PhoneMoments.Moment moment, Host host) {
+    static void show(Activity activity, PhoneMoments.Moment moment, Runnable download, Host host) {
         Sheet sheet = new Sheet(activity, null);
         PhonePlaybackFragment player = host.player();
         String quality = qualityLabel(activity, host);
@@ -78,6 +78,12 @@ final class PhonePlayerSheet {
             sheet.addRow(R.drawable.ic_phone_bookmark, activity.getString(R.string.phone_moment_save), moment.time(), false, () -> {
                 sheet.dismiss();
                 host.saveMoment(moment);
+            });
+        }
+        if (download != null) {
+            sheet.addRow(R.drawable.ic_phone_download, activity.getString(R.string.phone_download), null, false, () -> {
+                sheet.dismiss();
+                download.run();
             });
         }
         if (host.canFloat()) {

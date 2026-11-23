@@ -73,7 +73,26 @@ import okhttp3.ResponseBody;
 final class PhoneDownloads {
     private static final String TAG = "PhoneDownloads";
     private static final String CHANNEL = "phone_downloads";
-    private static final String FOLDER = "StreamTube";
+    enum Kind {
+        VIDEO("", R.string.phone_downloads_videos_tab, R.string.phone_downloads_empty),
+        SHORT("Shorts", R.string.phone_downloads_shorts_tab, R.string.phone_downloads_shorts_empty),
+        MUSIC("Music", R.string.phone_music_title, R.string.phone_downloads_music_empty);
+
+        final String folder;
+        final int label;
+        final int empty;
+
+        Kind(String folder, int label, int empty) {
+            this.folder = folder;
+            this.label = label;
+            this.empty = empty;
+        }
+
+        String relativePath() {
+            String root = Environment.DIRECTORY_DOWNLOADS + "/StreamTube/";
+            return folder.isEmpty() ? root : root + folder + "/";
+        }
+    }
     private static final long CHUNK = 4L * 1024 * 1024;
     private static final int RETRIES = 3;
     private static final int REQUEST_STORAGE = 4721;
@@ -124,6 +143,10 @@ final class PhoneDownloads {
 
     /** Download tapped: look up the files of this video and offer the ones that can be saved */
     static void showOptions(Activity activity, Video video) {
+        showOptions(activity, video, video != null && video.isShorts, false);
+    }
+
+    static void showOptions(Activity activity, Video video, boolean shorts, boolean audioOnly) {
         if (video == null || TextUtils.isEmpty(video.videoId)) {
             return;
         }
@@ -136,27 +159,30 @@ final class PhoneDownloads {
         }
 
         Toast.makeText(activity, R.string.phone_download_checking, Toast.LENGTH_SHORT).show();
-        String title = !TextUtils.isEmpty(video.getTitle()) ? video.getTitle() : video.videoId;
+        Kind kind = shorts ? Kind.SHORT : Kind.VIDEO;
         RxHelper.execute(com.liskovsoft.youtubeapi.service.YouTubeDownloadService.getDownloadInfoObserve(video.videoId),
                 download -> {
                     if (PhoneUi.isAlive(activity)) {
-                        showSheet(activity, download.formatInfo, title, download.userAgent);
+                        if (!showSheet(activity, download.formatInfo, video, download.userAgent, kind, audioOnly)) {
+                            showPlayerOptions(activity, video, kind, audioOnly);
+                        }
                     }
                 },
                 error -> {
                     // No download client gave file links: what the player's answer has (360p and its sound)
                     Log.e(TAG, "Download formats: " + error.getMessage());
                     if (PhoneUi.isAlive(activity)) {
-                        showPlayerOptions(activity, video, title);
+                        showPlayerOptions(activity, video, kind, audioOnly);
                     }
                 });
     }
 
-    private static void showPlayerOptions(Activity activity, Video video, String title) {
+    private static void showPlayerOptions(Activity activity, Video video, Kind kind, boolean audioOnly) {
         RxHelper.execute(YouTubeServiceManager.instance().getMediaItemService().getFormatInfoObserve(video.videoId),
                 formatInfo -> {
-                    if (PhoneUi.isAlive(activity)) {
-                        showSheet(activity, formatInfo, title, DefaultHeaders.APP_USER_AGENT);
+                    if (PhoneUi.isAlive(activity) && !showSheet(activity, formatInfo, video,
+                            DefaultHeaders.APP_USER_AGENT, kind, audioOnly)) {
+                        Toast.makeText(activity, R.string.phone_download_unavailable, Toast.LENGTH_LONG).show();
                     }
                 },
                 error -> {
@@ -167,11 +193,15 @@ final class PhoneDownloads {
                 });
     }
 
-    private static void showSheet(Activity activity, MediaItemFormatInfo formatInfo, String title, String userAgent) {
+    private static boolean showSheet(Activity activity, MediaItemFormatInfo formatInfo, Video source,
+                                     String userAgent, Kind kind, boolean audioOnly) {
         if (formatInfo == null || formatInfo.isLive() || formatInfo.isUnplayable()) {
-            Toast.makeText(activity, R.string.phone_download_unavailable, Toast.LENGTH_LONG).show();
-            return;
+            return false;
         }
+
+        String title = firstText(source.getTitleFull(), firstText(formatInfo.getTitle(), source.videoId));
+        PhoneDownloadDetails details = new PhoneDownloadDetails(title,
+                firstText(formatInfo.getAuthor(), source.getAuthor()), firstText(formatInfo.getDescription(), source.description));
 
         Option video = videoOption(activity, formatInfo);
         MediaFormat audioFormat = audioFormat(formatInfo);
@@ -185,24 +215,23 @@ final class PhoneDownloads {
         }
 
         java.util.List<Option> options = new java.util.ArrayList<>();
-        if (audioFormat != null) {
+        if (!audioOnly && audioFormat != null) {
             // 360p joined too when there is no single 360p file (download clients have none)
             options.addAll(mergedOptions(activity, formatInfo, audioFormat, video == null));
         }
-        if (video != null) {
+        if (!audioOnly && video != null) {
             options.add(video);
         }
         if (audio != null) {
             options.add(audio);
         }
         if (options.isEmpty()) {
-            Toast.makeText(activity, R.string.phone_download_unavailable, Toast.LENGTH_LONG).show();
-            return;
+            return false;
         }
 
         Context app = activity.getApplicationContext();
         AppDialogPresenter dialog = AppDialogPresenter.instance(activity);
-        if (!hasMergedOptions(options) && hasHigherQualities(formatInfo)) {
+        if (!audioOnly && !hasMergedOptions(options) && hasHigherQualities(formatInfo)) {
             // Higher qualities exist, but YouTube streams them without a file link (SABR): say so instead of hiding them
             dialog.appendSingleButton(UiOptionItem.from(activity.getString(R.string.phone_download_no_hd),
                     activity.getString(R.string.phone_download_no_hd_reason), item -> AppDialogPresenter.instance(activity).closeDialog()));
@@ -214,10 +243,15 @@ final class PhoneDownloads {
                     : total > 0 ? sizeText(total) : null;
             dialog.appendSingleButton(UiOptionItem.from(option.label, description, item -> {
                 AppDialogPresenter.instance(activity).closeDialog();
-                enqueue(app, option, title);
+                enqueue(app, option, details, option.audio ? Kind.MUSIC : kind);
             }));
         }
         dialog.showDialog(activity.getString(R.string.phone_download));
+        return true;
+    }
+
+    private static String firstText(String value, String fallback) {
+        return TextUtils.isEmpty(value) ? fallback : value;
     }
 
     private static boolean hasMergedOptions(java.util.List<Option> options) {
@@ -279,7 +313,7 @@ final class PhoneDownloads {
         for (MediaFormat format : formatInfo.getAdaptiveFormats()) {
             String mime = format != null ? format.getMimeType() : null;
             if (mime == null || TextUtils.isEmpty(format.getUrl()) || !mime.startsWith("video/mp4") || !mime.contains("avc1")
-                    || format.isOtf() || lines(format) < 360 || (!withSd && lines(format) == 360) || lines(format) > MAX_HEIGHT) {
+                    || format.isOtf() || lines(format) <= 0 || (!withSd && lines(format) <= 360) || lines(format) > MAX_HEIGHT) {
                 continue;
             }
             MediaFormat current = byHeight.get(lines(format));
@@ -304,10 +338,14 @@ final class PhoneDownloads {
             return null;
         }
         MediaFormat best = null;
+        MediaFormat fallback = null;
         for (MediaFormat format : formatInfo.getAdaptiveFormats()) {
             if (format == null || TextUtils.isEmpty(format.getUrl()) || format.getMimeType() == null
                     || !format.getMimeType().startsWith("audio/mp4") || format.isDrc() || format.isOtf()) {
                 continue;
+            }
+            if (fallback == null || bitrate(format) > bitrate(fallback)) {
+                fallback = format;
             }
             String track = format.getAudioTrackId();
             boolean original = track == null || format.getXtags() == null || format.getXtags().contains("original");
@@ -318,14 +356,15 @@ final class PhoneDownloads {
                 best = format;
             }
         }
-        return best;
+        return best != null ? best : fallback;
     }
 
     // endregion
 
     // region Download
 
-    private static void enqueue(Context app, Option option, String title) {
+    private static void enqueue(Context app, Option option, PhoneDownloadDetails details, Kind kind) {
+        String title = details.title;
         int id = NEXT_ID.getAndIncrement();
         createChannel(app);
         NotificationCompat.Builder progress = new NotificationCompat.Builder(app, CHANNEL)
@@ -368,8 +407,8 @@ final class PhoneDownloads {
 
                 String name = fileName(title) + (option.audio ? ".m4a" : ".mp4");
                 String mime = option.audio ? "audio/mp4" : "video/mp4";
-                Uri saved = save(app, result, name, mime);
-                done(app, id, title, saved, mime);
+                save(app, result, name, mime, kind, details);
+                done(app, id, title, kind);
             } catch (Exception e) {
                 Log.e(TAG, "Download failed: " + e);
                 failed(app, id, title);
@@ -621,34 +660,41 @@ final class PhoneDownloads {
     }
 
     /** Into Download/StreamTube, where the Files app and players find it */
-    private static Uri save(Context app, File file, String name, String mime) throws IOException {
+    private static void save(Context app, File file, String name, String mime, Kind kind,
+                             PhoneDownloadDetails details) throws IOException {
         if (Build.VERSION.SDK_INT >= 29) {
             ContentResolver resolver = app.getContentResolver();
             ContentValues values = new ContentValues();
             values.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
             values.put(MediaStore.MediaColumns.MIME_TYPE, mime);
-            values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + FOLDER);
+            values.put(MediaStore.MediaColumns.RELATIVE_PATH, kind.relativePath());
             values.put(MediaStore.MediaColumns.IS_PENDING, 1);
-            Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+            Uri uri = resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values);
             if (uri == null) {
                 throw new IOException("Can't create the file in Download");
             }
-            try (InputStream in = new FileInputStream(file); OutputStream out = resolver.openOutputStream(uri)) {
-                if (out == null) {
-                    throw new IOException("Can't write the file in Download");
+            try {
+                try (InputStream in = new FileInputStream(file); OutputStream out = resolver.openOutputStream(uri)) {
+                    if (out == null) {
+                        throw new IOException("Can't write the file in Download");
+                    }
+                    copy(in, out);
                 }
-                copy(in, out);
-            } catch (IOException e) {
+                details.save(app, uri);
+                values.clear();
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                if (resolver.update(uri, values, null, null) != 1) {
+                    throw new IOException("Can't publish the download");
+                }
+            } catch (IOException | RuntimeException e) {
                 resolver.delete(uri, null, null);
+                PhoneDownloadDetails.remove(app, uri);
                 throw e;
             }
-            values.clear();
-            values.put(MediaStore.MediaColumns.IS_PENDING, 0);
-            resolver.update(uri, values, null, null);
-            return uri;
+            return;
         }
 
-        File folder = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), FOLDER);
+        File folder = new File(Environment.getExternalStorageDirectory(), kind.relativePath());
         if (!folder.exists() && !folder.mkdirs()) {
             throw new IOException("Can't create " + folder);
         }
@@ -657,11 +703,19 @@ final class PhoneDownloads {
             int dot = name.lastIndexOf('.');
             target = new File(folder, name.substring(0, dot) + " (" + i + ")" + name.substring(dot));
         }
-        try (InputStream in = new FileInputStream(file); OutputStream out = new FileOutputStream(target)) {
-            copy(in, out);
+        File staged = File.createTempFile(".download-", ".part", folder);
+        try {
+            try (InputStream in = new FileInputStream(file); OutputStream out = new FileOutputStream(staged)) {
+                copy(in, out);
+            }
+            if (!staged.renameTo(target)) {
+                throw new IOException("Can't publish the download");
+            }
+        } finally {
+            staged.delete();
         }
+        details.save(app, Uri.fromFile(target));
         MediaScannerConnection.scanFile(app, new String[]{target.getPath()}, new String[]{mime}, null);
-        return null; // no shareable link for a plain file on old Android: the notification just says where it is
     }
 
     // endregion
@@ -691,19 +745,17 @@ final class PhoneDownloads {
         notify(app, id, progress);
     }
 
-    private static void done(Context app, int id, String title, Uri saved, String mime) {
+    private static void done(Context app, int id, String title, Kind kind) {
+        Intent open = new Intent(app, PhoneDownloadsActivity.class)
+                .putExtra(PhoneDownloadsActivity.EXTRA_KIND, kind.name())
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(app, CHANNEL)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
                 .setContentTitle(title)
                 .setContentText(app.getString(R.string.phone_download_done))
-                .setAutoCancel(true);
-        if (saved != null) {
-            Intent open = new Intent(Intent.ACTION_VIEW)
-                    .setDataAndType(saved, mime)
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-            builder.setContentIntent(PendingIntent.getActivity(app, id, open,
-                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
-        }
+                .setAutoCancel(true)
+                .setContentIntent(PendingIntent.getActivity(app, id, open,
+                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
         notify(app, id, builder);
         MAIN.post(() -> Toast.makeText(app, app.getString(R.string.phone_download_done), Toast.LENGTH_SHORT).show());
     }

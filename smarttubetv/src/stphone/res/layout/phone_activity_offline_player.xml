@@ -1,0 +1,55 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/phone_offline_root"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@color/phone_bg">
+
+    <FrameLayout android:id="@+id/phone_offline_header"
+        android:layout_width="match_parent" android:layout_height="56dp">
+        <ImageButton android:id="@+id/phone_offline_back"
+            android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp"
+            android:layout_gravity="center_vertical|start" android:padding="12dp"
+            android:src="@drawable/ic_phone_back" android:tint="@color/phone_text"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/phone_back" />
+        <TextView android:layout_width="wrap_content" android:layout_height="match_parent"
+            android:layout_marginStart="60dp" android:gravity="center_vertical"
+            android:text="@string/phone_downloads" android:textColor="@color/phone_text"
+            android:textSize="18sp" android:fontFamily="@font/roboto_medium" />
+    </FrameLayout>
+
+    <com.google.android.exoplayer2.ui.PlayerView
+        android:id="@+id/phone_offline_player"
+        android:layout_width="match_parent" android:layout_height="200dp"
+        android:background="@android:color/black"
+        app:controller_layout_id="@layout/phone_offline_controls"
+        app:show_buffering="when_playing" />
+
+    <ScrollView android:id="@+id/phone_offline_details"
+        android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="20dp">
+            <TextView android:id="@+id/phone_offline_title"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textColor="@color/phone_text" android:textSize="22sp"
+                android:fontFamily="@font/roboto_medium" />
+            <TextView android:id="@+id/phone_offline_author"
+                android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+                android:textColor="@color/phone_text" android:textSize="15sp" />
+            <TextView android:id="@+id/phone_offline_info"
+                android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                android:textColor="@color/phone_text_2" android:textSize="13sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="20dp" android:background="@drawable/phone_card_bg"
+                android:orientation="vertical" android:padding="16dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="@string/phone_offline_description" android:textColor="@color/phone_text"
+                    android:textSize="16sp" android:fontFamily="@font/roboto_medium" />
+                <TextView android:id="@+id/phone_offline_description"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+                    android:textColor="@color/phone_text_2" android:textSize="14sp" android:lineSpacingExtra="3dp"
+                    android:textIsSelectable="true" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

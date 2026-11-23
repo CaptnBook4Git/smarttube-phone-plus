@@ -139,6 +139,9 @@ public class PhonePlaybackFragment extends PlaybackFragment {
         if (connector != mInfoConnector) {
             mInfoConnector = connector;
             connector.setMediaMetadataProvider(player -> carInfo(player));
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                connector.setCustomActionProviders(new PhoneMediaSeek(requireContext(), false), new PhoneMediaSeek(requireContext(), true));
+            }
         }
         com.google.android.exoplayer2.SimpleExoPlayer exo = getExoPlayer();
         if (exo != null && exo != mInfoPlayer) {

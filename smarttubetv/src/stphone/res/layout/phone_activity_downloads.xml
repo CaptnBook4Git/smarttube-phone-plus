@@ -50,6 +50,17 @@
             android:textSize="13sp" />
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/phone_download_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp"
+        android:visibility="gone" />
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"

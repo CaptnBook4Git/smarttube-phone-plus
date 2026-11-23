@@ -3463,17 +3463,21 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             @Override
             public void onReceive(android.content.Context context, android.content.Intent intent) {
                 if (mPlayer != null) {
-                    mPlayer.setPlayWhenReady(!mPlayer.getPlayWhenReady());
+                    String action = intent.getAction();
+                    if (PhoneMediaSeek.BACK.equals(action) || PhoneMediaSeek.AHEAD.equals(action)) {
+                        PhoneMediaSeek.jump(exoPlayer(), PhoneMediaSeek.AHEAD.equals(action));
+                    } else if (ACTION_PLAY_PAUSE.equals(action)) {
+                        mPlayer.setPlayWhenReady(!mPlayer.getPlayWhenReady());
+                    }
                     showPlaybackNotification();
                 }
             }
         };
         android.content.IntentFilter filter = new android.content.IntentFilter(ACTION_PLAY_PAUSE);
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(mPlayPauseReceiver, filter, android.content.Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(mPlayPauseReceiver, filter);
-        }
+        filter.addAction(PhoneMediaSeek.BACK);
+        filter.addAction(PhoneMediaSeek.AHEAD);
+        androidx.core.content.ContextCompat.registerReceiver(this, mPlayPauseReceiver, filter,
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
     /**
@@ -3517,6 +3521,12 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                         getString(R.string.phone_play_pause), toggleIntent)
                 .setStyle(style);
 
+        if (PhoneMediaSeek.canSeek(exoPlayer())) {
+            builder.addAction(R.drawable.ic_phone_seek_back_10, getString(R.string.phone_seek_back_10),
+                    seekIntent(PhoneMediaSeek.BACK, 2));
+            builder.addAction(R.drawable.ic_phone_seek_ahead_10, getString(R.string.phone_seek_ahead_10),
+                    seekIntent(PhoneMediaSeek.AHEAD, 3));
+        }
         notifyPlayback(builder);
 
         // Thumbnail as the large icon (shown in media controls and Live Alerts)
@@ -3535,6 +3545,12 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
                     public void onLoadCleared(@androidx.annotation.Nullable android.graphics.drawable.Drawable placeholder) {
                     }
                 });
+    }
+
+    private android.app.PendingIntent seekIntent(String action, int requestCode) {
+        return android.app.PendingIntent.getBroadcast(this, requestCode,
+                new android.content.Intent(action).setPackage(getPackageName()),
+                android.app.PendingIntent.FLAG_IMMUTABLE | android.app.PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     private void notifyPlayback(androidx.core.app.NotificationCompat.Builder builder) {
@@ -3758,7 +3774,10 @@ public class PhonePlaybackActivity extends PlaybackActivity implements PhonePlay
             return;
         }
         mHandler.removeCallbacks(mAutoHide);
-        PhonePlayerSheet.show(this, captureMoment(), new PhonePlayerSheet.Host() {
+        Video video = currentVideo();
+        Runnable download = video == null || TextUtils.isEmpty(video.videoId) || video.isLive ? null
+                : () -> PhoneDownloads.showOptions(this, video, mShortsMode || isShort(video), false);
+        PhonePlayerSheet.show(this, captureMoment(), download, new PhonePlayerSheet.Host() {
             @Override
             public void saveMoment(PhoneMoments.Moment moment) {
                 PhonePlaybackActivity.this.saveMoment(moment);

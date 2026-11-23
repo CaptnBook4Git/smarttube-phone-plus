@@ -266,7 +266,7 @@ final class PhoneMusicPlayer {
 
         mArtFrame = new FrameLayout(context);
         mArtFrame.setElevation(dp(24));
-        rounded(mArtFrame, dp(14));
+        rounded(mArtFrame, dp(24));
         mArtFrame.setBackgroundColor(0x22FFFFFF);
         mArtFill = new ImageView(context);
         mArtFill.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -289,7 +289,7 @@ final class PhoneMusicPlayer {
         mLyricsPanel = new FrameLayout(context);
         mLyricsPanel.setVisibility(View.GONE);
         mLyricsPanel.setElevation(dp(24));
-        rounded(mLyricsPanel, dp(14));
+        rounded(mLyricsPanel, dp(24));
         mLyricsScroll = new ScrollView(context);
         mLyricsScroll.setVerticalScrollBarEnabled(false);
         mLyricsScroll.setVerticalFadingEdgeEnabled(true);
@@ -320,10 +320,8 @@ final class PhoneMusicPlayer {
         LinearLayout words = new LinearLayout(context);
         words.setOrientation(LinearLayout.VERTICAL);
         mTitle = text(context, 22, Color.WHITE, true);
-        mTitle.setSingleLine(true);
-        mTitle.setEllipsize(TextUtils.TruncateAt.MARQUEE);
-        mTitle.setMarqueeRepeatLimit(-1);
-        mTitle.setSelected(true);
+        mTitle.setMaxLines(2);
+        mTitle.setEllipsize(TextUtils.TruncateAt.END);
         words.addView(mTitle);
         mArtist = text(context, 15, 0xB3FFFFFF, false);
         mArtist.setSingleLine(true);
@@ -331,6 +329,12 @@ final class PhoneMusicPlayer {
         mArtist.setPadding(0, dp(2), 0, 0);
         words.addView(mArtist);
         titleRow.addView(words, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        ImageView download = icon(context, R.drawable.ic_phone_download, 22);
+        download.setContentDescription(context.getString(R.string.phone_download_audio));
+        download.setOnClickListener(v -> PhoneDownloads.showOptions(activity, mHost.video(), false, true));
+        LinearLayout.LayoutParams downloadParams = new LinearLayout.LayoutParams(dp(48), dp(48));
+        downloadParams.setMarginStart(dp(8));
+        titleRow.addView(download, downloadParams);
         mColumn.addView(titleRow);
 
         // The line being sung: a coloured pill with little moving bars (tap: all the lyrics)
@@ -450,7 +454,11 @@ final class PhoneMusicPlayer {
         mUpNext.setPadding(dp(14), dp(10), dp(14), dp(10));
         mUpNext.setClickable(true);
         mUpNext.setForeground(context.getDrawable(R.drawable.phone_ripple));
-        rounded(mUpNext, dp(18));
+        GradientDrawable queueSurface = new GradientDrawable();
+        queueSurface.setColor(0x18FFFFFF);
+        queueSurface.setCornerRadius(dp(24));
+        mUpNext.setBackground(queueSurface);
+        rounded(mUpNext, dp(24));
         ImageView queueIcon = new ImageView(context);
         queueIcon.setImageResource(R.drawable.ic_phone_playlist);
         queueIcon.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
@@ -1317,13 +1325,6 @@ final class PhoneMusicPlayer {
 
     private void applyColor(int color) {
         mColor = color;
-        if (mUpNext != null) {
-            GradientDrawable glass = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                    new int[] {(lighten(color) & 0x00FFFFFF) | 0x2E000000, 0x14FFFFFF});
-            glass.setCornerRadius(dp(18));
-            glass.setStroke(Math.max(1, dp(1) / 2), (lighten(color) & 0x00FFFFFF) | 0x40000000);
-            mUpNext.setBackground(glass);
-        }
         GradientDrawable background = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[] {darken(color, 0.55f), darken(color, 0.28f), 0xFF0A0A0A});
         mBackground.setBackground(background);

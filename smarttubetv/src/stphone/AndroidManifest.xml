@@ -164,7 +164,7 @@
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneLocalPlayerActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection|keyboardHidden"
             android:screenOrientation="fullUser"
-            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
+            android:theme="@android:style/Theme.Material.NoActionBar" />
         <receiver
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneUpdater$InstallReceiver"
             android:exported="false" />

@@ -2,9 +2,10 @@ package com.liskovsoft.smartyoutubetv2.tv.phone;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ContentResolver;
+import android.content.res.ColorStateList;
 import android.content.ContentUris;
 import android.content.Intent;
+import android.database.ContentObserver;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -13,6 +14,10 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.view.Gravity;
+import android.widget.LinearLayout;
+
+import com.liskovsoft.smartyoutubetv2.tv.phone.PhoneDownloads.Kind;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
@@ -45,12 +50,23 @@ import java.util.concurrent.Executors;
  * share or delete it.
  */
 public class PhoneDownloadsActivity extends PhoneActivity {
-    private static final String FOLDER = "StreamTube";
+    static final String EXTRA_KIND = "download_kind";
     private static final int REQUEST_DELETE = 4801;
     private static final ExecutorService LOADER = Executors.newSingleThreadExecutor();
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private List<Item> mAllItems = Collections.emptyList();
     private final List<Item> mItems = new ArrayList<>();
+    private final List<TextView> mTabs = new ArrayList<>();
+    private final Runnable mReload = this::load;
+    private final ContentObserver mDownloadObserver = new ContentObserver(mHandler) {
+        @Override
+        public void onChange(boolean selfChange) {
+            mHandler.removeCallbacks(mReload);
+            mHandler.postDelayed(mReload, 300);
+        }
+    };
+    private Kind mKind = Kind.VIDEO;
     private RecyclerView mDownloads;
     private TextView mEmpty;
     private TextView mTotal;
@@ -61,15 +77,15 @@ public class PhoneDownloadsActivity extends PhoneActivity {
         final String title;
         final long size;
         final long addedMs;
-        final boolean audio;
+        final Kind kind;
         long durationMs;
 
-        Item(Uri uri, String title, long size, long addedMs, boolean audio, long durationMs) {
+        Item(Uri uri, String title, long size, long addedMs, Kind kind, long durationMs) {
             this.uri = uri;
             this.title = title;
             this.size = size;
             this.addedMs = addedMs;
-            this.audio = audio;
+            this.kind = kind;
             this.durationMs = durationMs;
         }
     }
@@ -90,6 +106,81 @@ public class PhoneDownloadsActivity extends PhoneActivity {
 
         mDownloads.setLayoutManager(new LinearLayoutManager(this));
         mDownloads.setAdapter(new Adapter());
+        LinearLayout tabs = findViewById(R.id.phone_download_tabs);
+        tabs.setVisibility(View.VISIBLE);
+        float density = getResources().getDisplayMetrics().density;
+        int normal = getResources().getColor(R.color.phone_text);
+        int selected = getResources().getColor(R.color.phone_bg);
+        for (Kind kind : Kind.values()) {
+            TextView tab = new TextView(this);
+            tab.setText(kind.label);
+            tab.setTypeface(PhoneUi.medium(this));
+            tab.setTextSize(14);
+            tab.setGravity(Gravity.CENTER);
+            tab.setFocusable(true);
+            tab.setBackgroundResource(R.drawable.phone_chip_bg);
+            tab.setForeground(getDrawable(R.drawable.phone_ripple));
+            tab.setTextColor(new ColorStateList(new int[][]{{android.R.attr.state_selected}, {}}, new int[]{selected, normal}));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, Math.round(48 * density), 1f);
+            if (!mTabs.isEmpty()) {
+                params.setMarginStart(Math.round(8 * density));
+            }
+            tabs.addView(tab, params);
+            mTabs.add(tab);
+            tab.setOnClickListener(v -> select(kind));
+        }
+        select(readKind(savedInstanceState != null ? savedInstanceState.getString(EXTRA_KIND)
+                : getIntent().getStringExtra(EXTRA_KIND)));
+        mEmpty.setVisibility(View.GONE);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        select(readKind(intent.getStringExtra(EXTRA_KIND)));
+        load();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putString(EXTRA_KIND, mKind.name());
+    }
+
+    private static Kind readKind(String value) {
+        for (Kind kind : Kind.values()) {
+            if (kind.name().equals(value)) {
+                return kind;
+            }
+        }
+        return Kind.VIDEO;
+    }
+
+    private void select(Kind kind) {
+        mKind = kind;
+        for (int i = 0; i < mTabs.size(); i++) {
+            mTabs.get(i).setSelected(i == kind.ordinal());
+        }
+        show(mAllItems);
+        mDownloads.scrollToPosition(0);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (Build.VERSION.SDK_INT >= 29) {
+            getContentResolver().registerContentObserver(MediaStore.Downloads.EXTERNAL_CONTENT_URI, true, mDownloadObserver);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        if (Build.VERSION.SDK_INT >= 29) {
+            getContentResolver().unregisterContentObserver(mDownloadObserver);
+            mHandler.removeCallbacks(mReload);
+        }
+        super.onStop();
     }
 
     @Override
@@ -136,9 +227,11 @@ public class PhoneDownloadsActivity extends PhoneActivity {
         }
         Uri collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
         String[] projection = {MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.SIZE,
-                MediaStore.MediaColumns.DATE_ADDED, MediaStore.MediaColumns.MIME_TYPE, MediaStore.MediaColumns.DURATION};
-        String selection = MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ? AND " + MediaStore.MediaColumns.IS_PENDING + " = 0";
-        String[] args = {Environment.DIRECTORY_DOWNLOADS + "/" + FOLDER + "%"};
+                MediaStore.MediaColumns.DATE_ADDED, MediaStore.MediaColumns.MIME_TYPE, MediaStore.MediaColumns.DURATION,
+                MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.VOLUME_NAME};
+        String selection = MediaStore.MediaColumns.RELATIVE_PATH + " IN (?, ?, ?) AND "
+                + MediaStore.MediaColumns.IS_PENDING + " = 0";
+        String[] args = {Kind.VIDEO.relativePath(), Kind.SHORT.relativePath(), Kind.MUSIC.relativePath()};
         try (Cursor cursor = getContentResolver().query(collection, projection, selection, args, null)) {
             if (cursor == null) {
                 return items;
@@ -147,8 +240,11 @@ public class PhoneDownloadsActivity extends PhoneActivity {
                 long id = cursor.getLong(0);
                 String name = cursor.getString(1);
                 String mime = cursor.getString(4);
-                items.add(new Item(ContentUris.withAppendedId(collection, id), title(name), cursor.getLong(2),
-                        cursor.getLong(3) * 1000, isAudio(name, mime), cursor.isNull(5) ? 0 : cursor.getLong(5)));
+                Kind folder = Kind.SHORT.relativePath().equals(cursor.getString(6)) ? Kind.SHORT : Kind.VIDEO;
+                String volume = cursor.getString(7);
+                Uri uri = ContentUris.withAppendedId(volume == null ? collection : MediaStore.Downloads.getContentUri(volume), id);
+                addFile(items, uri, name, mime, cursor.getLong(2), cursor.getLong(3) * 1000,
+                        cursor.isNull(5) ? 0 : cursor.getLong(5), folder);
             }
         } catch (RuntimeException e) {
             // no list: shows the empty state
@@ -160,18 +256,26 @@ public class PhoneDownloadsActivity extends PhoneActivity {
     @SuppressWarnings("deprecation")
     private List<Item> listFolder() {
         List<Item> items = new ArrayList<>();
-        File folder = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), FOLDER);
-        File[] files = folder.listFiles();
-        if (files == null) {
-            return items;
-        }
-        for (File file : files) {
-            String name = file.getName();
-            if (file.isFile() && (name.endsWith(".mp4") || name.endsWith(".m4a"))) {
-                items.add(new Item(Uri.fromFile(file), title(name), file.length(), file.lastModified(), isAudio(name, null), 0));
+        for (Kind kind : Kind.values()) {
+            File folder = new File(Environment.getExternalStorageDirectory(), kind.relativePath());
+            File[] files = folder.listFiles(File::isFile);
+            if (files != null) {
+                for (File file : files) {
+                    addFile(items, Uri.fromFile(file), file.getName(), null, file.length(), file.lastModified(), 0, kind);
+                }
             }
         }
         return items;
+    }
+
+    private void addFile(List<Item> items, Uri uri, String name, String mime, long size, long added, long duration, Kind folder) {
+        boolean audio = isAudio(name, mime);
+        if (!audio && (mime == null || !mime.startsWith("video/"))
+                && (name == null || !name.toLowerCase(java.util.Locale.ROOT).endsWith(".mp4"))) {
+            return;
+        }
+        String title = PhoneDownloadDetails.read(this, uri, title(name)).title;
+        items.add(new Item(uri, title, size, added, audio ? Kind.MUSIC : folder, duration));
     }
 
     private long readDuration(Uri uri) {
@@ -200,22 +304,28 @@ public class PhoneDownloadsActivity extends PhoneActivity {
     }
 
     private static boolean isAudio(String name, String mime) {
-        return (mime != null && mime.startsWith("audio")) || (name != null && name.endsWith(".m4a"));
+        return (mime != null && mime.startsWith("audio")) || (name != null && name.toLowerCase(java.util.Locale.ROOT).endsWith(".m4a"));
     }
 
     private void show(List<Item> items) {
         if (isFinishing() || isDestroyed()) {
             return;
         }
+        mAllItems = items;
         mItems.clear();
-        mItems.addAll(items);
-        mDownloads.getAdapter().notifyDataSetChanged();
-        mEmpty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
-        long total = 0;
         for (Item item : items) {
+            if (item.kind == mKind) {
+                mItems.add(item);
+            }
+        }
+        mDownloads.getAdapter().notifyDataSetChanged();
+        mEmpty.setText(mKind.empty);
+        mEmpty.setVisibility(mItems.isEmpty() ? View.VISIBLE : View.GONE);
+        long total = 0;
+        for (Item item : mItems) {
             total += item.size;
         }
-        mTotal.setText(items.isEmpty() ? null : getString(R.string.phone_downloads_total, items.size(),
+        mTotal.setText(mItems.isEmpty() ? null : getString(R.string.phone_downloads_total, mItems.size(),
                 Formatter.formatShortFileSize(this, total)));
     }
 
@@ -224,7 +334,7 @@ public class PhoneDownloadsActivity extends PhoneActivity {
     // region Actions
 
     private void play(Item item) {
-        PhoneLocalPlayerActivity.open(this, item.uri, item.title, item.audio);
+        PhoneLocalPlayerActivity.open(this, item);
     }
 
     private void share(Item item) {
@@ -232,7 +342,7 @@ public class PhoneDownloadsActivity extends PhoneActivity {
             return; // Android 8 and 9: no shareable link for a plain file
         }
         Intent send = new Intent(Intent.ACTION_SEND)
-                .setType(item.audio ? "audio/mp4" : "video/mp4")
+                .setType(item.kind == Kind.MUSIC ? "audio/mp4" : "video/mp4")
                 .putExtra(Intent.EXTRA_STREAM, item.uri)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivity(Intent.createChooser(send, item.title));
@@ -301,12 +411,11 @@ public class PhoneDownloadsActivity extends PhoneActivity {
     }
 
     private void removed(Item item) {
-        int index = mItems.indexOf(item);
-        if (index >= 0) {
-            mItems.remove(index);
-            mDownloads.getAdapter().notifyItemRemoved(index);
-        }
-        show(new ArrayList<>(mItems));
+        PhoneDownloadDetails.remove(this, item.uri);
+        List<Item> remaining = new ArrayList<>(mAllItems);
+        remaining.removeIf(other -> other.uri.equals(item.uri));
+        show(remaining);
+        load();
         android.widget.Toast.makeText(this, R.string.phone_downloads_deleted, android.widget.Toast.LENGTH_SHORT).show();
     }
 
@@ -337,7 +446,9 @@ public class PhoneDownloadsActivity extends PhoneActivity {
 
             String size = Formatter.formatShortFileSize(view.getContext(), item.size);
             CharSequence when = DateUtils.getRelativeTimeSpanString(item.addedMs, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS);
-            String kind = getString(item.audio ? R.string.phone_downloads_audio : R.string.phone_downloads_video);
+            int kindLabel = item.kind == Kind.VIDEO ? R.string.phone_downloads_video
+                    : item.kind == Kind.MUSIC ? R.string.phone_downloads_audio : R.string.phone_downloads_shorts_tab;
+            String kind = getString(kindLabel);
             ((TextView) view.findViewById(R.id.phone_meta)).setText(kind + " · " + size + " · " + when);
 
             if (progress != null) {
@@ -353,7 +464,7 @@ public class PhoneDownloadsActivity extends PhoneActivity {
                 }
             }
             if (PhoneUi.isAlive(PhoneDownloadsActivity.this)) {
-                if (item.audio) {
+                if (item.kind == Kind.MUSIC) {
                     Glide.with(PhoneDownloadsActivity.this).clear(thumb);
                     thumb.setScaleType(ImageView.ScaleType.CENTER);
                     thumb.setBackgroundColor(getResources().getColor(R.color.phone_surface_2));

@@ -1,1 +1,3 @@
-- Saved moments — The thumbnail, timestamp, note, and menu share one card in StreamTube’s colors. Tap to play from that moment. Other timestamps for the same video sit directly below it in the card.
+- Downloads — Save Shorts as MP4 or music as M4A. Find them in the Videos, Shorts, and Music tabs under You → Downloads. Files stay in Download/StreamTube.
+- Offline player — Watch downloads with full screen, playback speed, 10-second skips, and saved descriptions and video details.
+- Music and media controls — The music player has a Download button, room for longer titles, and a simpler Up next card. Android media controls now offer 10-second skips for seekable playback.

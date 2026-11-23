@@ -163,6 +163,17 @@
     <!-- You > Downloads -->
     <string name="phone_downloads">Downloads</string>
     <string name="phone_downloads_empty">Nothing downloaded yet.\nUse Download under a video to save it here.</string>
+    <string name="phone_downloads_videos_tab">Videos</string>
+    <string name="phone_downloads_shorts_tab">Shorts</string>
+    <string name="phone_downloads_shorts_empty">No Shorts downloaded. Open a Short’s menu and tap Download.</string>
+    <string name="phone_downloads_music_empty">No music downloaded. Choose Audio only when downloading, or use Download in the music player.</string>
+    <string name="phone_offline_badge">Downloaded</string>
+    <string name="phone_offline_description">Description</string>
+    <string name="phone_offline_no_description">No description was saved with this file.</string>
+    <string name="phone_offline_exit_fullscreen">Exit full screen</string>
+    <string name="phone_offline_failed">This downloaded file can’t be played.</string>
+    <string name="phone_seek_back_10">Back 10 seconds</string>
+    <string name="phone_seek_ahead_10">Forward 10 seconds</string>
     <string name="phone_downloads_total">%1$d · %2$s</string>
     <string name="phone_downloads_video">Video</string>
     <string name="phone_downloads_audio">Audio</string>
