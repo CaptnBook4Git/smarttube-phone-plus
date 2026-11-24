@@ -48,9 +48,9 @@ final class PhoneTweaks {
         prefs(context).edit().putInt(KEY_TAB_STYLE, style).apply();
     }
 
-    /** Playback in feeds: videos play in their thumbnails on Home and Subscriptions (Always, Wi-Fi only or Off) */
+    /** Playback in feeds: permanently disabled in SmartTube+ in favor of touch-and-hold card previews */
     static int feedPlayback(Context context) {
-        return prefs(context).getInt(KEY_FEED_PLAYBACK, FEED_OFF);
+        return FEED_OFF;
     }
 
     static void setFeedPlayback(Context context, int mode) {

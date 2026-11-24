@@ -75,8 +75,6 @@ public class PhoneCustomizeActivity extends PhoneActivity {
         }
 
         header(R.string.phone_customize_player);
-        row(PhoneSetting.dropDown(getString(R.string.phone_feed_playback), getString(PhoneTweaks.feedPlaybackNameRes(PhoneTweaks.feedPlayback(this))),
-                R.drawable.ic_phone_play, this::pickFeedPlayback).summary(getString(R.string.phone_feed_playback_summary)));
         row(PhoneSetting.toggle(getString(R.string.phone_tweak_prev_next), PhoneTweaks.prevNextButtons(this), R.drawable.ic_phone_next, () -> {
             PhoneTweaks.setPrevNextButtons(this, !PhoneTweaks.prevNextButtons(this));
             build();
