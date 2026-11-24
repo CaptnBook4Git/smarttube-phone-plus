@@ -79,7 +79,7 @@ public final class PhoneQuickActions {
     }
 
     public static boolean isLikeDislikeEnabled(Context context) {
-        return prefs(context).getBoolean(KEY_LIKE_DISLIKE, true);
+        return prefs(context).getBoolean(KEY_LIKE_DISLIKE, false);
     }
 
     public static void setLikeDislikeEnabled(Context context, boolean enabled) {

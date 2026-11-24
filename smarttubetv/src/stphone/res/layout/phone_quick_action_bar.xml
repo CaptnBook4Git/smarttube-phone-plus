@@ -13,9 +13,29 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="start|center_vertical"
+        android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="12dp">
+
+        <LinearLayout
+            android:id="@+id/phone_quick_watch_later"
+            android:layout_width="wrap_content"
+            android:layout_height="26dp"
+            android:layout_marginEnd="6dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:gravity="center"
+            android:background="@drawable/phone_pill_bg"
+            android:contentDescription="@string/phone_you_watch_later">
+
+            <ImageView
+                android:id="@+id/phone_quick_watch_later_icon"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_phone_watch_later"
+                android:tint="@color/phone_text_2"
+                android:importantForAccessibility="no"/>
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/phone_quick_like"
@@ -26,7 +46,8 @@
             android:paddingEnd="10dp"
             android:gravity="center"
             android:background="@drawable/phone_pill_bg"
-            android:contentDescription="@string/phone_like">
+            android:contentDescription="@string/phone_like"
+            android:visibility="gone">
 
             <ImageView
                 android:id="@+id/phone_quick_like_icon"
@@ -46,33 +67,14 @@
             android:paddingEnd="10dp"
             android:gravity="center"
             android:background="@drawable/phone_pill_bg"
-            android:contentDescription="@string/phone_dislike">
+            android:contentDescription="@string/phone_dislike"
+            android:visibility="gone">
 
             <ImageView
                 android:id="@+id/phone_quick_dislike_icon"
                 android:layout_width="14dp"
                 android:layout_height="14dp"
                 android:src="@drawable/ic_phone_dislike"
-                android:tint="@color/phone_text_2"
-                android:importantForAccessibility="no"/>
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/phone_quick_watch_later"
-            android:layout_width="wrap_content"
-            android:layout_height="26dp"
-            android:layout_marginEnd="6dp"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp"
-            android:gravity="center"
-            android:background="@drawable/phone_pill_bg"
-            android:contentDescription="@string/phone_you_watch_later">
-
-            <ImageView
-                android:id="@+id/phone_quick_watch_later_icon"
-                android:layout_width="14dp"
-                android:layout_height="14dp"
-                android:src="@drawable/ic_phone_watch_later"
                 android:tint="@color/phone_text_2"
                 android:importantForAccessibility="no"/>
         </LinearLayout>
@@ -96,6 +98,11 @@
                 android:tint="@color/phone_text_2"
                 android:importantForAccessibility="no"/>
         </LinearLayout>
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
 
         <LinearLayout
             android:id="@+id/phone_quick_dismiss_group"
