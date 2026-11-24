@@ -114,6 +114,10 @@
     <string name="phone_quick_liked_toast">Liked</string>
     <string name="phone_quick_disliked_toast">Disliked</string>
     <string name="phone_quick_rating_removed_toast">Rating removed</string>
+    <string name="phone_quick_watch_later_setting">Show \"Watch later\" button on videos</string>
+    <string name="phone_quick_watch_later_desc">Directly add or remove videos from your Watch later playlist</string>
+    <string name="phone_quick_watch_later_added_toast">Added to Watch later</string>
+    <string name="phone_quick_watch_later_removed_toast">Removed from Watch later</string>
     <string name="phone_search_filters_title">Search filters</string>
     <string name="phone_search_filter_btn">Filters</string>
     <string name="phone_search_filter_reset">Reset all filters</string>

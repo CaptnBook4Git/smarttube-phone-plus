@@ -27,6 +27,7 @@ import com.liskovsoft.smartyoutubetv2.tv.R;
 import com.liskovsoft.youtubeapi.service.YouTubeServiceManager;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -38,12 +39,14 @@ public final class PhoneQuickActions {
     private static final String KEY_NOT_INTERESTED = "show_not_interested";
     private static final String KEY_DONT_RECOMMEND_CHANNEL = "show_dont_recommend_channel";
     private static final String KEY_LIKE_DISLIKE = "show_like_dislike";
+    private static final String KEY_WATCH_LATER = "show_watch_later";
 
     public static final int RATING_NONE = 0;
     public static final int RATING_LIKE = 1;
     public static final int RATING_DISLIKE = -1;
 
     private static final Map<String, Integer> sRatings = new ConcurrentHashMap<>();
+    private static final Set<String> sWatchLater = ConcurrentHashMap.newKeySet();
     private static volatile int sConfigVersion = 1;
 
     private PhoneQuickActions() {
@@ -84,10 +87,48 @@ public final class PhoneQuickActions {
         sConfigVersion++;
     }
 
+    public static boolean isWatchLaterEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_WATCH_LATER, true);
+    }
+
+    public static void setWatchLaterEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_WATCH_LATER, enabled).apply();
+        sConfigVersion++;
+    }
+
     public static boolean isAnyEnabled(Context context) {
         return isNotInterestedEnabled(context)
                 || isDontRecommendChannelEnabled(context)
-                || isLikeDislikeEnabled(context);
+                || isLikeDislikeEnabled(context)
+                || isWatchLaterEnabled(context);
+    }
+
+    public static boolean isInWatchLater(Video video) {
+        return video != null && !TextUtils.isEmpty(video.videoId) && sWatchLater.contains(video.videoId);
+    }
+
+    public static void toggleWatchLater(Context context, Video video, Runnable onUiUpdate) {
+        if (video == null || TextUtils.isEmpty(video.videoId)) {
+            return;
+        }
+        SignInService signIn = YouTubeServiceManager.instance().getSignInService();
+        if (!signIn.isSigned()) {
+            MessageHelpers.showMessage(context, R.string.msg_signed_users_only);
+            return;
+        }
+        boolean currentlyAdded = isInWatchLater(video);
+        boolean add = !currentlyAdded;
+        if (add) {
+            sWatchLater.add(video.videoId);
+            MessageHelpers.showMessage(context, R.string.phone_quick_watch_later_added_toast);
+        } else {
+            sWatchLater.remove(video.videoId);
+            MessageHelpers.showMessage(context, R.string.phone_quick_watch_later_removed_toast);
+        }
+        MediaServiceManager.instance().addRemoveFromWatchLaterPlaylist(video, add);
+        if (onUiUpdate != null) {
+            onUiUpdate.run();
+        }
     }
 
     public static int getRating(Video video) {
@@ -359,11 +400,12 @@ public final class PhoneQuickActions {
                 && !video.belongsToSuggestions()
                 && !video.belongsToPlaybackQueue();
         boolean showLikeDislike = isLikeDislikeEnabled(context) && !isHistory;
+        boolean showWatchLater = isWatchLaterEnabled(context) && !isOverlay;
         boolean showRemoveHistory = isHistory;
         boolean showNotInterested = isNotInterestedEnabled(context) && !isHistory;
         boolean showDontRecommend = isDontRecommendChannelEnabled(context) && !isOverlay;
 
-        if (!showLikeDislike && !showRemoveHistory && !showNotInterested && !showDontRecommend) {
+        if (!showLikeDislike && !showWatchLater && !showRemoveHistory && !showNotInterested && !showDontRecommend) {
             bar.setVisibility(View.GONE);
             return;
         }
@@ -372,6 +414,7 @@ public final class PhoneQuickActions {
 
         View likeBtn = bar.findViewById(R.id.phone_quick_like);
         View dislikeBtn = bar.findViewById(R.id.phone_quick_dislike);
+        View watchLaterBtn = bar.findViewById(R.id.phone_quick_watch_later);
         View removeHistoryBtn = bar.findViewById(R.id.phone_quick_remove_history);
         View dismissGroup = bar.findViewById(R.id.phone_quick_dismiss_group);
         View dismissDivider = bar.findViewById(R.id.phone_quick_dismiss_divider);
@@ -380,6 +423,7 @@ public final class PhoneQuickActions {
 
         ImageView likeIcon = bar.findViewById(R.id.phone_quick_like_icon);
         ImageView dislikeIcon = bar.findViewById(R.id.phone_quick_dislike_icon);
+        ImageView watchLaterIcon = bar.findViewById(R.id.phone_quick_watch_later_icon);
 
         Runnable updateRatingIcons = () -> {
             int rating = getRating(video);
@@ -395,6 +439,10 @@ public final class PhoneQuickActions {
                 dislikeIcon.setImageTintList(ColorStateList.valueOf(
                         rating == RATING_DISLIKE ? accentColor : inactiveColor));
             }
+            if (watchLaterIcon != null) {
+                watchLaterIcon.setImageTintList(ColorStateList.valueOf(
+                        isInWatchLater(video) ? accentColor : inactiveColor));
+            }
         };
 
         if (likeBtn != null) {
@@ -404,6 +452,10 @@ public final class PhoneQuickActions {
         if (dislikeBtn != null) {
             dislikeBtn.setVisibility(showLikeDislike ? View.VISIBLE : View.GONE);
             dislikeBtn.setOnClickListener(v -> toggleDislike(context, video, updateRatingIcons));
+        }
+        if (watchLaterBtn != null) {
+            watchLaterBtn.setVisibility(showWatchLater ? View.VISIBLE : View.GONE);
+            watchLaterBtn.setOnClickListener(v -> toggleWatchLater(context, video, updateRatingIcons));
         }
         if (removeHistoryBtn != null) {
             removeHistoryBtn.setVisibility(showRemoveHistory ? View.VISIBLE : View.GONE);
@@ -482,9 +534,22 @@ public final class PhoneQuickActions {
                 isLikeDislikeEnabled(context)
         );
 
+        OptionItem watchLaterOpt = UiOptionItem.from(
+                context.getString(R.string.phone_quick_watch_later_setting),
+                context.getString(R.string.phone_quick_watch_later_desc),
+                item -> {
+                    setWatchLaterEnabled(context, item.isSelected());
+                    if (onChanged != null) {
+                        onChanged.run();
+                    }
+                },
+                isWatchLaterEnabled(context)
+        );
+
         dialog.appendSingleSwitch(notInterestedOpt);
         dialog.appendSingleSwitch(dontRecommendOpt);
         dialog.appendSingleSwitch(likeDislikeOpt);
+        dialog.appendSingleSwitch(watchLaterOpt);
         dialog.showDialog(context.getString(R.string.phone_quick_actions_title));
     }
 }
