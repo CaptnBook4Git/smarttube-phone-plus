@@ -349,6 +349,7 @@ final class PhoneUi {
             thumb = itemView.findViewById(R.id.phone_thumb);
         }
         sLastClickedThumb = new java.lang.ref.WeakReference<>(thumb != null ? thumb : itemView);
+        PhoneMusic.onCardClick(); // a regular video, unless the Music page says otherwise right after
     }
 
     /**
@@ -440,12 +441,44 @@ final class PhoneUi {
                 .into(view);
     }
 
+    private static android.graphics.Typeface sRegular;
+    private static android.graphics.Typeface sMedium;
+
+    /** Roboto, as the YouTube app uses it (bundled: phones would show their own system font instead) */
+    private static android.content.Context sApp;
+
+    /** The app, for the fonts where no screen is at hand (drawables) */
+    static void init(android.content.Context context) {
+        sApp = context.getApplicationContext();
+    }
+
+    static android.graphics.Typeface regular(android.content.Context context) {
+        if (context == null) {
+            context = sApp;
+        }
+        if (sRegular == null && context != null) {
+            sRegular = androidx.core.content.res.ResourcesCompat.getFont(context, R.font.roboto_regular);
+        }
+        return sRegular;
+    }
+
+    static android.graphics.Typeface medium(android.content.Context context) {
+        if (context == null) {
+            context = sApp;
+        }
+        if (sMedium == null && context != null) {
+            sMedium = androidx.core.content.res.ResourcesCompat.getFont(context, R.font.roboto_medium);
+        }
+        return sMedium;
+    }
+
     static CharSequence meta(Video video) {
         CharSequence second = video.getSecondTitle();
         if (TextUtils.isEmpty(second)) {
             return video.getAuthor();
         }
-        return second.toString().replace("\n", " · ").trim();
+        // YouTube's small middle dot between the parts, not the big bullet the feeds come with
+        return second.toString().replace("\n", " · ").replace(" • ", " · ").replace("•", "·").trim();
     }
 
     /**

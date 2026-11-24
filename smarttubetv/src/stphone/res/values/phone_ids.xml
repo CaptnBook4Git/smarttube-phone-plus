@@ -9,4 +9,10 @@
     <item name="phone_action_dismiss_divider" type="id" />
     <item name="phone_action_chapters" type="id" />
     <item name="phone_ctl_chapter" type="id" />
+    <item name="phone_music_pager" type="id"/>
+    <item name="phone_music_dots" type="id"/>
+    <item name="phone_music_play" type="id"/>
+    <item name="phone_music_shuffle" type="id"/>
+    <item name="phone_action_listen" type="id"/>
+    <item name="phone_music_search_button" type="id"/>
 </resources>

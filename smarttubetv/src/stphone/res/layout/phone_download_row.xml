@@ -1,0 +1,33 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:layout_marginStart="16dp" android:layout_marginEnd="16dp" android:layout_marginBottom="3dp"
+    android:paddingVertical="8dp"
+    android:orientation="horizontal" android:gravity="center_vertical"
+    android:background="@drawable/phone_ripple" android:stateListAnimator="@animator/phone_press"
+    android:focusable="true">
+    <FrameLayout android:layout_width="128dp" android:layout_height="72dp"
+        android:background="@drawable/phone_download_cover" android:clipToOutline="true">
+        <ImageView android:id="@id/phone_thumb" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:scaleType="centerCrop" android:importantForAccessibility="no"/>
+        <TextView android:id="@id/phone_badge" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end" android:layout_margin="4dp" android:paddingHorizontal="4dp"
+            android:fontFamily="@font/roboto_medium" android:textColor="#FFFFFF" android:textSize="11sp"
+            android:background="@drawable/phone_badge_bg"/>
+    </FrameLayout>
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        android:layout_marginStart="12dp" android:orientation="vertical">
+        <TextView android:id="@id/phone_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:ellipsize="end" android:maxLines="2" android:fontFamily="@font/roboto_medium"
+            android:textSize="15sp" android:textColor="@color/phone_text"/>
+        <TextView android:id="@+id/phone_download_author" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="3dp"
+            android:ellipsize="end" android:maxLines="1" android:textSize="13sp"
+            android:textColor="@color/phone_text_2"/>
+        <TextView android:id="@id/phone_meta" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:textColor="@color/phone_text_2" android:textSize="12sp"/>
+    </LinearLayout>
+    <ImageButton android:id="@id/phone_more" android:layout_width="48dp" android:layout_height="48dp"
+        android:padding="13dp" android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_phone_more" android:tint="@color/phone_text_2"
+        android:contentDescription="@string/phone_more_options"/>
+</LinearLayout>

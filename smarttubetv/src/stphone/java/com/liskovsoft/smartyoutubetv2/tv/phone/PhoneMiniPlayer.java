@@ -44,6 +44,9 @@ final class PhoneMiniPlayer {
     private static WeakReference<PhoneActivity> sHost = new WeakReference<>(null);
     private static WeakReference<Card> sCard = new WeakReference<>(null);
     private static boolean sActive;
+    /** Music (from the Music page): the music pill instead of the video card */
+    private static boolean sMusic;
+    private static WeakReference<PhoneMusicPill> sPill = new WeakReference<>(null);
     /** The last frame, shown by the next card until its own frames arrive */
     private static Bitmap sStill;
     /** The card surface the player draws into */
@@ -59,8 +62,25 @@ final class PhoneMiniPlayer {
 
     // region Session
 
+    /** The card's video state, for the debug log */
+    static String debugState() {
+        Card card = sCard.get();
+        if (card == null) {
+            return "no card";
+        }
+        PhonePlaybackActivity player = sPlayer.get();
+        return "card: shared " + card.mShared + ", frame " + card.mGotFrame + ", still " + (card.mStill.getVisibility() == View.VISIBLE)
+                + ", view " + (card.mVideo.getParent() != null) + ", available " + card.mVideo.isAvailable()
+                + ", owner " + PhoneVideoSurface.ownerIs(card.mVideo) + ", in window " + card.mVideo.isAttachedToWindow()
+                + ", player " + (player == null ? "gone" : player.isDestroyed() ? "destroyed" : player.isFinishing() ? "finishing" : "alive");
+    }
+
     /** Something on the host screen changed the room at the bottom (the update banner came or went) */
     static void replace() {
+        PhoneMusicPill pill = sPill.get();
+        if (pill != null && pill.getParent() != null) {
+            pill.place(false);
+        }
         Card card = sCard.get();
         if (card != null && card.getParent() != null && !card.mDragging) {
             card.place();
@@ -86,6 +106,10 @@ final class PhoneMiniPlayer {
     }
 
     static void onHostStopped(PhoneActivity host) {
+        PhoneMusicPill pill = sPill.get();
+        if (pill != null && pill.host() == host) {
+            pill.remove();
+        }
         Card card = sCard.get();
         if (card != null && card.mHost == host) {
             card.remove();
@@ -112,6 +136,12 @@ final class PhoneMiniPlayer {
 
     /** The player shrank into the card: from now on the card shows its video */
     static void begin(PhonePlaybackActivity player, Bitmap still, float aspect) {
+        begin(player, still, aspect, false);
+    }
+
+    /** @param music the music pill instead of the video card */
+    static void begin(PhonePlaybackActivity player, Bitmap still, float aspect, boolean music) {
+        sMusic = music;
         sPlayer = new WeakReference<>(player);
         sAspect = aspect > 0 ? aspect : 16f / 9f;
         sActive = true;
@@ -134,6 +164,14 @@ final class PhoneMiniPlayer {
         return sActive && sSurface != null;
     }
 
+    /** The player screen takes the video's texture back (also when it came to the front some other way) */
+    static void letGoOfVideo() {
+        Card card = sCard.get();
+        if (card != null) {
+            card.letGoOfVideo();
+        }
+    }
+
     static Bitmap takeStill() {
         Bitmap still = sStill;
         sStill = null;
@@ -141,6 +179,18 @@ final class PhoneMiniPlayer {
     }
 
     private static void expand() {
+        if (sMusic) {
+            PhonePlaybackActivity player = sPlayer.get();
+            PhoneMusicPill pill = sPill.get();
+            if (player == null || pill == null) {
+                end();
+                return;
+            }
+            PhoneActivity host = pill.host();
+            host.startActivity(new android.content.Intent(host, PhonePlaybackActivity.class)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP));
+            return;
+        }
         PhonePlaybackActivity player = sPlayer.get();
         Card card = sCard.get();
         if (player == null || card == null) {
@@ -148,6 +198,7 @@ final class PhoneMiniPlayer {
             return;
         }
         card.keepStill();
+        card.letGoOfVideo(); // the player screen shows the video's texture again
         PhoneActivity host = card.mHost;
         host.startActivity(new android.content.Intent(host, PhonePlaybackActivity.class)
                 .addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP));
@@ -162,6 +213,10 @@ final class PhoneMiniPlayer {
         PhonePlaybackActivity player = sPlayer.get();
         Card card = sCard.get();
         sStill = null;
+        PhoneMusicPill pill = sPill.get();
+        if (pill != null && pill.getParent() != null && pill.getAlpha() > 0.9f && pill.getTranslationX() == 0) {
+            pill.animateAway(0); // (thrown away by hand, it's already on its way)
+        }
         if (card != null) {
             if (swipedDown) {
                 card.slideAway();
@@ -231,7 +286,61 @@ final class PhoneMiniPlayer {
 
     // region Card
 
+    private static void showPill(PhoneActivity host) {
+        PhoneMusicPill pill = sPill.get();
+        if (pill != null && pill.host() == host && pill.getParent() != null) {
+            pill.place(false);
+            return;
+        }
+        if (pill != null) {
+            pill.remove();
+        }
+        ViewGroup content = host.findViewById(android.R.id.content);
+        if (content == null) {
+            return;
+        }
+        pill = new PhoneMusicPill(host, new PhoneMusicPill.Actions() {
+            @Override
+            public SimpleExoPlayer exo() {
+                PhonePlaybackActivity player = sPlayer.get();
+                return player != null ? player.exoPlayer() : null;
+            }
+
+            @Override
+            public com.liskovsoft.smartyoutubetv2.common.app.models.data.Video video() {
+                PhonePlaybackActivity player = sPlayer.get();
+                return player != null ? player.playingVideo() : null;
+            }
+
+            @Override
+            public void expand() {
+                PhoneMiniPlayer.expand();
+            }
+
+            @Override
+            public void next() {
+                PhonePlaybackActivity player = sPlayer.get();
+                if (player != null) {
+                    player.playNext();
+                }
+            }
+
+            @Override
+            public void close() {
+                PhoneMiniPlayer.close();
+            }
+        });
+        content.addView(pill, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM));
+        sPill = new WeakReference<>(pill);
+        pill.place(true);
+    }
+
     private static void showCard(PhoneActivity host) {
+        if (sMusic) {
+            showPill(host);
+            return;
+        }
         Card card = sCard.get();
         if (card != null && card.mHost == host && card.getParent() != null) {
             card.refresh();
@@ -266,6 +375,9 @@ final class PhoneMiniPlayer {
         private float mStartX;
         private float mStartY;
         private boolean mDragging;
+        /** Shows the video's own texture (see PhoneVideoSurface), not a surface of its own */
+        private boolean mShared;
+        private ImageView mClose;
         private ValueAnimator mMove;
         private VelocityTracker mVelocity;
 
@@ -279,6 +391,10 @@ final class PhoneMiniPlayer {
                     }
                 } else {
                     refresh();
+                    PhonePlaybackActivity player = sPlayer.get();
+                    if (player != null) {
+                        player.syncPlaybackService(); // play tapped on the card: the playback service starts here too
+                    }
                 }
                 mHandler.postDelayed(this, 500);
             }
@@ -300,6 +416,8 @@ final class PhoneMiniPlayer {
 
             mVideo = new TextureView(host);
             mVideo.setSurfaceTextureListener(this);
+            // The video's own texture (see PhoneVideoSurface): the decoder goes on drawing into it, nothing restarts
+            mShared = PhoneVideoSurface.showIn(mVideo);
             addView(mVideo, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER));
 
             mStill = new ImageView(host);
@@ -317,8 +435,13 @@ final class PhoneMiniPlayer {
                     PhoneUi.loadThumb(mStill, video, false);
                 }
             }
-            android.util.Log.d(TAG, "card: still " + (still != null));
+            android.util.Log.d(TAG, "card: still " + (still != null) + ", shared video " + mShared);
             addView(mStill, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            if (mShared) {
+                // The texture already holds the current frame: it shows as soon as the card is drawn (a paused video
+                // sends no new frame to wait for)
+                mHandler.postDelayed(this::revealVideo, 200);
+            }
 
             int button = Math.round(30 * mDensity);
             int inset = Math.round(6 * mDensity);
@@ -327,6 +450,7 @@ final class PhoneMiniPlayer {
             closeParams.setMargins(inset, inset, inset, inset);
             addView(close, closeParams);
             close.setOnClickListener(v -> close());
+            mClose = close;
 
             mPlay = roundButton(host, R.drawable.ic_phone_pause, R.string.phone_mini_play_pause);
             LayoutParams playParams = new LayoutParams(button, button, Gravity.BOTTOM | Gravity.START);
@@ -442,6 +566,42 @@ final class PhoneMiniPlayer {
         }
 
         /** Remember the frame on screen for whatever shows the video next */
+        /** The shared texture holds a picture of this video (not an empty one: still loading, or it never played) */
+        private boolean hasVideo() {
+            PhonePlaybackActivity player = sPlayer.get();
+            SimpleExoPlayer exo = player != null ? player.exoPlayer() : null;
+            return exo != null && exo.getVideoFormat() != null;
+        }
+
+        private void revealVideo() {
+            if (mGotFrame || mVideo.getParent() == null) {
+                return;
+            }
+            if (!hasVideo()) {
+                mHandler.postDelayed(this::revealVideo, 300); // the thumbnail stays until the video has a picture
+                return;
+            }
+            mGotFrame = true;
+            mStill.animate().alpha(0f).setDuration(120).withEndAction(() -> mStill.setVisibility(View.GONE)).start();
+        }
+
+        /** The card stops showing the video's texture (its last frame stays up) so the player screen can show it */
+        void letGoOfVideo() {
+            if (!mShared || mVideo.getParent() == null) {
+                return;
+            }
+            Bitmap frame = sStill;
+            if (frame != null) {
+                mStill.setImageBitmap(frame);
+                mStill.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            }
+            mStill.animate().cancel();
+            mStill.setAlpha(1f);
+            mStill.setVisibility(View.VISIBLE);
+            removeView(mVideo);
+            mGotFrame = false;
+        }
+
         void keepStill() {
             if (mGotFrame && mVideo.isAvailable()) {
                 try {
@@ -490,6 +650,13 @@ final class PhoneMiniPlayer {
 
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
+            if (mShared || PhoneVideoSurface.texture() != null) {
+                // Its own texture appeared (the view was re-created): the video's texture instead
+                mShared = PhoneVideoSurface.showIn(mVideo);
+                if (mShared) {
+                    return;
+                }
+            }
             mSurface = new Surface(texture);
             mGotFrame = false;
             attach();
@@ -501,6 +668,9 @@ final class PhoneMiniPlayer {
 
         @Override
         public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
+            if (PhoneVideoSurface.isShared(texture)) {
+                return false; // the video's texture is never released by a view
+            }
             Surface surface = mSurface;
             mSurface = null;
             if (surface != null) {
@@ -518,7 +688,8 @@ final class PhoneMiniPlayer {
 
         @Override
         public void onSurfaceTextureUpdated(SurfaceTexture texture) {
-            if (!mGotFrame) {
+            PhonePip.frameShown();
+            if (!mGotFrame && (!mShared || hasVideo())) {
                 mGotFrame = true;
                 android.util.Log.d(TAG, "first frame");
                 mStill.animate().alpha(0f).setDuration(120).withEndAction(() -> mStill.setVisibility(View.GONE)).start();

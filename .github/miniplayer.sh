@@ -100,13 +100,9 @@ XY=$(center_of_text "You")
 if [ -n "$XY" ]; then adb shell input tap $XY; else adb shell input tap 945 2280; fi
 sleep 6
 shot 7_you
-for i in 1 2 3 4; do
-  XY=$(center_of_text "Settings")
-  if [ -n "$XY" ]; then break; fi
-  adb shell input swipe 900 265 250 265 300
-  sleep 1
-done
-echo "settings chip at: $XY"
+# Settings: the gear at the top of the You page
+XY=$(center_of "Settings")
+echo "settings button at: $XY"
 if [ -n "$XY" ]; then
   adb shell input tap $XY
   sleep 4
@@ -116,7 +112,44 @@ if [ -n "$XY" ]; then
   shot 9_settings_more
 fi
 
-# 8. The Notifications tab: its own screen (signed out here: the hint to sign in)
+# 7b. The Shorts tab: straight into a Short (the feed was loaded ahead of time), laid out like the YouTube app
+XY=$(center_of_text "Home")
+if [ -n "$XY" ]; then adb shell input tap $XY; fi
+sleep 3
+XY=$(center_of_text "Shorts")
+echo "shorts tab at: $XY"
+if [ -n "$XY" ]; then
+  adb shell input tap $XY
+  sleep 2
+  shot 15_shorts_2s
+  sleep 6
+  shot 15b_shorts_8s
+  tasks 15_shorts
+  # Swipe up for the next Short: the title should change
+  title() {
+    adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1
+    adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep 'phone_shorts_title' | head -1 | sed -E 's/.* text="([^"]*)".*/\1/'
+  }
+  echo "short before swipe: $(title)"
+  adb shell input swipe 540 1500 540 500 250
+  sleep 4
+  echo "short after swipe: $(title)"
+  shot 15c_shorts_swiped
+  adb shell input swipe 540 1500 540 500 250
+  sleep 4
+  echo "short after 2nd swipe: $(title)"
+  XY=$(center_of_text "Home")
+  echo "home tab on shorts at: $XY"
+  if [ -n "$XY" ]; then adb shell input tap $XY; else adb shell input keyevent KEYCODE_BACK; fi
+  sleep 3
+  shot 16_after_shorts
+fi
+
+# 8. The Notifications tab: its own screen (signed out here: the hint to sign in).
+# From Home: on Settings a row is called Notifications too, and the tab would not be the first match.
+XY=$(center_of_text "Home")
+if [ -n "$XY" ]; then adb shell input tap $XY; fi
+sleep 3
 XY=$(center_of_text "Notifications")
 echo "notifications tab at: $XY"
 if [ -n "$XY" ]; then
@@ -129,9 +162,133 @@ if [ -n "$XY" ]; then
   shot 11_back_from_notifications
 fi
 
+# 8c. A page opened from the You page (Downloads here: no account on the emulator) and Back: the You page again,
+# not Home
+XY=$(center_of_text "You")
+if [ -n "$XY" ]; then adb shell input tap $XY; sleep 4; fi
+XY=$(center_of_text "Downloads")
+echo "You page Downloads row at: $XY"
+if [ -n "$XY" ]; then adb shell input tap $XY; sleep 4; adb shell input keyevent KEYCODE_BACK; sleep 4; fi
+shot 8c_back_to_you
+echo "back on the You page (expect 1): $(adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1; adb shell cat /sdcard/ui.xml | grep -c 'text="Downloads"')"
+XY=$(center_of_text "Home")
+if [ -n "$XY" ]; then adb shell input tap $XY; sleep 3; fi
+
+# 9. Leave the app with the mini player playing: like NewTube, the sound goes on in the background (no floating window).
+# Last, because the app is in the background afterwards. Videos don't play here (YouTube blocks the emulator), so
+# the card's play button is tapped to put the player into "playing" first.
+# The launcher is switched off during the test: start it once now and come back, so Home below is a real task switch.
+adb shell pm enable com.google.android.apps.nexuslauncher > /dev/null 2>&1
+sleep 3
+adb shell input keyevent KEYCODE_HOME
+sleep 8
+adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -f 0x10200000 -n "$PKG/$SPLASH"
+sleep 5
+top() { adb shell dumpsys activity activities | grep -m1 -E "topResumedActivity|mResumedActivity"; }
+for i in 1 2 3 4; do
+  top | grep -q PhoneBrowseActivity && break
+  adb shell input keyevent KEYCODE_BACK; sleep 2
+done
+echo "top before video: $(top)"
+XY=$(center_of_text "Home")
+if [ -n "$XY" ]; then adb shell input tap $XY; fi
+sleep 3
+for Y in 1000 800 1200; do
+  adb shell input tap 540 $Y
+  sleep 15
+  top | grep -q PhonePlaybackActivity && break
+  adb shell input keyevent KEYCODE_BACK; sleep 3
+done
+echo "top with video: $(top)"
+adb shell input swipe 540 350 540 1400 450
+sleep 6
+echo "top with card: $(top)"
+XY=$(center_of "Play or pause")
+echo "card play button at: $XY"
+if [ -n "$XY" ]; then adb shell input tap $XY; fi
+sleep 1
+sleep 2
+echo "playback service running (expect 1): $(adb shell dumpsys activity services $PKG | grep -c "ServiceRecord{.*PhonePlaybackService")"
+adb shell dumpsys activity services $PKG | grep -E "isForeground|foregroundServiceType" | head -3
+echo "== browse record before leaving"
+adb shell dumpsys activity activities | grep -A60 "ActivityRecord{.*PhoneBrowseActivity" | grep -iE "ActivityRecord|state=|resizeMode|pictureInPicture|supportsEnterPip|pip|windowingMode|mActivityType|isPip" | head -30
+adb shell dumpsys package org.smarttube.phone | grep -iE "PhoneBrowseActivity|PhonePlaybackActivity" | head -6
+adb shell cmd appops get org.smarttube.phone PICTURE_IN_PICTURE
+adb shell input keyevent KEYCODE_HOME
+sleep 6
+shot 17_left_app
+echo "== pinned"
+adb shell dumpsys activity activities | grep -iE "pinned|PIP" | head -12
+echo "== pip log"
+adb logcat -d | grep -E "PhonePip|host pip" | tail -15
+# As in NewTube: no floating window from the mini player; the player stays alive behind the app (sound goes on)
+echo "pinned tasks (expect 0): $(adb shell dumpsys activity activities | grep -c "mode=pinned")"
+echo "player alive (expect 1): $(adb shell dumpsys activity activities | grep -c "ActivityRecord{.*PhonePlaybackActivity")"
+# Back into the app: the mini player card is still there
+adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -f 0x10200000 -n "$PKG/$SPLASH"
+sleep 6
+shot 18_back_in_app
+echo "top after coming back: $(top)"
+echo "card after coming back: $(center_of "Play or pause")"
+
+# 10. As in NewTube: the player menu's Picture in picture floats the video over the app; it stays floating when the
+# app is left, and opening the app again brings it back full screen
+pinned() { adb shell dumpsys activity activities | grep -E "^ +\* Task\{" | grep -c "mode=pinned"; }
+for i in 1 2 3 4; do
+  top | grep -q PhoneBrowseActivity && break
+  adb shell input keyevent KEYCODE_BACK; sleep 2
+done
+for Y in 1000 800 1200; do
+  adb shell input tap 540 $Y
+  sleep 12
+  top | grep -q PhonePlaybackActivity && break
+  adb shell input keyevent KEYCODE_BACK; sleep 3
+done
+echo "player for the menu: $(top)"
+XY=""
+for i in 1 2 3; do
+  adb shell input tap 540 330 # the controls show for a few seconds
+  XY=$(center_of "Quality")
+  [ -n "$XY" ] && break
+  sleep 2
+done
+echo "player gear at: $XY"
+ROW=""
+if [ -n "$XY" ]; then
+  for i in 1 2 3; do
+    # The controls hide while the screen is read: show them and tap the gear in one go
+    adb shell "input tap 540 330; sleep 0.4; input tap $XY"
+    sleep 2
+    shot 18a_gear_try$i
+    ROW=$(center_of_text "Picture in picture")
+    [ -n "$ROW" ] && break
+    adb shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1
+    adb shell cat /sdcard/ui.xml | tr '>' '\n' | grep -oE ' text="[^"]+"' | head -20 | tr '\n' ' '; echo
+    sleep 3 # the controls hide again before the next try
+  done
+fi
+echo "menu row at: $ROW"
+shot 18b_player_sheet
+if [ -n "$ROW" ]; then adb shell input tap $ROW; fi
+sleep 5
+shot 19_in_app_pip
+echo "in app: pinned $(pinned) (expect >0), top: $(top)"
+adb shell input keyevent KEYCODE_HOME
+sleep 5
+shot 20_pip_outside
+echo "app left: pinned $(pinned) (expect >0)"
+adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -f 0x10200000 -n "$PKG/$SPLASH"
+sleep 6
+shot 21_reopened
+echo "app opened again: pinned $(pinned) (expect 0), top: $(top)"
+echo "players (expect 1): $(adb shell dumpsys activity activities | grep -cE "^ +\* ActivityRecord\{.*PhonePlaybackActivity")"
+adb logcat -d | grep -E "PhonePip" | tail -16
+echo "== system pip log"
+adb logcat -d | grep -iE "pip|picture|autoenter|pinned" | grep -v PhonePip | tail -40
+
 adb logcat -d -b crash > $OUT/crash.txt
 adb logcat -d | grep -E "ActivityTaskManager: (START|Displayed)|wm_finish|wm_destroy" | grep -i smarttube > $OUT/activity_log.txt
-adb logcat -d | grep -iE "PhoneMiniPlayer|exoplayer|MediaCodec.*(error|Exception)|surface.*abandon|PlaybackFragment|AndroidRuntime" | grep -v SabrStream | tail -120 > $OUT/player_log.txt
+adb logcat -d | grep -iE "PhoneShorts|PhoneMiniPlayer|exoplayer|MediaCodec.*(error|Exception)|surface.*abandon|PlaybackFragment|AndroidRuntime" | grep -v SabrStream | tail -120 > $OUT/player_log.txt
 
 echo "== crash"; cat $OUT/crash.txt
 echo "== activities"; cat $OUT/activity_log.txt

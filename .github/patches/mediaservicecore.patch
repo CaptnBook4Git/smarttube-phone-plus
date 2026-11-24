@@ -23,6 +23,19 @@ index 4247477..4a7f5da 100644
 +    /** Phone: deletes one of the signed-in account's comments or replies. */
 +    Observable<Void> deleteCommentObserve(String videoId, String commentId);
  }
+diff --git a/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/ContentService.java b/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/ContentService.java
+index 490fd9c..1e5efbe 100644
+--- a/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/ContentService.java
++++ b/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/ContentService.java
+@@ -19,6 +19,8 @@ public interface ContentService {
+     MediaGroup getHistory();
+     List<MediaGroup> getHome();
+     MediaGroup getSubscribedChannels();
++    /** Phone: the subscribed channels with their channel ids (the web guide; the TV list has none) */
++    MediaGroup getSubscribedChannelsWithIds();
+     MediaGroup getSubscribedChannelsByNewContent();
+     MediaGroup getSubscribedChannelsByName();
+     MediaGroup getSubscribedChannelsByLastViewed();
 diff --git a/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/data/MediaItemMetadata.java b/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/data/MediaItemMetadata.java
 index a633990..c5e160c 100644
 --- a/mediaserviceinterfaces/src/main/java/com/liskovsoft/mediaserviceinterfaces/data/MediaItemMetadata.java
@@ -80,7 +93,7 @@ index 522cb28..df25e52 100644
       * Constant used in {@link AuthApi}
       */
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
-index ad4bafa..fe4cd9f 100644
+index ad4bafa..7862a39 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
 +++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/browse/v2/BrowseService2.kt
 @@ -14,6 +14,8 @@ import com.liskovsoft.youtubeapi.next.v2.gen.getItems
@@ -92,7 +105,19 @@ index ad4bafa..fe4cd9f 100644
  internal open class BrowseService2 {
      private val mBrowseApi = RetrofitHelper.create(BrowseApi::class.java)
  
-@@ -143,6 +145,19 @@ internal open class BrowseService2 {
+@@ -99,6 +101,11 @@ internal open class BrowseService2 {
+         return getSubscribedChannelsTV() ?: getSubscribedChannelsWeb()
+     }
+ 
++    /** Phone: the web guide's channels carry their channel ids (new video notifications read the channels' feeds) */
++    fun getSubscribedChannelsWithIds(): MediaGroup? {
++        return getSubscribedChannelsWeb()
++    }
++
+     private fun getSubscribedChannelsWeb(): MediaGroup? {
+         val options = MediaGroupOptions.create(MediaGroup.TYPE_CHANNEL_UPLOADS)
+         val guideResult = mBrowseApi.getGuideResult(PostDataHelper.createQueryWeb(""))
+@@ -143,6 +150,19 @@ internal open class BrowseService2 {
          return getShortsWeb()
      }
  
@@ -112,7 +137,7 @@ index ad4bafa..fe4cd9f 100644
      private fun getShortsWeb(auth: Boolean = false): MediaGroup? {
          val firstResult = mBrowseApi.getReelResult(BrowseApiHelper.getReelQuery())
  
-@@ -243,20 +258,25 @@ internal open class BrowseService2 {
+@@ -243,20 +263,25 @@ internal open class BrowseService2 {
  
          val continuation = mBrowseApi?.getReelContinuationResult(BrowseApiHelper.getReelContinuationQuery(AppClient.WEB, continuationKey))
  
@@ -516,23 +541,36 @@ index 708c599..fa429de 100644
  }
 \ No newline at end of file
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
-index 1bfecfd..1380533 100644
+index 1bfecfd..ebda1d6 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
 +++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeContentService.java
-@@ -295,14 +295,18 @@ class YouTubeContentService implements ContentService {
+@@ -143,6 +143,13 @@ class YouTubeContentService implements ContentService {
+         return getBrowseService2().getSubscribedChannels();
+     }
+ 
++    @Override
++    public MediaGroup getSubscribedChannelsWithIds() {
++        checkSigned();
++
++        return getBrowseService2().getSubscribedChannelsWithIds();
++    }
++
+     @Override
+     public MediaGroup getSubscribedChannelsByNewContent() {
+         checkSigned();
+@@ -295,14 +302,18 @@ class YouTubeContentService implements ContentService {
  
              //emitGroup(emitter, getBrowseService2().getShorts());
  
 -            MediaGroup shorts = getBrowseService2().getShorts();
--
++            // Phone: the Shorts tab is the general Shorts feed (like the YouTube app), not only subscriptions
++            MediaGroup shorts = getBrowseService2().getShortsFirst();
+ 
 -            if (shorts != null && shorts.getNextPageKey() != null) {
 -                emitGroup(emitter, shorts);
 -            } else {
 -                emitGroupPartial(emitter, shorts);
 -                emitGroup(emitter, getBrowseService2().getShorts2());
-+            // Phone: the Shorts tab is the general Shorts feed (like the YouTube app), not only subscriptions
-+            MediaGroup shorts = getBrowseService2().getShortsFirst();
-+
 +            if (shorts == null || shorts.isEmpty() || shorts.getNextPageKey() == null) {
 +                shorts = getBrowseService2().getShorts2();
 +            }
@@ -599,7 +637,7 @@ index 0000000..fa503c1
 +    }
 +}
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java
-index 69c0a61..b11e397 100644
+index 69c0a61..9c51dfb 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java
 +++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/YouTubeMediaItemService.java
 @@ -74,6 +74,11 @@ public class YouTubeMediaItemService implements MediaItemService {
@@ -607,8 +645,8 @@ index 69c0a61..b11e397 100644
      }
  
 +    /** Fetches a video's info ahead of time, see {@link FormatInfoWrapper#preloadFormatInfo} (blocking: not for the UI thread) */
-+    public static void preloadFormatInfo(String videoId) {
-+        FormatInfoWrapper.preloadFormatInfo(videoId);
++    public static MediaItemFormatInfo preloadFormatInfo(String videoId) {
++        return FormatInfoWrapper.preloadFormatInfo(videoId);
 +    }
 +
      @Override
@@ -644,18 +682,20 @@ index c470585..493dc71 100644
              return null;
          }
 diff --git a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt
-index e3be953..1152cca 100644
+index e3be953..41f4f25 100644
 --- a/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt
 +++ b/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/service/internal/FormatInfoWrapper.kt
-@@ -13,6 +13,7 @@ import com.liskovsoft.youtubeapi.videoinfo.V2.VideoInfoService
+@@ -13,6 +13,9 @@ import com.liskovsoft.youtubeapi.videoinfo.V2.VideoInfoService
  
  internal object FormatInfoWrapper {
      private var mCachedFormatInfo: MediaItemFormatInfo? = null
-+    private var mPreloadedFormatInfo: MediaItemFormatInfo? = null
++    /** Phone: infos fetched ahead of time (the next Shorts), newest last; at most PRELOAD_SLOTS */
++    private val mPreloaded = LinkedHashMap<String, MediaItemFormatInfo>()
++    private const val PRELOAD_SLOTS = 4
      private var mTryInnertubeFirst: Boolean = false
      private val mInnertubeResult = object { var isUnplayable: Boolean = false; var client: AppClient? = null }
      private val mInnertubeProvider: (String, String?) -> MediaItemFormatInfo? =
-@@ -34,6 +35,13 @@ internal object FormatInfoWrapper {
+@@ -34,6 +37,13 @@ internal object FormatInfoWrapper {
  
          try {
              synchronized(lock) {
@@ -669,7 +709,7 @@ index e3be953..1152cca 100644
                  return selectPlaybackFormatInfo(videoId, clickTrackingParams)
              }
          } finally {
-@@ -41,6 +49,44 @@ internal object FormatInfoWrapper {
+@@ -41,6 +51,45 @@ internal object FormatInfoWrapper {
          }
      }
  
@@ -678,21 +718,27 @@ index e3be953..1152cca 100644
 +     * The playing video isn't disturbed: its cached info and its playback nonce (watch history) stay as they are.
 +     */
 +    @JvmStatic
-+    fun preloadFormatInfo(videoId: String?) {
++    fun preloadFormatInfo(videoId: String?): MediaItemFormatInfo? {
 +        if (videoId == null)
-+            return
++            return null
 +
 +        synchronized(lock) {
-+            if (getCachedFormatInfo(videoId) != null || mPreloadedFormatInfo?.getVideoId() == videoId)
-+                return
++            getCachedFormatInfo(videoId)?.let { return it }
++            mPreloaded[videoId]?.takeIf { it.isCacheActual() }?.let { return it }
 +
 +            val playing = mCachedFormatInfo
 +            AppService.instance().setKeepClientPlaybackNonce(true)
 +            try {
 +                mCachedFormatInfo = null
-+                mPreloadedFormatInfo = selectPlaybackFormatInfo(videoId, null)?.takeIf { !it.isUnplayable() }
++                return selectPlaybackFormatInfo(videoId, null)?.takeIf { !it.isUnplayable() }?.also {
++                    mPreloaded.remove(videoId)
++                    mPreloaded[videoId] = it
++                    while (mPreloaded.size > PRELOAD_SLOTS)
++                        mPreloaded.remove(mPreloaded.keys.first())
++                }
 +            } catch (e: Exception) {
-+                mPreloadedFormatInfo = null // best effort: opened the usual way later
++                // best effort: opened the usual way later
++                return null
 +            } finally {
 +                AppService.instance().setKeepClientPlaybackNonce(false)
 +                mCachedFormatInfo = playing
@@ -701,12 +747,7 @@ index e3be953..1152cca 100644
 +    }
 +
 +    private fun takePreloadedFormatInfo(videoId: String): MediaItemFormatInfo? {
-+        val preloaded = mPreloadedFormatInfo ?: return null
-+
-+        if (preloaded.getVideoId() != videoId)
-+            return null
-+
-+        mPreloadedFormatInfo = null
++        val preloaded = mPreloaded.remove(videoId) ?: return null
 +
 +        return preloaded.takeIf { it.isCacheActual() }
 +    }
@@ -714,11 +755,11 @@ index e3be953..1152cca 100644
      @JvmStatic
      fun switchNextClient(force: Boolean) {
          if (mTryInnertubeFirst && !mInnertubeResult.isUnplayable) {
-@@ -63,6 +109,7 @@ internal object FormatInfoWrapper {
+@@ -63,6 +112,7 @@ internal object FormatInfoWrapper {
      @JvmStatic
      fun invalidateCache() {
          mCachedFormatInfo = null
-+        mPreloadedFormatInfo = null
++        mPreloaded.clear()
      }
  
      @JvmStatic

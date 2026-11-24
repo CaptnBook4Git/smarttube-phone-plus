@@ -30,7 +30,7 @@
         android:layout_marginTop="14dp"
         android:layout_marginEnd="264dp"
         android:ellipsize="end"
-        android:fontFamily="sans-serif-medium"
+        android:fontFamily="@font/roboto_medium"
         android:maxLines="1"
         android:shadowColor="#99000000"
         android:shadowRadius="4"
@@ -57,6 +57,17 @@
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/phone_autoplay"
             android:src="@drawable/ic_phone_autoplay_on" />
+
+        <ImageView
+            android:id="@+id/phone_ctl_pip"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/phone_pip"
+            android:src="@drawable/ic_phone_pip"
+            android:tint="#FFFFFF"
+            android:visibility="gone" />
 
         <!-- Playback mode: play next, repeat, shuffle, play the list... -->
         <ImageView
@@ -176,7 +187,7 @@
                     android:id="@+id/phone_ctl_time"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/roboto_medium"
                     android:textColor="#FFFFFF"
                     android:textSize="13sp" />
 
@@ -189,7 +200,7 @@
                     android:layout_marginEnd="8dp"
                     android:singleLine="true"
                     android:ellipsize="end"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/roboto_medium"
                     android:textColor="#DDFFFFFF"
                     android:textSize="13sp"
                     android:paddingTop="6dp"

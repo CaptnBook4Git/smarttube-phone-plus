@@ -23,9 +23,12 @@ public class PhoneApplication extends MainApplication {
     public void onCreate() {
         super.onCreate();
         CrashReport.install(this);
-        PhoneRebrandBanner.init(this); // before the phone defaults: tells an update from SmartTube from a new install
+        PhoneUi.init(this);
+        PhoneDebugLog.record(this); // the app's own log lines, kept across restarts for Settings > Share debug log
         // Videos open faster: formats requested on tap, playback after 0.5 s of media, recommendations alongside
         com.liskovsoft.smartyoutubetv2.common.misc.FastStart.enable();
+        // The music player plays a song's recording, not its music video (see PhoneMusic.streamFor)
+        com.liskovsoft.smartyoutubetv2.common.misc.StreamRedirect.set(PhoneMusic::streamFor);
         // A missing seek preview strip is fetched once the video plays, not with one more request before it starts
         com.liskovsoft.youtubeapi.videoinfo.V2.VideoInfoService.setDeferStoryboardFix(true);
         setupPhoneViews();
@@ -55,6 +58,12 @@ public class PhoneApplication extends MainApplication {
         if (!tweaks.isDontResizeVideoToFitDialogEnabled()) {
             tweaks.setDontResizeVideoToFitDialogEnabled(true);
         }
+        // SmartTube's TV default: a new video decoder every time the picture moves to another surface (player to mini
+        // player and back). The new decoder waits for the next key frame, so the picture froze for a moment while the
+        // sound went on. Phones (Android 8+) switch the surface of the running decoder instead.
+        if (tweaks.isSetOutputSurfaceWorkaroundEnabled()) {
+            tweaks.setSetOutputSurfaceWorkaroundEnabled(false);
+        }
 
         android.content.SharedPreferences prefs = getSharedPreferences("phone_defaults", MODE_PRIVATE);
         if (!prefs.getBoolean("background_playback_v1", false)) {
@@ -69,6 +78,43 @@ public class PhoneApplication extends MainApplication {
         // Phones open videos in 1080p at most by default. SmartTube's TV default is 4K 60 fps on any device that can
         // decode it: every video then starts by downloading 4K pieces for a phone screen (slow, heavy on data).
         // Once: a quality picked in the player afterwards stays.
+        if (prefs.getBoolean("background_pip_v1", false) && !prefs.getBoolean("background_pip_undone", false)) {
+            // Build 92 switched Background playback from "sound only" to Android's floating window, which stuttered.
+            // Back to sound only (Settings > General > Background playback still offers the floating window).
+            com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData playerData =
+                    com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData.instance(this);
+            if (playerData.getBackgroundMode() == com.liskovsoft.smartyoutubetv2.common.app.models.playback.manager.PlayerConstants.BACKGROUND_MODE_PIP) {
+                playerData.setBackgroundMode(com.liskovsoft.smartyoutubetv2.common.app.models.playback.manager.PlayerConstants.BACKGROUND_MODE_SOUND);
+            }
+            prefs.edit().putBoolean("background_pip_undone", true).apply();
+        }
+
+        {
+            // SmartTube's "Picture in picture" background mode (set by builds 94 and 95) also opens the floating window
+            // when the player closes (Back, the back swipe, the end of a video) and then opens Home inside it. The phone
+            // keeps SmartTube on "sound only"; its own picture in picture (leaving the app with Home on a regular video)
+            // is PhonePlaybackActivity.pipOnLeave, a switch in Settings.
+            com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData playerData =
+                    com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData.instance(this);
+            if (playerData.getBackgroundMode() == com.liskovsoft.smartyoutubetv2.common.app.models.playback.manager.PlayerConstants.BACKGROUND_MODE_PIP) {
+                playerData.setBackgroundMode(com.liskovsoft.smartyoutubetv2.common.app.models.playback.manager.PlayerConstants.BACKGROUND_MODE_SOUND);
+            }
+        }
+
+        {
+            // Build 95's Quality > Auto saved SmartTube's "default" video entry, which turns the video off (sound only,
+            // a blank screen). Back to the phone's quality.
+            com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData playerData =
+                    com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData.instance(this);
+            com.liskovsoft.smartyoutubetv2.common.exoplayer.selector.FormatItem video =
+                    playerData.getFormat(com.liskovsoft.smartyoutubetv2.common.exoplayer.selector.FormatItem.TYPE_VIDEO);
+            if (video != null && (video.isDefault() || video.getHeight() <= 0)) {
+                playerData.setFormat(com.liskovsoft.sharedutils.helpers.DeviceHelpers.isVP9ResolutionSupported(1080)
+                        ? com.liskovsoft.smartyoutubetv2.common.exoplayer.selector.FormatItem.VIDEO_FHD_VP9_60
+                        : com.liskovsoft.smartyoutubetv2.common.exoplayer.selector.FormatItem.VIDEO_FHD_AVC_30);
+            }
+        }
+
         if (!prefs.getBoolean("phone_quality_v1", false)) {
             com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData playerData =
                     com.liskovsoft.smartyoutubetv2.common.prefs.PlayerData.instance(this);
@@ -112,6 +158,9 @@ public class PhoneApplication extends MainApplication {
         // cleared the back history and Back closed the app)
         viewManager.register(PhoneUpdateActivity.class, PhoneUpdateActivity.class, PhoneBrowseActivity.class);
         viewManager.register(PhoneDownloadsActivity.class, PhoneDownloadsActivity.class, PhoneBrowseActivity.class);
+        viewManager.register(PhoneMomentsActivity.class, PhoneMomentsActivity.class, PhoneBrowseActivity.class);
+        viewManager.register(PhoneCustomizeActivity.class, PhoneCustomizeActivity.class, PhoneBrowseActivity.class);
+        viewManager.register(PhoneWhatsNewActivity.class, PhoneWhatsNewActivity.class, PhoneBrowseActivity.class);
         viewManager.register(PhoneNotificationsActivity.class, PhoneNotificationsActivity.class, PhoneBrowseActivity.class);
 
         // Search, channels and sign in open on top of the screen in front, in the app's own task. Without this they
@@ -121,19 +170,23 @@ public class PhoneApplication extends MainApplication {
                 PhonePlaybackActivity.class);
         // One Home and one player in the task (both singleTop). While the mini player plays, Home comes to the front
         // without closing the player behind it; otherwise Home closes the screens above it, as before.
+        // Every screen the app opens itself is marked "no user action": Android then doesn't treat it as the user leaving
+        // the app, so the player's floating window (Android 12+ automatic entry) never opens on an in-app screen change
+        int inApp = android.content.Intent.FLAG_ACTIVITY_NO_USER_ACTION;
         viewManager.setLaunchFlags(activityClass -> {
             if (activityClass == PhonePlaybackActivity.class) {
-                return android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP;
+                return inApp | android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP;
             }
             if (activityClass == PhoneBrowseActivity.class) {
-                return PhoneMiniPlayer.isActive() ? android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        : android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP;
+                return inApp | (PhoneMiniPlayer.isActive() ? android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        : android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
             }
-            return 0;
+            return inApp;
         });
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
             public void onActivityResumed(android.app.Activity activity) {
+                lifecycle(activity, "resumed");
                 if (android.os.Build.VERSION.SDK_INT < 24 || !activity.isInPictureInPictureMode()) {
                     viewManager.setCallerActivity(activity);
                 }
@@ -141,28 +194,55 @@ public class PhoneApplication extends MainApplication {
 
             @Override
             public void onActivityDestroyed(android.app.Activity activity) {
+                lifecycle(activity, "destroyed");
                 viewManager.clearCallerActivity(activity);
             }
 
             @Override
+            public void onActivityPreCreated(android.app.Activity activity, android.os.Bundle state) {
+                // Every screen's text in Roboto, as the YouTube app (before the screen inflates its layout)
+                activity.getTheme().applyStyle(com.liskovsoft.smartyoutubetv2.tv.R.style.PhoneFont, true);
+            }
+
+            @Override
             public void onActivityCreated(android.app.Activity activity, android.os.Bundle state) {
+                if (android.os.Build.VERSION.SDK_INT < 29) {
+                    activity.getTheme().applyStyle(com.liskovsoft.smartyoutubetv2.tv.R.style.PhoneFont, true); // no "pre created" call before Android 10
+                }
             }
 
             @Override
             public void onActivityStarted(android.app.Activity activity) {
+                lifecycle(activity, "started");
+                PhonePip.onVisibilityChanged(true);
+                if (!(activity instanceof PhonePlaybackActivity)) {
+                    PhonePip.onScreenStarted();
+                }
             }
 
             @Override
             public void onActivityPaused(android.app.Activity activity) {
+                lifecycle(activity, "paused");
             }
 
             @Override
             public void onActivityStopped(android.app.Activity activity) {
+                lifecycle(activity, "stopped");
+                PhonePip.onVisibilityChanged(false);
+                if (!(activity instanceof PhonePlaybackActivity)) {
+                    PhonePip.onScreenStopped(activity);
+                }
             }
 
             @Override
             public void onActivitySaveInstanceState(android.app.Activity activity, android.os.Bundle state) {
             }
         });
+    }
+    /** Every screen's lifecycle, for the debug log (where the floating window and the mini player go wrong) */
+    private static void lifecycle(android.app.Activity activity, String event) {
+        boolean pip = android.os.Build.VERSION.SDK_INT >= 24 && activity.isInPictureInPictureMode();
+        android.util.Log.d("PhonePip", activity.getClass().getSimpleName() + " " + event + " (task " + activity.getTaskId()
+                + (pip ? ", floating" : "") + ")");
     }
 }

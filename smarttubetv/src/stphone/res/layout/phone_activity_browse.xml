@@ -52,8 +52,8 @@
                 android:orientation="horizontal">
 
                 <ImageView
-                    android:layout_width="31dp"
-                    android:layout_height="31dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:importantForAccessibility="no"
                     android:src="@drawable/ic_phone_brand" />
 
@@ -64,7 +64,8 @@
                     android:includeFontPadding="false"
                     android:text="@string/phone_brand_name"
                     android:textColor="@color/phone_text"
-                    android:textSize="23sp" />
+                    android:textSize="21sp" />
+
             </LinearLayout>
 
             <View
@@ -81,6 +82,18 @@
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/phone_incognito_on"
                 android:src="@drawable/ic_phone_incognito"
+                android:tint="@color/phone_text"
+                android:visibility="gone" />
+
+            <!-- You tab only: Settings, as in the YouTube app -->
+            <ImageView
+                android:id="@+id/phone_settings_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="12dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/phone_settings_open"
+                android:src="@drawable/ic_phone_settings"
                 android:tint="@color/phone_text"
                 android:visibility="gone" />
 
@@ -145,7 +158,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/roboto_medium"
                     android:maxLines="1"
                     android:textColor="@color/phone_text"
                     android:textSize="22sp" />
@@ -160,18 +173,27 @@
                     android:textColor="@color/phone_text_2"
                     android:textSize="13sp" />
 
+                <!-- Scrolls sideways on narrow screens (as in the YouTube app) instead of squeezing the second button -->
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:overScrollMode="never"
+                    android:scrollbars="none">
+
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
                     android:orientation="horizontal">
 
                     <TextView
                         android:id="@+id/phone_account_primary"
+                        android:maxLines="1"
+                        android:singleLine="true"
                         android:layout_width="wrap_content"
                         android:layout_height="34dp"
                         android:background="@drawable/phone_button_bg"
-                        android:fontFamily="sans-serif-medium"
+                        android:fontFamily="@font/roboto_medium"
                         android:gravity="center"
                         android:paddingStart="16dp"
                         android:paddingEnd="16dp"
@@ -180,17 +202,20 @@
 
                     <TextView
                         android:id="@+id/phone_account_secondary"
+                        android:maxLines="1"
+                        android:singleLine="true"
                         android:layout_width="wrap_content"
                         android:layout_height="34dp"
                         android:layout_marginStart="8dp"
                         android:background="@drawable/phone_pill_bg"
-                        android:fontFamily="sans-serif-medium"
+                        android:fontFamily="@font/roboto_medium"
                         android:gravity="center"
                         android:paddingStart="14dp"
                         android:paddingEnd="14dp"
                         android:textColor="@color/phone_text"
                         android:textSize="14sp" />
                 </LinearLayout>
+                </HorizontalScrollView>
             </LinearLayout>
         </LinearLayout>
 
@@ -242,7 +267,7 @@
         android:background="@color/phone_bg"
         android:importantForAccessibility="no" />
 
-    <LinearLayout
+    <com.liskovsoft.smartyoutubetv2.tv.phone.PhoneTabBarView
         android:id="@+id/phone_bottom_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

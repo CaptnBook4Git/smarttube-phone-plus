@@ -1,0 +1,73 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@id/phone_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/phone_bg"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:id="@id/phone_top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="60dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="4dp"
+        android:paddingEnd="16dp">
+
+        <ImageButton
+            android:id="@id/phone_back"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/phone_back"
+            android:src="@drawable/ic_phone_back"
+            android:tint="@color/phone_text" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:accessibilityHeading="true"
+            android:fontFamily="@font/roboto_medium"
+            android:text="@string/phone_downloads"
+            android:textColor="@color/phone_text"
+            android:textSize="24sp" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:id="@+id/phone_download_tabs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_gravity="bottom"
+            android:background="@color/phone_divider" />
+
+        <View
+            android:id="@+id/phone_download_indicator"
+            android:layout_width="38dp"
+            android:layout_height="3dp"
+            android:layout_gravity="bottom|left"
+            android:background="@drawable/phone_download_indicator"
+            android:importantForAccessibility="no" />
+    </FrameLayout>
+
+    <androidx.viewpager.widget.ViewPager
+        android:id="@+id/phone_download_pager"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layoutDirection="ltr"
+        android:saveEnabled="false" />
+</LinearLayout>

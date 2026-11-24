@@ -43,6 +43,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public static final int MODE_FEED = 5;
     /** Compact rows, thumbnail left and text right (channel Videos tab, like the YouTube app). */
     public static final int MODE_ROWS = 6;
+    /** The Music section, laid out like YouTube's Music page (see PhoneMusicFeed) */
+    public static final int MODE_MUSIC = 7;
 
     private static final int SHORTS_BLOCK_SIZE = 4;
 
@@ -137,6 +139,13 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private final List<SettingsItem> mSettings = new ArrayList<>();
     private final RecyclerView.RecycledViewPool mInnerPool = new RecyclerView.RecycledViewPool();
     private int mMode = MODE_FLAT;
+    private final PhoneMusicFeed mMusic = new PhoneMusicFeed();
+    /** A music playlist: a note on each duration badge, like YouTube */
+    private boolean mMusicBadges;
+
+    public void setMusicBadges(boolean music) {
+        mMusicBadges = music;
+    }
     private Video mSelectedStripItem;
 
     public FeedAdapter(Listener listener) {
@@ -156,6 +165,7 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public void clear() {
+        mMusic.clear();
         mGroups.clear();
         mSettings.clear();
         mSelectedStripItem = null;
@@ -587,6 +597,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         if (mMode == MODE_SETTINGS) {
             items.addAll(mSettings);
+        } else if (mMode == MODE_MUSIC) {
+            items.addAll(mMusic.build(mGroups));
         } else {
             java.util.Set<String> seenKeys = new java.util.HashSet<>();
             for (Group group : mGroups) {
@@ -676,8 +688,11 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public long getItemId(int position) {
         Object item = mItems.get(position);
         long hash = System.identityHashCode(item) & 0xffffffffL;
+        int music = PhoneMusicFeed.viewType(item);
         if (item == HEADER_ITEM) {
             return (6L << 32) | mHeaderViewType;
+        } else if (music != 0) {
+            return ((long) music << 32) | hash;
         } else if (item instanceof Shelf) {
             return (1L << 32) | hash;
         } else if (item instanceof Strip) {
@@ -707,6 +722,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             return VT_SECTION_HEADER;
         } else if (item instanceof ShortTile) {
             return VT_SHORT;
+        } else if (PhoneMusicFeed.viewType(item) != 0) {
+            return PhoneMusicFeed.viewType(item);
         }
 
         Video video = (Video) item;
@@ -736,6 +753,10 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             mHeaderView.setLayoutParams(new RecyclerView.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             return new Holder(mHeaderView);
+        }
+
+        if (PhoneMusicFeed.isMusicType(viewType)) {
+            return new Holder(PhoneMusicFeed.create(parent, viewType));
         }
 
         switch (viewType) {
@@ -776,6 +797,15 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
     }
 
+    /** The video at this position if it's a big video card (one that can play in its thumbnail in the feed), else null */
+    public Video previewVideoAt(int position) {
+        if (position < 0 || position >= mItems.size() || getItemViewType(position) != VT_VIDEO) {
+            return null;
+        }
+        Object item = mItems.get(position);
+        return item instanceof Video ? (Video) item : null;
+    }
+
     /** Payload: only the watch progress bars changed (a video was just watched) */
     private static final Object PROGRESS = new Object();
 
@@ -805,6 +835,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         if (type == mHeaderViewType) {
             return; // bound by the owner
+        } else if (PhoneMusicFeed.isMusicType(type)) {
+            PhoneMusicFeed.bind(holder.itemView, item, mListener);
         } else if (type == VT_SHELF) {
             ((ShelfHolder) holder).bind(((Shelf) item).group, false);
         } else if (type == VT_STRIP) {
@@ -824,6 +856,12 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         } else {
             Video video = (Video) item;
             PhoneUi.bindCard(holder.itemView, video);
+            if (mMusicBadges) {
+                TextView badge = holder.itemView.findViewById(R.id.phone_badge);
+                if (badge != null && badge.getVisibility() == View.VISIBLE && !badge.getText().toString().startsWith("♪")) {
+                    badge.setText("♪ " + badge.getText());
+                }
+            }
             if (type == VT_ROW && mHiddenAuthor != null) {
                 TextView meta = holder.itemView.findViewById(R.id.phone_meta);
                 String text = meta.getText().toString();
@@ -892,7 +930,8 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         bindClicks(view, video);
     }
 
-    private void bindSetting(View view, SettingsItem item) {
+    /** A settings row (phone_item_setting): also used by the Customize page */
+    static void bindSetting(View view, SettingsItem item) {
         ImageView icon = view.findViewById(R.id.phone_thumb);
         TextView title = view.findViewById(R.id.phone_title);
         title.setText(item.title);
@@ -904,6 +943,12 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         // Phone rows: the current value or a switch on the right; an arrow only for rows that open something
         PhoneSetting setting = item instanceof PhoneSetting ? (PhoneSetting) item : null;
+        TextView summary = view.findViewById(R.id.phone_setting_summary);
+        if (summary != null) {
+            boolean hasSummary = setting != null && setting.summary != null;
+            summary.setVisibility(hasSummary ? View.VISIBLE : View.GONE);
+            summary.setText(hasSummary ? setting.summary : null);
+        }
         TextView value = view.findViewById(R.id.phone_setting_value);
         android.widget.Switch toggle = view.findViewById(R.id.phone_setting_switch);
         boolean hasValue = setting != null && setting.value != null;
@@ -913,6 +958,10 @@ public class FeedAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         toggle.setVisibility(hasToggle ? View.VISIBLE : View.GONE);
         if (hasToggle) {
             toggle.setChecked(setting.checked);
+        }
+        View dot = view.findViewById(R.id.phone_setting_dot);
+        if (dot != null) {
+            dot.setVisibility(setting != null && setting.badge ? View.VISIBLE : View.GONE); // e.g. What's new unread
         }
         boolean dropDown = setting != null && setting.onPick != null;
         ImageView chevron = view.findViewById(R.id.phone_setting_chevron);

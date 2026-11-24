@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widget, small (2x2): the cover fills it; Next in a glass circle top right; the song bottom left, Play bottom right -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/phone_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/phone_widget_bg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/phone_widget_placeholder" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="12dp">
+
+        <ImageView
+            android:id="@+id/phone_widget_next"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_gravity="top|end"
+            android:background="@drawable/phone_widget_glass"
+            android:contentDescription="@string/phone_next"
+            android:padding="8dp"
+            android:src="@drawable/ic_phone_next" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:gravity="bottom"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:paddingEnd="6dp">
+
+            <TextView
+                android:id="@+id/phone_widget_title"
+                android:text="@string/phone_widget_idle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="start"
+                android:maxLines="1"
+                android:shadowColor="#80000000"
+                android:shadowRadius="6"
+                android:textColor="#FFFFFFFF"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/phone_widget_artist"
+                android:text="@string/phone_widget_idle_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:gravity="start"
+                android:shadowColor="#80000000"
+                android:shadowRadius="6"
+                android:singleLine="true"
+                android:textColor="#CCFFFFFF"
+                android:textSize="12sp" />
+            </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/phone_widget_play_box"
+            android:layout_width="38dp"
+            android:layout_height="38dp">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:src="@drawable/phone_widget_play_bg" />
+
+            <ImageView
+                android:id="@+id/phone_widget_play"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@string/phone_widget_play_pause"
+                android:padding="11dp"
+                android:src="@drawable/ic_phone_play" />
+        </FrameLayout>
+        </LinearLayout>
+    </FrameLayout>
+</FrameLayout>

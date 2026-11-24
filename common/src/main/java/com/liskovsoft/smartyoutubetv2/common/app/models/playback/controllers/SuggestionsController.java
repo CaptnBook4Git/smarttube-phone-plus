@@ -330,6 +330,23 @@ public class SuggestionsController extends BasePlayerController {
     }
 
     private void loadMetadata(Video video, OnMetadata callback, Runnable onFailed) {
+        loadMetadata(video, callback, onFailed, 0);
+    }
+
+    /** No connection for a moment (e.g. the phone switching networks): tried again quietly, twice */
+    private static boolean isNetworkError(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof java.io.IOException) {
+                return true;
+            }
+            if (cause.getCause() == cause) {
+                break;
+            }
+        }
+        return false;
+    }
+
+    private void loadMetadata(Video video, OnMetadata callback, Runnable onFailed, int attempt) {
         disposeActions();
 
         if (video == null) {
@@ -350,7 +367,16 @@ public class SuggestionsController extends BasePlayerController {
                             // Usual errors here is something with title parsing
                             String message = error.getMessage();
                             Log.e(TAG, "loadSuggestions error: %s", message);
-                            if (!Helpers.containsAny(message, "fromNullable result is null")) {
+                            boolean network = isNetworkError(error);
+                            if (network && attempt < 2) {
+                                Utils.postDelayed(() -> {
+                                    if (getPlayer() != null && getVideo() != null && Helpers.equals(getVideo().videoId, video.videoId)) {
+                                        loadMetadata(video, callback, onFailed, attempt + 1);
+                                    }
+                                }, 4_000);
+                                return;
+                            }
+                            if (!network && !Helpers.containsAny(message, "fromNullable result is null")) {
                                 MessageHelpers.showLongMessage(getContext(), "loadSuggestions error: %s", message);
                             }
                             error.printStackTrace();

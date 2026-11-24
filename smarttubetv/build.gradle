@@ -177,7 +177,14 @@ android {
         }
         // Phone build: same app, landscape-locked with touch seeking. Installs next to the TV builds.
         stphone {
-            applicationId "org.smarttube.phone"
+            // StreamTube Beta (PHONE_BETA=true, the beta workflow): its own app next to the stable one, updating from
+            // the "beta" pre-release
+            def phoneBeta = System.getenv("PHONE_BETA") == "true"
+            applicationId phoneBeta ? "org.smarttube.phone.beta" : "org.smarttube.phone"
+            buildConfigField "boolean", "PHONE_BETA", phoneBeta ? "true" : "false"
+            def phoneNotes = rootProject.file(".github/whats-new.md").readLines("UTF-8")
+                    .findAll { it.startsWith("- ") }.join("\n")
+            buildConfigField "String", "PHONE_WHATS_NEW", groovy.json.JsonOutput.toJson(phoneNotes)
             // Rises with every CI build so each new APK installs as an update over the previous one
             versionCode 2462 + ((System.getenv("GITHUB_RUN_NUMBER") ?: "0") as int)
             minSdkVersion 26 // Android 8.0+, keeps the phone UI free of legacy code paths
@@ -281,7 +288,9 @@ dependencies {
 
     // Phone UI: channel picture lookups through SmartTube's OkHttp client
     stphoneImplementation 'com.squareup.okhttp3:okhttp:' + okhttpVersion
+    stphoneImplementation 'com.google.android.material:material:' + materialVersion
     stphoneImplementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0' // pull to refresh on Home
+    stphoneImplementation 'androidx.viewpager:viewpager:' + viewpagerXVersion
     // New-video notifications: a WorkManager worker needs ListenableFuture to compile (already in the app through :common)
     stphoneImplementation 'com.google.guava:guava:' + guavaVersion
 

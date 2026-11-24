@@ -185,7 +185,7 @@ final class PhoneSubscriptionsHeader {
             chip.setGravity(Gravity.CENTER);
             chip.setPadding(dp(12), 0, dp(12), 0);
             chip.setBackgroundResource(R.drawable.phone_chip_bg);
-            chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            chip.setTypeface(PhoneUi.regular(chip.getContext()));
             final int filter = i;
             chip.setOnClickListener(v -> setFilter(filter));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(32));

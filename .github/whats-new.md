@@ -1,0 +1,5 @@
+- Introducing Save this moment! — Found a hilarious scene or a tip you’ll want later? Tap Save this moment in the player menu. Add a note if you like, then jump back to that exact second from You → Library → Saved moments.
+- Shorts and music are now downloadable! — Save your favorites before a flight or commute and enjoy them offline. In You → Downloads, swipe between Videos, Shorts, and Music to find what you saved.
+- Your favorite players now work offline. — Go fullscreen and double-tap to skip through downloaded videos, swipe straight into the next saved Short, or listen to downloaded music with cover art when available, an Up next queue, and shuffle.
+- Make fullscreen gestures yours. — Turn brightness and volume swipes on or off independently in You → Settings → Customize → Player. Handy if you keep changing either one by accident.
+- Smoother switching out of Shorts. — We fixed the tab transition that could briefly flash your Android home screen when swiping away from Shorts.

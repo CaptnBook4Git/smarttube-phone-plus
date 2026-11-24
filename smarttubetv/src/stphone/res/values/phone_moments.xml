@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="phone_moment_save">Save this moment</string>
+    <string name="phone_moments">Saved moments</string>
+    <string name="phone_moments_empty">In the player menu, tap “Save this moment” to bookmark a timestamp. Your saved moments will appear here.</string>
+    <string name="phone_moment_saved">Moment saved at %1$s</string>
+    <string name="phone_moment_save_failed">Couldn’t save this moment</string>
+    <string name="phone_moment_add_note">Add note</string>
+    <string name="phone_moment_edit_note">Edit note</string>
+    <string name="phone_moment_note_at">Note at %1$s</string>
+    <string name="phone_moment_note_hint">What happens here?</string>
+    <string name="phone_moment_play">Play from %1$s</string>
+    <string name="phone_moment_menu">Options for %1$s</string>
+    <string name="phone_moment_remove">Remove moment</string>
+    <string name="phone_player_menu">Player menu</string>
+</resources>

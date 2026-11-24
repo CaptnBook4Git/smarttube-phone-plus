@@ -12,6 +12,8 @@
 
     <!-- Settings, Check for updates: installs new releases from GitHub -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Background playback: the processor and Wi-Fi stay awake while a video plays with the screen off -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Permissions the TV app uses and the phone app never does. Removed from the phone build: together they read like
          the profile of harmful software (draw over other apps, start at boot, delete apps, microphone, privileged
@@ -136,6 +138,22 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
             android:launchMode="singleTop"
             android:screenOrientation="user" />
+        <!-- Settings > Customize and Settings > What's new -->
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneCustomizeActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:launchMode="singleTop"
+            android:screenOrientation="user" />
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneWhatsNewActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:launchMode="singleTop"
+            android:screenOrientation="user" />
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneMomentsActivity"
+            android:exported="false"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection"
+            android:screenOrientation="user" />
         <!-- You > Downloads, and the in-app player for downloaded files -->
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneDownloadsActivity"
@@ -145,8 +163,10 @@
         <activity
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneLocalPlayerActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection|keyboardHidden"
+            android:resizeableActivity="true"
             android:screenOrientation="fullUser"
-            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
+            android:supportsPictureInPicture="true"
+            android:theme="@style/PhoneOfflinePlayerTheme" />
         <receiver
             android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneUpdater$InstallReceiver"
             android:exported="false" />
@@ -154,6 +174,23 @@
         <receiver
             android:name="com.liskovsoft.smartyoutubetv2.common.misc.RemoteControlReceiver"
             tools:node="remove" />
+        <!-- The home screen widget: what's playing, with Play/Pause and Next -->
+        <receiver
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhoneWidget"
+            android:exported="false"
+            android:label="@string/phone_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/phone_widget_info" />
+        </receiver>
+        <!-- A video is playing: Android keeps the app's network going in the background (see PhonePlaybackService) -->
+        <service
+            android:name="com.liskovsoft.smartyoutubetv2.tv.phone.PhonePlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <!-- TV only: the service behind "Remote control" (this device as a cast target, found over the local network) -->
         <service
             android:name="com.liskovsoft.smartyoutubetv2.common.misc.RemoteControlService"

@@ -57,12 +57,20 @@ public abstract class PhoneActivity extends MotherActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (leaveFloatingWindow()) {
+            return;
+        }
         PhoneTheme.apply(this);
         PhoneUi.applyPhoneDensity(this); // MotherActivity re-applies the TV density on resume
         // MotherActivity may switch to immersive mode (TV fullscreen setting). Phones keep their bars.
         setupSystemBars();
         updateLayoutColumns();
         getViewManager().addTop(this);
+        if (hostsMiniPlayer() && PhoneMiniPlayer.isActive()) {
+            // The video is in the mini player on this screen: opening the app again comes back here, with the card
+            // (not straight into the player, which SmartTube's background mode would otherwise reopen)
+            getViewManager().blockTop(null);
+        }
         PhoneMiniPlayer.onHostResumed(this);
         if (mAdapter != null) {
             mAdapter.refreshQuickActions();
@@ -82,6 +90,31 @@ public abstract class PhoneActivity extends MotherActivity {
         PhoneMiniPlayer.onHostStopped(this);
     }
 
+    /**
+     * Only the player belongs in Android's floating window. A screen started from a player that is in it lands in the
+     * floating window's task (the whole app shrunk into the corner): it closes itself straight away.
+     */
+    private boolean leaveFloatingWindow() {
+        if (Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode() && !isFinishing()) {
+            android.util.Log.d("PhonePip", getClass().getSimpleName() + " in the floating window: closed");
+            finish();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * A screen opened by the app itself is not the user leaving: the player behind it must not take that for Home and
+     * float its video.
+     */
+    @Override
+    public void startActivityForResult(android.content.Intent intent, int requestCode, Bundle options) {
+        if (intent != null) {
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+        }
+        super.startActivityForResult(intent, requestCode, options);
+    }
+
     /** Shows the mini player card while a video plays in it (not on full screen pages like sign in or updates) */
     protected boolean hostsMiniPlayer() {
         return true;
@@ -96,6 +129,7 @@ public abstract class PhoneActivity extends MotherActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
+            PhonePip.onScreenFocused(); // the app opened again while the player floats: back to full screen
             setupSystemBars();
         }
     }
@@ -139,6 +173,11 @@ public abstract class PhoneActivity extends MotherActivity {
      * Pads the top bar below the status bar and the bottom view (or the list) above the navigation bar.
      */
     @SuppressWarnings("deprecation")
+    /** The navigation bar's height under the bottom view; true when the activity lays the view out itself */
+    protected boolean onBottomInset(View bottomBar, int bottom) {
+        return false;
+    }
+
     protected void applyInsets(View root, View topBar, View bottomBar) {
         final int topBase = topBar != null ? topBar.getPaddingTop() : 0;
         final int bottomBase = bottomBar != null ? bottomBar.getPaddingBottom() : 0;
@@ -155,7 +194,7 @@ public abstract class PhoneActivity extends MotherActivity {
                 topBar.setPadding(topBar.getPaddingLeft(), topBase + top, topBar.getPaddingRight(), topBar.getPaddingBottom());
             }
 
-            if (bottomBar != null) {
+            if (bottomBar != null && !onBottomInset(bottomBar, bottom)) {
                 bottomBar.setPadding(bottomBar.getPaddingLeft(), bottomBar.getPaddingTop(), bottomBar.getPaddingRight(), bottomBase + bottom);
             }
 
@@ -339,10 +378,15 @@ public abstract class PhoneActivity extends MotherActivity {
         }
     }
 
+    /** The cards changed (more loaded, a refresh, another section): for screens that follow them */
+    protected void onFeedContentChanged() {
+    }
+
     private void onFeedChanged() {
         if (mAdapter == null) {
             return;
         }
+        onFeedContentChanged();
         // Loading started before the old cards were cleared (a refresh): switch the thin line to placeholders
         if (mAdapter.isEmpty() && mProgressBar != null && mProgressBar.getVisibility() == View.VISIBLE && wantsSkeleton()) {
             showSkeleton();

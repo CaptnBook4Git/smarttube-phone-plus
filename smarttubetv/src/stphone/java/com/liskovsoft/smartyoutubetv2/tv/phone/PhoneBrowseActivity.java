@@ -1,5 +1,6 @@
 package com.liskovsoft.smartyoutubetv2.tv.phone;
 
+import android.app.ActivityOptions;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.os.Build;
@@ -8,6 +9,8 @@ import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -69,6 +72,13 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private BrowseSection mLoadedSection; // what the presenter actually loads (Home falls back when signed out)
     private View mSignInCard;
     private PhoneSubscriptionsHeader mSubsHeader; // channels row and filter chips above the Subscriptions feed
+    private PhoneYouDashboard mYou; // the You tab's front page: places, then History and Playlists as rows of cards
+    private boolean mYouDashboard; // the You tab shows its front page, not one of its sections
+    /**
+     * A page was opened from the You page (a playlist, Watch later, Liked videos, Downloads, a video): coming back
+     * shows the You page again, whatever the presenter re-selects meanwhile (it would put Home back)
+     */
+    private boolean mBackToYou;
     private VideoGroup mSubsChannelGroup; // the selected channel's videos, shown instead of the feed of all channels
     private Object mSubsAllContent; // the feed of all channels, put back when the channel is unselected
     private io.reactivex.disposables.Disposable mSubsChannelAction;
@@ -102,10 +112,23 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
         applyInsets(findViewById(R.id.phone_root), findViewById(R.id.phone_top_bar), mBottomBar);
         setupList(this);
+        mFeedPreview = new PhoneFeedPreview(this, mList, new PhoneFeedPreview.Host() {
+            @Override
+            public boolean previewsWanted() {
+                // Home and Subscriptions (not the You page, Music, the topic chips or Settings)
+                return !mYouDashboard && (isSection(MediaGroup.TYPE_HOME) || isSection(MediaGroup.TYPE_SUBSCRIPTIONS));
+            }
+
+            @Override
+            public Video previewVideoAt(int position) {
+                return mAdapter != null ? mAdapter.previewVideoAt(position) : null;
+            }
+        });
         setupPullToRefresh();
         setupBars();
         setupTopBar();
         setupTabs();
+        applyTabStyle();
 
         MediaServiceManager.instance().addAccountListener(this);
 
@@ -114,8 +137,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mPresenter.onViewInitialized();
 
         CrashReport.showIfAny(this);
-        mList.postDelayed(() -> PhoneRebrandBanner.showIfPending(this), 900); // once, after the rename to StreamTube
         mList.postDelayed(this::askNotificationPermission, 1500);
+        mList.postDelayed(() -> PhoneWhatsNew.showAfterUpdate(this), 1200); // once after an update
         handleShortcut(getIntent(), 0);
     }
 
@@ -137,6 +160,22 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         if ("search".equals(shortcut)) {
             intent.removeExtra(EXTRA_SHORTCUT);
             com.liskovsoft.smartyoutubetv2.common.app.presenters.SearchPresenter.instance(this).startSearch(null);
+            return;
+        }
+        // A tab tapped on the Shorts screen
+        if ("tab_home".equals(shortcut) || "tab_you".equals(shortcut) || "tab_notifications".equals(shortcut)) {
+            if (mSections.isEmpty()) {
+                if (attempt < 20) {
+                    mList.postDelayed(() -> handleShortcut(intent, attempt + 1), 250);
+                }
+                return;
+            }
+            intent.removeExtra(EXTRA_SHORTCUT);
+            if ("tab_notifications".equals(shortcut)) {
+                PhoneNotificationsActivity.open(this);
+            } else {
+                selectTab("tab_you".equals(shortcut) ? TAB_YOU : TAB_HOME);
+            }
             return;
         }
         int sectionId = "shorts".equals(shortcut) ? MediaGroup.TYPE_SHORTS
@@ -164,16 +203,29 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         sTaskId = getTaskId();
         // New build waiting? A small Update card (can be turned off on the update screen)
         getWindow().getDecorView().postDelayed(() -> {
-            if (!isFinishing() && !isDestroyed() && !PhoneRebrandBanner.isShowing()) {
+            if (!isFinishing() && !isDestroyed()) {
                 PhoneUpdater.checkInBackground(this);
             }
         }, 2500);
         if (!mIsFirstResume) {
             mPresenter.onViewResumed();
         }
+        if (mFeedPreview != null) {
+            mFeedPreview.onResume();
+        }
+        if (mTabStyle != PhoneTweaks.tabStyle(this)) {
+            applyTabStyle(); // changed in Customize
+        }
+        if (mBackToYou) {
+            if (!mYouDashboard || mCurrentTab != TAB_YOU) {
+                showYouDashboard();
+            }
+            mList.postDelayed(() -> mBackToYou = false, 2000);
+        }
         mIsFirstResume = false;
         updateAccountViews(); // also the tabs: the bell's dot for new videos
-        refreshSettingsRows(); // back from Android's notification settings
+        refreshSettingsRows(); // back from Android's notification settings (and What's new read: its dot goes)
+        updateTabs(); // Customize > You may have moved
         if (mAdapter != null) {
             mAdapter.refreshQuickActions();
         }
@@ -183,6 +235,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         refreshIncognito();
         PhoneNewVideos.schedule(this); // the background look at the Subscriptions feed (kept if already planned)
+        if (sectionById(MediaGroup.TYPE_SHORTS) != null) {
+            // The Shorts tab opens at once: its feed loads now, after Home had its turn
+            mList.postDelayed(() -> {
+                if (!isFinishing() && !isDestroyed()) {
+                    PhoneShortsQueue.preload(this, null);
+                }
+            }, 2500);
+        }
     }
 
     /** The incognito glasses next to search while watch history is paused; tap them to turn incognito off */
@@ -233,10 +293,26 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
     }
 
+    /** Playback in feeds: the card most in view plays in its thumbnail (Home and Subscriptions) */
+    private PhoneFeedPreview mFeedPreview;
+
+    @Override
+    protected void onFeedContentChanged() {
+        if (mFeedPreview != null) {
+            mFeedPreview.onFeedChanged();
+        }
+    }
+
     @Override
     protected void onPause() {
         super.onPause();
         PhoneCardPreviewManager.stopActivePreview(this, true);
+        if (mFeedPreview != null) {
+            mFeedPreview.onPause(); // the player, another page, the home screen, screen off: no preview
+        }
+        if (mCurrentTab == TAB_YOU && mYouDashboard) {
+            mBackToYou = true;
+        }
         mPresenter.onViewPaused();
     }
 
@@ -252,6 +328,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     protected void onDestroy() {
         super.onDestroy();
         MediaServiceManager.instance().removeAccountListener(this);
+        if (mYou != null) {
+            mYou.release();
+        }
         if (mSubsHeader != null) {
             mSubsHeader.release();
         }
@@ -261,6 +340,10 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     @Override
     public void onBackPressed() {
+        if (mSettingsQuery != null && mSettingsQuery.getVisibility() == View.VISIBLE) {
+            endSettingsSearch();
+            return;
+        }
         if (mActiveSavedList != null && mCurrentTab == TAB_HOME) {
             showSavedSearchList(null);
             return;
@@ -268,6 +351,10 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         if (isSection(MediaGroup.TYPE_CHANNEL_UPLOADS) && sectionById(MediaGroup.TYPE_SUBSCRIPTIONS) != null) {
             // All channels was opened from the Subscriptions feed: go back to it
             focusSection(sectionById(MediaGroup.TYPE_SUBSCRIPTIONS));
+            return;
+        }
+        if (mCurrentTab == TAB_YOU && !mYouDashboard) {
+            showYouDashboard(); // from History, Settings...: back to the You page
             return;
         }
         if (mCurrentTab != TAB_HOME && hasTab(TAB_HOME)) {
@@ -281,6 +368,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     public void onAccountChanged(Account account) {
         runOnUiThread(() -> {
             updateAccountViews();
+            if (mYouDashboard) {
+                mYou.show(); // another account: its History and Playlists
+            }
             if (mCurrentSection != null && mCurrentSection.getId() == MediaGroup.TYPE_HOME) {
                 focusSection(mCurrentSection);
             }
@@ -314,8 +404,10 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     // region UI setup
 
     /**
-     * The feed scrolls under the top and bottom bars. The top bar slides away while scrolling down
-     * (like the YouTube app); in Liquid Glass mode both bars are translucent.
+     * The feed scrolls under the top and bottom bars. On Home the top bar slides away while scrolling down and comes
+     * back on the way up (like the YouTube app), its content hidden under a strip of the page's colour behind the
+     * status bar; on every other page it stays fixed, so search (YouTube's, or Settings') and the page's name are
+     * always at hand, also at the bottom of a long page.
      */
     private void setupBars() {
         View topBar = findViewById(R.id.phone_top_bar);
@@ -326,22 +418,58 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         topBar.addOnLayoutChangeListener(sync);
         mBottomBar.addOnLayoutChangeListener(sync);
 
+        // Behind the status bar: the bar's content slides under this, not under the clock and icons
+        ViewGroup root = (ViewGroup) topBar.getParent();
+        View statusStrip = new View(this);
+        statusStrip.setBackgroundResource(R.color.phone_bg);
+        statusStrip.setVisibility(View.GONE);
+        root.addView(statusStrip, root.indexOfChild(topBar) + 1,
+                new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, android.view.Gravity.TOP));
+        topBar.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            ViewGroup.LayoutParams params = statusStrip.getLayoutParams();
+            if (params.height != v.getPaddingTop()) {
+                params.height = v.getPaddingTop();
+                statusStrip.setLayoutParams(params);
+            }
+        });
+        mTopBar = topBar;
+        mStatusStrip = statusStrip;
+
         mList.addOnScrollListener(new androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(androidx.recyclerview.widget.RecyclerView recyclerView, int dx, int dy) {
-                int hideable = topBar.getHeight() - topBar.getPaddingTop(); // keep the status bar area
+                if (!isSection(MediaGroup.TYPE_HOME) || mYouDashboard) {
+                    showTopBar(); // the other pages: fixed
+                    return;
+                }
+                int hideable = topBar.getHeight() - topBar.getPaddingTop(); // the status bar area stays
                 float y = Math.max(-hideable, Math.min(0, topBar.getTranslationY() - dy));
                 if (!recyclerView.canScrollVertically(-1)) {
                     y = 0;
                 }
-                topBar.setTranslationY(y);
-                // The loading line sits under the top bar: move it with the bar
-                View progress = findViewById(R.id.phone_progress_bar);
-                if (progress != null) {
-                    progress.setTranslationY(y);
-                }
+                moveTopBar(y);
             }
         });
+    }
+
+    private View mTopBar;
+    private View mStatusStrip;
+
+    /** Home's top bar back in place (another page opened, or the top reached) */
+    private void showTopBar() {
+        if (mTopBar != null && mTopBar.getTranslationY() != 0) {
+            moveTopBar(0);
+        }
+    }
+
+    private void moveTopBar(float y) {
+        mTopBar.setTranslationY(y);
+        mStatusStrip.setVisibility(y < 0 ? View.VISIBLE : View.GONE);
+        // The loading line sits under the top bar: move it with the bar
+        View progress = findViewById(R.id.phone_progress_bar);
+        if (progress != null) {
+            progress.setTranslationY(y);
+        }
     }
 
     private void setupPullToRefresh() {
@@ -352,6 +480,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mRefresh.setColorSchemeColors(getResources().getColor(R.color.phone_accent));
         mRefresh.setProgressBackgroundColorSchemeColor(getResources().getColor(R.color.phone_surface_2));
         mRefresh.setOnRefreshListener(() -> {
+            if (mYouDashboard) {
+                mRefresh.setRefreshing(false);
+                mYou.show(); // History and Playlists again
+                return;
+            }
             if (mCurrentSection == null || mCurrentSection.getId() == MediaGroup.TYPE_SETTINGS) {
                 mRefresh.setRefreshing(false);
                 return;
@@ -381,8 +514,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     @Override
     protected boolean wantsSkeleton() {
-        // Settings isn't a video feed
-        return mCurrentSection == null || mCurrentSection.getId() != MediaGroup.TYPE_SETTINGS;
+        // Settings isn't a video feed, and neither is the You page
+        return !mYouDashboard && (mCurrentSection == null || mCurrentSection.getId() != MediaGroup.TYPE_SETTINGS);
     }
 
     private void syncBarPadding() {
@@ -400,7 +533,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         int bottom = mBottomBar.getHeight();
         if (mList.getPaddingTop() != top || mList.getPaddingBottom() != bottom + dp(8)) {
+            // At the top of the list: it stays at the top when the top bar grows or shrinks (e.g. the You page's
+            // account header filling in with the name and buttons). Otherwise the first row, the History shelf's
+            // title, ended up under the header.
+            boolean atTop = !mList.canScrollVertically(-1);
             mList.setPadding(mList.getPaddingLeft(), top, mList.getPaddingRight(), bottom + dp(8));
+            if (atTop) {
+                mList.scrollToPosition(0);
+            }
         }
         View progress = findViewById(R.id.phone_progress_bar);
         android.widget.FrameLayout.LayoutParams params = (android.widget.FrameLayout.LayoutParams) progress.getLayoutParams();
@@ -411,10 +551,25 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     }
 
     private void setupTopBar() {
-        findViewById(R.id.phone_search).setOnClickListener(v -> SearchPresenter.instance(this).startSearch(null));
+        findViewById(R.id.phone_search).setOnClickListener(v -> {
+            if (isSettingsPage()) {
+                startSettingsSearch(); // on the Settings page: its own search
+            } else {
+                SearchPresenter.instance(this).startSearch(null);
+            }
+        });
         View settingsBtn = findViewById(R.id.phone_settings_btn);
         if (settingsBtn != null) {
             settingsBtn.setOnClickListener(v -> openAppSettings());
+        }
+        View settingsButton = findViewById(R.id.phone_settings_button);
+        if (settingsButton != null) {
+            settingsButton.setOnClickListener(v -> {
+                BrowseSection settings = sectionById(MediaGroup.TYPE_SETTINGS);
+                if (settings != null) {
+                    focusSection(settings);
+                }
+            });
         }
         mTopAvatar = findViewById(R.id.phone_top_avatar);
         if (PhoneUi.isTablet(this)) {
@@ -426,6 +581,42 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
         mSignInCard = getLayoutInflater().inflate(R.layout.phone_signin_card, mList, false);
         mSignInCard.findViewById(R.id.phone_signin_card_button).setOnClickListener(v -> YTSignInPresenter.instance(this).start());
+        mYou = new PhoneYouDashboard(this, new PhoneYouDashboard.Callback() {
+            @Override
+            public boolean hasSection(int sectionId) {
+                return sectionById(sectionId) != null;
+            }
+
+            @Override
+            public String sectionTitle(int sectionId) {
+                BrowseSection section = sectionById(sectionId);
+                return section != null ? section.getTitle() : "";
+            }
+
+            @Override
+            public void openSection(int sectionId) {
+                BrowseSection section = sectionById(sectionId);
+                if (section != null) {
+                    focusSection(section);
+                }
+            }
+
+            @Override
+            public void openDownloads() {
+                mBackToYou = true;
+                PhoneDownloadsActivity.open(PhoneBrowseActivity.this);
+            }
+
+            @Override
+            public boolean isSignedIn() {
+                return PhoneBrowseActivity.this.isSignedIn();
+            }
+
+            @Override
+            public FeedAdapter.Listener listener() {
+                return PhoneBrowseActivity.this;
+            }
+        });
         mSubsHeader = new PhoneSubscriptionsHeader(this, mList, new PhoneSubscriptionsHeader.Callback() {
             @Override
             public void onChannelSelected(Video channel) {
@@ -445,6 +636,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             }
         });
         findViewById(R.id.phone_logo).setOnClickListener(v -> scrollToTopOrRefresh());
+        setupPageBar();
     }
 
     private void openAppSettings() {
@@ -596,22 +788,31 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
             TextView label = new TextView(this);
             label.setText(labels[i]);
-            label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f); // five tabs: "Subscriptions" and "Notifications" fit
             label.setMaxLines(1);
-            label.setEllipsize(TextUtils.TruncateAt.END);
+            label.setGravity(Gravity.CENTER);
+            label.setIncludeFontPadding(false);
+            // Each label stays inside its own fifth of the bar: on narrow phones or with a bigger font size, "Subscriptions"
+            // and "Notifications" shrink to fit instead of running into each other
+            label.setAutoSizeTextTypeUniformWithConfiguration(7, 10, 1, TypedValue.COMPLEX_UNIT_SP); // YouTube's 10sp, smaller only if it doesn't fit
             LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                    LinearLayout.LayoutParams.MATCH_PARENT, (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14,
+                    getResources().getDisplayMetrics()));
+            labelParams.leftMargin = dp(2);
+            labelParams.rightMargin = dp(2);
             labelParams.topMargin = dp(4);
             tab.addView(label, labelParams);
 
             final int index = i;
             tab.setOnClickListener(v -> {
+                mBackToYou = false; // the user picks the tab now
                 if (index == TAB_SHORTS) {
                     playShorts();
                 } else if (index == TAB_NOTIFICATIONS) {
                     PhoneNotificationsActivity.open(this); // its own screen, like Shorts
                 } else if (index == TAB_SUBS && mCurrentTab == TAB_SUBS && !isSubscriptionsFeed()) {
                     selectTab(TAB_SUBS); // from All channels back to the feed
+                } else if (index == TAB_YOU && mCurrentTab == TAB_YOU && !mYouDashboard) {
+                    showYouDashboard(); // from History, Settings...: back to the You page
                 } else if (index == mCurrentTab) {
                     scrollToTopOrRefresh();
                 } else {
@@ -632,17 +833,60 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         updateTabs();
     }
 
+    // region The tab bar's look (Customize > Tab bar, see PhoneTabBar)
+
+    private int mTabStyle = -1;
+    private int mNavInset;
+    private boolean mTabsDrawn;
+
+    @Override
+    protected boolean onBottomInset(View bottomBar, int bottom) {
+        if (bottomBar != mBottomBar) {
+            return false;
+        }
+        mNavInset = bottom;
+        if (mTabStyle >= 0) {
+            PhoneTabBar.apply(mBottomBar, mTabStyle, bottom);
+            mTabsDrawn = false;
+            updateTabs();
+        }
+        return true;
+    }
+
+    private void applyTabStyle() {
+        mTabStyle = PhoneTweaks.tabStyle(this);
+        if (mBottomBar instanceof PhoneTabBarView) {
+            ((PhoneTabBarView) mBottomBar).setBackdrop(mList); // the feed shows through the glass
+        }
+        PhoneTabBar.apply(mBottomBar, mTabStyle, mNavInset);
+        boolean floating = mTabStyle != PhoneTabBar.CLASSIC;
+        for (View tab : mTabViews) {
+            if (tab != null) {
+                tab.setPadding(0, dp(floating ? 8 : 9), 0, dp(floating ? 6 : 7)); // floating: a 64 dp capsule
+            }
+        }
+        mTabsDrawn = false;
+        updateTabs();
+    }
+
+    // endregion
+
     private void updateTabs() {
+        if (mTopAvatar != null) {
+            // Customize > You: the account picture next to search opens the You page
+            mTopAvatar.setVisibility(PhoneTweaks.youOnTop(this) ? View.VISIBLE : View.GONE);
+        }
         for (int i = 0; i < TAB_COUNT; i++) {
             View tab = mTabViews[i];
             if (tab == null) {
                 continue;
             }
             // Notifications is the app's own list of new videos (PhoneNewVideos), not a SmartTube section
-            boolean visible = i == TAB_YOU || i == TAB_NOTIFICATIONS || hasTab(i);
+            boolean visible = i == TAB_YOU ? !PhoneTweaks.youOnTop(this) // Customize > You: at the top or here, never both
+                    : i == TAB_NOTIFICATIONS || hasTab(i);
             tab.setVisibility(visible ? View.VISIBLE : View.GONE);
             boolean selected = i == mCurrentTab;
-            int color = getResources().getColor(R.color.phone_text);
+            int color = PhoneTabBar.tabColor(this, Math.max(0, mTabStyle), selected);
             LinearLayout layout = (LinearLayout) tab;
             ImageView icon = (ImageView) layout.getChildAt(0);
             // The You tab shows the account picture untinted
@@ -656,7 +900,14 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             }
             TextView label = (TextView) layout.getChildAt(1);
             label.setTextColor(color);
-            label.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL)); // the filled icon marks the chosen tab
+            label.setTypeface(selected && mTabStyle > PhoneTabBar.CLASSIC ? PhoneUi.medium(label.getContext())
+                    : PhoneUi.regular(label.getContext())); // the filled icon marks the chosen tab
+        }
+        // The floating bars: the pill or the glass lens goes to the chosen tab
+        View chosen = mCurrentTab >= 0 && mCurrentTab < TAB_COUNT ? mTabViews[mCurrentTab] : null;
+        if (chosen != null && chosen.getVisibility() == View.VISIBLE) {
+            PhoneTabBar.select(mBottomBar, chosen, mTabsDrawn);
+            mTabsDrawn = true;
         }
     }
 
@@ -664,8 +915,12 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         mChips.removeAllViews();
         List<BrowseSection> sections = sectionsOfTab(mCurrentTab);
 
-        // The Subscriptions feed has its own channels row and filter chips (All opens the Channels section)
-        if ((sections.size() <= 1 && mCurrentTab != TAB_YOU) || isSubscriptionsFeed()) { // You always has Downloads
+        // The Subscriptions feed has its own channels row and filter chips (All opens the Channels section).
+        // The You tab has none: its page lists its places, and Back (or the You tab) leads back to it.
+        View settingsButton = findViewById(R.id.phone_settings_button);
+        settingsButton.setVisibility(mCurrentTab == TAB_YOU && sectionById(MediaGroup.TYPE_SETTINGS) != null ? View.VISIBLE : View.GONE);
+        updatePageMode(); // a You page has its own top bar
+        if ((sections.size() <= 1 && mCurrentTab != TAB_YOU) || isSubscriptionsFeed() || mCurrentTab == TAB_YOU) {
             mChipsScroll.setVisibility(View.GONE);
             updateSavedListFilterBar();
             return;
@@ -902,7 +1157,75 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         }
     }
 
+    private View mShortsCurtain;
+
+    /**
+     * The Shorts tab: straight into a Short. The Shorts feed is loaded ahead of time (see PhoneShortsQueue.preload),
+     * so this normally opens at once; otherwise a black screen with the loading circle shows until it's there (not
+     * Home's placeholder cards and error screen).
+     */
     private void playShorts() {
+        if (PhoneShortsQueue.isReady()) {
+            openShortsQueue();
+            return;
+        }
+        showShortsCurtain(true);
+        PhoneShortsQueue.preload(this, () -> {
+            showShortsCurtain(false);
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            if (PhoneShortsQueue.isReady()) {
+                openShortsQueue();
+            } else {
+                playShortsFromSection(); // the feed didn't come: SmartTube's Shorts section
+            }
+        });
+    }
+
+    private void openShortsQueue() {
+        Video first = PhoneShortsQueue.startVideo();
+        if (first == null) {
+            playShortsFromSection();
+            return;
+        }
+        PhoneShortsQueue.markPlayed(first);
+        PhonePlaybackActivity.releaseDetachedPlayer();
+        prepareShortsTabLaunch();
+        com.liskovsoft.smartyoutubetv2.common.app.presenters.PlaybackPresenter.instance(this).openVideo(first);
+    }
+
+    private void prepareShortsTabLaunch() {
+        // An animated activity handoff can briefly expose the Android launcher during a tab switch.
+        getViewManager().setNextLaunchOptions(PhonePlaybackActivity.class,
+                ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle());
+    }
+
+    private void showShortsCurtain(boolean show) {
+        ViewGroup content = findViewById(android.R.id.content);
+        if (show && mShortsCurtain == null && content != null) {
+            FrameLayout curtain = new FrameLayout(this);
+            curtain.setBackgroundColor(android.graphics.Color.BLACK);
+            curtain.setClickable(true);
+            android.widget.ProgressBar spinner = new android.widget.ProgressBar(this);
+            spinner.setIndeterminateTintList(ColorStateList.valueOf(android.graphics.Color.WHITE));
+            curtain.addView(spinner, new FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER));
+            curtain.setElevation(dp(30));
+            content.addView(curtain, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            mShortsCurtain = curtain;
+        } else if (!show && mShortsCurtain != null) {
+            View curtain = mShortsCurtain;
+            mShortsCurtain = null;
+            curtain.postDelayed(() -> {
+                if (curtain.getParent() instanceof ViewGroup) {
+                    ((ViewGroup) curtain.getParent()).removeView(curtain);
+                }
+            }, 600); // the player is opening over it by then
+        }
+    }
+
+    /** The first way: SmartTube's Shorts section loads on Home, its first Short opens */
+    private void playShortsFromSection() {
         BrowseSection shorts = sectionById(MediaGroup.TYPE_SHORTS);
         if (shorts == null) {
             return;
@@ -920,6 +1243,8 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private void scrollToTopOrRefresh() {
         if (mList.canScrollVertically(-1)) {
             mList.smoothScrollToPosition(0);
+        } else if (mYouDashboard) {
+            mYou.show();
         } else {
             mPresenter.refresh(false);
         }
@@ -1022,10 +1347,20 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     private List<BrowseSection> sectionsOfTab(int tab) {
         List<BrowseSection> result = new ArrayList<>();
+        BrowseSection music = null;
         for (BrowseSection section : mSections) {
             if (tabOf(section) == tab) {
-                result.add(section);
+                if (tab == TAB_HOME && section.getId() == MediaGroup.TYPE_MUSIC) {
+                    music = section;
+                } else {
+                    result.add(section);
+                }
             }
+        }
+        if (music != null) {
+            // Music right after Home: the second chip
+            int afterHome = !result.isEmpty() && result.get(0).getId() == MediaGroup.TYPE_HOME ? 1 : 0;
+            result.add(afterHome, music);
         }
         return result;
     }
@@ -1039,19 +1374,129 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         return false;
     }
 
+    @Override
+    protected void updateEmptyState() {
+        if (mYouDashboard) {
+            hideMessage(); // the You page is the list's header: the list having no videos is how it should be
+            return;
+        }
+        super.updateEmptyState();
+    }
+
+    /** The You tab's front page (see PhoneYouDashboard). Its sections open from there, in the same tab. */
+    private void showYouDashboard() {
+        clearSubscriptionsChannel();
+        mYouDashboard = true;
+        showTopBar();
+        if (mFeedPreview != null) {
+            mFeedPreview.stopNow();
+        }
+        mCurrentTab = TAB_YOU;
+        mCurrentSection = null;
+        mLoadedSection = null;
+        updateTabs();
+        updateChips();
+        mAccountHeader.setVisibility(View.VISIBLE);
+        hideMessage();
+        showProgress(false);
+        mAdapter.setFilter(null);
+        mAdapter.setMode(FeedAdapter.MODE_FLAT);
+        mAdapter.setHeaderView(mYou.getView());
+        mList.scrollToPosition(0);
+        mYou.show();
+        updatePageMode();
+    }
+
+    // region You's pages: History, Settings... open as pages of their own
+
+    private LinearLayout mPageBar;
+    private TextView mPageTitle;
+    private boolean mInPage;
+
+    /** In place of the logo: a back arrow and the page's name */
+    private void setupPageBar() {
+        View logo = findViewById(R.id.phone_logo);
+        ViewGroup row = (ViewGroup) logo.getParent();
+        mPageBar = new LinearLayout(this);
+        mPageBar.setGravity(Gravity.CENTER_VERTICAL);
+        mPageBar.setVisibility(View.GONE);
+        ImageView back = new ImageView(this);
+        back.setImageResource(R.drawable.ic_phone_back);
+        back.setImageTintList(android.content.res.ColorStateList.valueOf(getResources().getColor(R.color.phone_text)));
+        back.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        back.setPadding(dp(8), dp(8), dp(8), dp(8));
+        TypedValue ripple = new TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, ripple, true);
+        back.setBackgroundResource(ripple.resourceId);
+        back.setContentDescription(getString(R.string.phone_back));
+        back.setOnClickListener(v -> onBackPressed());
+        mPageBar.addView(back, new LinearLayout.LayoutParams(dp(40), dp(40)));
+        mPageTitle = new TextView(this);
+        mPageTitle.setTextColor(getResources().getColor(R.color.phone_text));
+        mPageTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        mPageTitle.setTypeface(PhoneUi.medium(this));
+        mPageTitle.setSingleLine(true);
+        mPageTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        mPageTitle.setPadding(dp(12), 0, dp(8), 0);
+        mPageBar.addView(mPageTitle, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(mPageBar, row.indexOfChild(logo) + 1, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        ((LinearLayout.LayoutParams) mPageBar.getLayoutParams()).setMarginStart(-dp(8));
+    }
+
+    /**
+     * A You section (History, Settings, Playlists...) is a page of its own: its name and a back arrow at the top, no
+     * profile above it; it slides in, and Back slides back to the You page.
+     */
+    private void updatePageMode() {
+        if (mPageBar == null) {
+            return;
+        }
+        boolean page = mCurrentTab == TAB_YOU && !mYouDashboard && mCurrentSection != null;
+        if (!isSettingsPage()) {
+            endSettingsSearch();
+        }
+        View logo = findViewById(R.id.phone_logo);
+        View spacer = ((ViewGroup) logo.getParent()).getChildAt(((ViewGroup) logo.getParent()).indexOfChild(mPageBar) + 1);
+        logo.setVisibility(page ? View.GONE : View.VISIBLE);
+        if (spacer != null && !(spacer instanceof ImageView)) {
+            spacer.setVisibility(page ? View.GONE : View.VISIBLE); // the page bar takes its room
+        }
+        mPageBar.setVisibility(page ? View.VISIBLE : View.GONE);
+        if (page) {
+            mPageTitle.setText(mCurrentSection.getTitle());
+            mAccountHeader.setVisibility(View.GONE);
+            findViewById(R.id.phone_settings_button).setVisibility(View.GONE);
+            findViewById(R.id.phone_incognito).setVisibility(View.GONE);
+            if (mTopAvatar != null) {
+                mTopAvatar.setVisibility(View.GONE);
+            }
+        } else {
+            refreshIncognito();
+            if (mTopAvatar != null) {
+                mTopAvatar.setVisibility(PhoneTweaks.youOnTop(this) ? View.VISIBLE : View.GONE);
+            }
+        }
+        if (page != mInPage) {
+            // In from the right, back from the left
+            mInPage = page;
+            float from = (page ? 1 : -1) * mList.getWidth() * 0.18f;
+            mList.animate().cancel();
+            mList.setTranslationX(from);
+            mList.setAlpha(0.4f);
+            mList.animate().translationX(0).alpha(1f).setDuration(220)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+        }
+    }
+
+    // endregion
+
     private void selectTab(int tab) {
+        if (tab == TAB_YOU) {
+            showYouDashboard();
+            return;
+        }
         List<BrowseSection> sections = sectionsOfTab(tab);
         if (sections.isEmpty()) {
-            if (tab == TAB_YOU) {
-                // No library sections enabled: still show the account card
-                mCurrentTab = TAB_YOU;
-                mCurrentSection = null;
-                updateTabs();
-                updateChips();
-                mAccountHeader.setVisibility(View.VISIBLE);
-                mAdapter.setMode(FeedAdapter.MODE_FLAT);
-                hideMessage();
-            }
             return;
         }
 
@@ -1074,13 +1519,19 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private void focusSection(BrowseSection section) {
         clearSubscriptionsChannel();
         clearSavedSearchList();
+        mYouDashboard = false;
+        if (mFeedPreview != null && (mCurrentSection == null || mCurrentSection.getId() != section.getId())) {
+            mFeedPreview.stopNow(); // another section: the preview stops before its card goes
+        }
         mCurrentSection = section;
+        showTopBar();
         mCurrentTab = tabOf(section);
         mTabSectionIds[mCurrentTab] = section.getId();
 
         updateTabs();
         updateChips();
-        mAccountHeader.setVisibility(mCurrentTab == TAB_YOU ? View.VISIBLE : View.GONE);
+        mAccountHeader.setVisibility(View.GONE); // You's sections are pages of their own (see updatePageMode)
+        updatePageMode();
         hideMessage();
 
         BrowseSection load = section;
@@ -1402,6 +1853,9 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
     private static int modeOf(BrowseSection section) {
         switch (section.getType()) {
             case BrowseSection.TYPE_ROW:
+                if (section.getId() == MediaGroup.TYPE_MUSIC) {
+                    return FeedAdapter.MODE_MUSIC; // laid out like YouTube's Music page
+                }
                 return section.getId() == MediaGroup.TYPE_HOME ? FeedAdapter.MODE_FEED : FeedAdapter.MODE_SHELVES;
             case BrowseSection.TYPE_SHORTS_GRID:
                 return FeedAdapter.MODE_SHORTS;
@@ -1478,6 +1932,11 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         if (mSections.isEmpty() || index < 0) {
             return;
         }
+        if (mBackToYou) {
+            // A page opened from the You page, or just back from it: the You page stays (SmartTube's presenter
+            // re-selects its last section, Home, when a playlist opens and again when the app comes back)
+            return;
+        }
         BrowseSection target = mSections.get(Math.min(index, mSections.size() - 1));
 
         if (mIsInitialSelection) {
@@ -1509,7 +1968,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             PhoneShortsQueue.append(group); // next batch for the Shorts player, even though Home is behind it
         }
         BrowseSection expected = mLoadedSection != null ? mLoadedSection : mCurrentSection;
-        if (section != null && expected != null && section.getId() != expected.getId()) {
+        if (mYouDashboard || (section != null && expected != null && section.getId() != expected.getId())) {
             return; // late result of a section the user already left
         }
         if (mSubsChannelGroup != null && group.getId() != mSubsChannelGroup.getId()) {
@@ -1527,6 +1986,7 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
             Video first = group.getVideos().get(0);
             PhonePlaybackActivity.releaseDetachedPlayer();
             mPresenter.onVideoItemSelected(first);
+            prepareShortsTabLaunch();
             mPresenter.onVideoItemClicked(first);
             Video last = group.getVideos().get(group.getVideos().size() - 1);
             boolean fetchMore = group.getVideos().size() < 5; // only the first Short came in (so it starts fast)
@@ -1553,10 +2013,120 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         if (group == null) {
             return;
         }
-        hideMessage();
         mSettingsGroup = group;
+        if (mYouDashboard) {
+            return; // late result: Settings was left for the You page
+        }
+        hideMessage();
+        if (mSettingsQuery != null && mSettingsQuery.getVisibility() == View.VISIBLE) {
+            mSettingsSearch = null; // values changed: read again
+            showSettingsResults();
+            return;
+        }
         mAdapter.setSettings(groupedSettings(group));
     }
+
+    // region Search in Settings
+
+    private android.widget.EditText mSettingsQuery;
+    private PhoneSettingsSearch mSettingsSearch;
+
+    private boolean isSettingsPage() {
+        return mCurrentTab == TAB_YOU && !mYouDashboard && mCurrentSection != null
+                && mCurrentSection.getId() == MediaGroup.TYPE_SETTINGS;
+    }
+
+    /** The page's name gives its place to a search box; the list shows what matches as it's typed */
+    private void startSettingsSearch() {
+        if (mPageBar == null || mSettingsGroup == null) {
+            return;
+        }
+        if (mSettingsQuery == null) {
+            mSettingsQuery = new android.widget.EditText(this);
+            mSettingsQuery.setHint(R.string.phone_settings_search_hint);
+            mSettingsQuery.setTextColor(getResources().getColor(R.color.phone_text));
+            mSettingsQuery.setHintTextColor(getResources().getColor(R.color.phone_text_2));
+            mSettingsQuery.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+            mSettingsQuery.setSingleLine(true);
+            mSettingsQuery.setBackground(null);
+            mSettingsQuery.setPadding(dp(12), 0, dp(8), 0);
+            mSettingsQuery.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
+            mSettingsQuery.addTextChangedListener(new android.text.TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+                }
+
+                @Override
+                public void onTextChanged(CharSequence text, int start, int before, int count) {
+                    showSettingsResults();
+                }
+
+                @Override
+                public void afterTextChanged(android.text.Editable text) {
+                }
+            });
+            mSettingsQuery.setOnEditorActionListener((view, action, event) -> {
+                hideKeyboard();
+                return true;
+            });
+            mPageBar.addView(mSettingsQuery, mPageBar.indexOfChild(mPageTitle) + 1,
+                    new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        }
+        mSettingsSearch = null;
+        mPageTitle.setVisibility(View.GONE);
+        mSettingsQuery.setText("");
+        mSettingsQuery.setVisibility(View.VISIBLE);
+        mSettingsQuery.requestFocus();
+        android.view.inputmethod.InputMethodManager keyboard =
+                (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (keyboard != null) {
+            keyboard.showSoftInput(mSettingsQuery, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+        }
+    }
+
+    private void showSettingsResults() {
+        if (mSettingsQuery == null || mSettingsGroup == null) {
+            return;
+        }
+        String query = mSettingsQuery.getText().toString().trim();
+        if (query.isEmpty()) {
+            mAdapter.setSettings(groupedSettings(mSettingsGroup));
+            return;
+        }
+        if (mSettingsSearch == null) {
+            mSettingsSearch = new PhoneSettingsSearch(this, groupedSettings(mSettingsGroup));
+        }
+        java.util.List<com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem> found = mSettingsSearch.find(query);
+        if (found.isEmpty()) {
+            found.add(PhoneSetting.header(getString(R.string.phone_settings_search_none, query)));
+        }
+        mAdapter.setSettings(found);
+        mList.scrollToPosition(0);
+    }
+
+    /** Back (or leaving Settings): the page's name and the whole list again */
+    private void endSettingsSearch() {
+        if (mSettingsQuery == null || mSettingsQuery.getVisibility() != View.VISIBLE) {
+            return;
+        }
+        hideKeyboard();
+        mSettingsQuery.setVisibility(View.GONE);
+        mPageTitle.setVisibility(View.VISIBLE);
+        mSettingsSearch = null;
+        if (isSettingsPage() && mSettingsGroup != null) {
+            mAdapter.setSettings(groupedSettings(mSettingsGroup));
+        }
+    }
+
+    private void hideKeyboard() {
+        android.view.inputmethod.InputMethodManager keyboard =
+                (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (keyboard != null && mSettingsQuery != null) {
+            keyboard.hideSoftInputFromWindow(mSettingsQuery.getWindowToken(), 0);
+        }
+    }
+
+    // endregion
 
     /**
      * The Settings list in groups with headings: SmartTube's settings pages (found by their titles) next to the
@@ -1583,7 +2153,6 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         // Plus settings bundle with plus icon
         items.add(new com.liskovsoft.smartyoutubetv2.common.app.models.data.SettingsItem(
                 "Plus", this::openPlusSettings, R.drawable.ic_phone_plus));
-
         items.add(PhoneSetting.header(getString(R.string.phone_settings_account)));
         addEngineSetting(items, engine, R.string.settings_accounts);
         items.add(PhoneSetting.toggle(getString(R.string.phone_incognito), PhoneIncognito.isOn(this), R.drawable.ic_phone_incognito, () -> {
@@ -1598,8 +2167,17 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
         addEngineSetting(items, engine, R.string.settings_main_ui);
         addEngineSetting(items, engine, R.string.settings_language_country);
 
+        // Customize: every tweak of the app on its own page (PhoneCustomizeActivity)
+        items.add(PhoneSetting.row(getString(R.string.phone_settings_customize), R.drawable.ic_phone_tune,
+                () -> PhoneCustomizeActivity.open(this)).summary(getString(R.string.phone_customize_summary)));
+
         items.add(PhoneSetting.header(getString(R.string.phone_settings_playback)));
         addEngineSetting(items, engine, R.string.settings_player);
+        if (android.os.Build.VERSION.SDK_INT >= 26 && !PhonePip.systemAllows(this)) {
+            // Picture in picture is always on in the app; only Android's own switch for the app can stop it
+            items.add(PhoneSetting.value(getString(R.string.phone_pip), getString(R.string.phone_pip_blocked),
+                    R.drawable.ic_phone_collapse, () -> PhonePip.openSystemSettings(this)));
+        }
         addEngineSetting(items, engine, R.string.subtitle_category_title);
         addEngineSetting(items, engine, R.string.content_block_provider);
         addEngineSetting(items, engine, R.string.dearrow_provider);
@@ -1622,11 +2200,18 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
         items.add(PhoneSetting.header(getString(R.string.phone_settings_about)));
         items.add(PhoneSetting.row(getString(R.string.phone_about_title), R.drawable.ic_phone_info, () -> PhoneAbout.show(this)));
+        items.add(PhoneSetting.row(getString(R.string.phone_debug_log), R.drawable.ic_phone_info, () -> PhoneDebugLog.share(this)));
 
         if (!engine.isEmpty()) {
             items.add(PhoneSetting.header(getString(R.string.phone_settings_more)));
             items.addAll(engine.values());
         }
+
+        // Last: what's new in this version, and the app updating itself
+        items.add(PhoneSetting.header(getString(R.string.phone_settings_updates)));
+        items.add(PhoneSetting.row(getString(R.string.phone_whats_new), R.drawable.ic_phone_info, () -> PhoneWhatsNewActivity.open(this))
+                .summary(getString(R.string.phone_whats_new_summary)).badge(PhoneWhatsNew.hasUnread(this)));
+        items.add(PhoneSetting.row(PhoneUpdater.settingsTitle(this), R.drawable.ic_phone_update, () -> PhoneUpdater.open(this)));
 
         // A heading with no rows under it (its pages are missing in this SmartTube version) is dropped
         for (int i = items.size() - 1; i >= 0; i--) {
@@ -1733,11 +2318,17 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     @Override
     public void showError(ErrorFragmentData data) {
+        if (mYouDashboard) {
+            return; // late result of a section that was left for the You page
+        }
         super.showError(data);
     }
 
     @Override
     public void showProgressBar(boolean show) {
+        if (mYouDashboard && show) {
+            return; // nothing of the presenter's loads on the You page
+        }
         if (!show) {
             stopRefreshing();
         }
@@ -1770,6 +2361,16 @@ public class PhoneBrowseActivity extends PhoneActivity implements BrowseView, Fe
 
     @Override
     public void onVideoClicked(Video video) {
+        if (mCurrentTab == TAB_YOU && mYouDashboard) {
+            mBackToYou = true; // before the presenter acts on the click (it re-selects Home right away)
+        }
+        if (isSection(MediaGroup.TYPE_MUSIC) && video != null) {
+            // From the Music page: songs play in the music player, playlists open as music playlists
+            PhoneMusic.markMusic(PhoneMusicFeed.isPlaylist(video) ? video.getTitle() : getString(R.string.phone_music_title));
+        }
+        if (mFeedPreview != null) {
+            mFeedPreview.onVideoOpened(video); // the player carries on from where the preview was
+        }
         PhoneUi.prepareExpandLaunch(video);
         mPresenter.onVideoItemSelected(video);
         mPresenter.onVideoItemClicked(video);

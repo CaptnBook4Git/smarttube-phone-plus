@@ -385,6 +385,9 @@ public class PlaybackFragment extends SeekModePlaybackFragment implements Playba
         }
     }
 
+    /** Phone UI: the player's track selector (a new one after each engine restart) */
+    protected DefaultTrackSelector mCurrentTrackSelector;
+
     private void initializePlayer() {
         if (mPlayer != null) {
             Log.d(TAG, "Skip player initialization.");
@@ -481,6 +484,7 @@ public class PlaybackFragment extends SeekModePlaybackFragment implements Playba
         // Use default or pass your bandwidthMeter here: bandwidthMeter = new DefaultBandwidthMeter.Builder(getContext()).build()
         DefaultTrackSelector trackSelector = new RestoreTrackSelector(new AdaptiveTrackSelection.Factory());
         mExoPlayerController.setTrackSelector(trackSelector);
+        mCurrentTrackSelector = trackSelector;
 
         DefaultRenderersFactory renderersFactory = new CustomOverridesRenderersFactory(getContext());
         mPlayer = mPlayerInitializer.createPlayer(getContext(), renderersFactory, trackSelector);
